@@ -13,6 +13,7 @@ pathvalidate = "^3.2.3"
 pandas = "^2.2.3"
 regex = "^2024.11.6"
 requests = "^2.32.3"
+pympler = "^1.1"
 
 
 [build-system]
