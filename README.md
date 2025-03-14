@@ -1,8 +1,14 @@
 # GConanPy
 
-## Summary
+## Introduction
+
+### Summary
 
 Centralized repository containing the basic and lower-level Python tools that I reuse across multiple projects. I intend my projects to import from here to prevent redundancy.
+
+### Current Version
+
+v0.1.1
 
 ## File Structure
 
