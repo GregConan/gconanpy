@@ -1,7 +1,8 @@
 [tool.poetry]
 name = "gconanpy"
 version = "0.1.0"
-description = ""
+description = "Basic Python tools reused by Greg Conan across multiple projects."
+
 authors = ["Greg Conan <gregmconan@gmail.com>"]
 readme = "README.md"
 
@@ -15,5 +16,5 @@ requests = "^2.32.3"
 
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core", "setuptools"]
 build-backend = "poetry.core.masonry.api"
