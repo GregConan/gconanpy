@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "gconanpy"
+version = "0.1.0"
+description = ""
+authors = ["Greg Conan <gregmconan@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+cryptography = "^44.0.2"
+pathvalidate = "^3.2.3"
+pandas = "^2.2.3"
+regex = "^2024.11.6"
+requests = "^2.32.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
