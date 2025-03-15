@@ -4,12 +4,11 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-13
+Updated: 2025-03-14
 """
 # Import standard libraries
 import pdb
-from typing import (Any, Callable, Dict, Hashable, Iterable, List,
-                    Mapping, Set, SupportsBytes)
+from typing import Any, Callable, Hashable, Iterable, Mapping, SupportsBytes
 
 # Import third-party PyPI libraries
 from cryptography.fernet import Fernet
@@ -26,7 +25,8 @@ except ModuleNotFoundError:
 
 
 class Explictionary(dict):
-    """ dict that explicitly includes its class name in __repr__ """
+    """ dict that explicitly includes its class name in __repr__ and has a \
+        subset constructor method. """
 
     def __repr__(self) -> str:
         """ 
@@ -35,12 +35,29 @@ class Explictionary(dict):
         """
         return f"{self.__class__.__name__}({dict.__repr__(self)})"
 
+    @classmethod
+    def from_subset_of(cls, a_map: Mapping, *keys_to_keep: Hashable,
+                       keep_empties: bool = True):
+        # No return type hint so VSCode can infer making subclass instances
+        """ Construct an instance of this class by picking a subset of \
+        key-value pairs to keep.
+
+        :param a_map: Mapping to build an Explictionary from a subset of.
+        :param keys_to_keep: Iterable[Hashable] of a_map keys to copy into \
+            the returned Explictionary with their values.
+        :param keep_empties: bool, False to exclude keys mapped to None in \
+            a_map from the returned Explictionary, otherwise (by default) \
+            True to include them.
+        :return: Explictionary mapping keys_to_keep to their a_map values.
+        """
+        return cls({k: a_map[k] for k in keys_to_keep} if keep_empties else
+                   {k: a_map[k] for k in keys_to_keep if a_map[k] is not None})
+
 
 class LazyDict(Explictionary):
-    """
-    Dict that can get/set items and ignore the 'default=' code until/unless \
-    that code is needed, ONLY evaluating it after failing to get/set an \
-    existing key. Benefit: The 'default=' code does not need to be valid \
+    """ Dict that can get/set items and ignore the default parameter \
+    until/unless it is needed, ONLY evaluating it after failing to get/set \
+    an existing key. Benefit: The `default=` code does not need to be valid \
     (yet) if self already has the key. If you pass a function to a "lazy" \
     method, then that function only needs to work if a value is missing.
     Extended LazyButHonestDict from https://stackoverflow.com/q/17532929
@@ -59,7 +76,8 @@ class LazyDict(Explictionary):
         :param key: str to use as a dict key to map to value
         :param get_if_absent: function that returns the default value
         """
-        return self[key] if self.get(key) is not None else \
+        # return self[key] if self.get(key) is not None else \
+        return self[key] if key in self else \
             get_if_absent(*getter_args, **getter_kwargs)
 
     def lazysetdefault(self, key: str, get_if_absent: Callable = noop,
@@ -77,14 +95,13 @@ class LazyDict(Explictionary):
         :param args: Unpacked Iterable[Any] of get_if_absent arguments
         :param kwargs: Unpacked Mapping[Any] of get_if_absent keyword arguments
         """
-        if self.get(key) is None:
+        if key not in self:  # if self.get(key) is None:
             self[key] = get_if_absent(*getter_args, **getter_kwargs)
         return self[key]
 
 
 class DotDict(Explictionary):
-    """
-    dict with dot.notation access to its items. Compare `sklearn.utils.Bunch`.
+    """ dict with dot.notation item access. Compare `sklearn.utils.Bunch`.
     DotDict can get/set items as attributes: `self.item is self['item']`.
     Benefit: You can get/set items by using '.' or key names in brackets.
     Keeps most core functionality of the Python dict type.
@@ -209,8 +226,7 @@ class DotDict(Explictionary):
 
 
 class LazyDotDict(DotDict, LazyDict):
-    """
-    LazyDict with dot.notation access to its items. It can get/set items...
+    """ LazyDict with dot.notation item access. It can get/set items...
 
     ...as object-attributes: `self.item is self['item']`. Benefit: You can \
        get/set items by using '.' or by using variable names in brackets.
@@ -224,8 +240,7 @@ class LazyDotDict(DotDict, LazyDict):
     https://github.com/dmtlvn/dotdict/blob/main/dotdict/dotdict.py and then\
     combined with LazyButHonestDict from https://stackoverflow.com/q/17532929
 
-    Keeps most core functionality of the Python dict type.
-    """
+    Keeps most core functionality of the Python dict type. """
     ...
 
 
@@ -238,32 +253,32 @@ class Promptionary(LazyDict, Debuggable):
         self.debugging = debugging
         super().__init__(*args, **kwargs)
 
-    def get_or_prompt_for(self, key: str, prompt_fn: Callable,
-                          prompt: str) -> Any:
+    def get_or_prompt_for(self, key: str, prompt: str,
+                          prompt_fn: Callable = input) -> Any:
         """Given a key, return the value mapped to it if one already exists; \
         otherwise prompt the user to interactively provide it and return that.
 
         :param key: str mapped to the value to retrieve
+        :param prompt: str to display when prompting the user.
         :param prompt_fn: Callable, function to interactively prompt the \
                           user to provide the value, such as `input` or \
                           `getpass.getpass`
-        :param prompt: str to display when prompting the user.
         :return: Any, the value mapped to key if one exists, else the value \
                  that the user interactively provided
         """
         return self.lazyget(key, prompt_fn, [prompt])
 
-    def setdefault_or_prompt_for(self, key: str, prompt_fn: Callable,
-                                 prompt: str) -> Any:
+    def setdefault_or_prompt_for(self, key: str, prompt: str,
+                                 prompt_fn: Callable = input) -> Any:
         """ Given a key, return the value mapped to it if one already exists;\
         otherwise prompt the user to interactively provide it, store the \
         provided value by mapping it to key, and return that value.
 
         :param key: str mapped to the value to retrieve
+        :param prompt: str to display when prompting the user.
         :param prompt_fn: Callable, function to interactively prompt the \
                           user to provide the value, such as `input` or \
                           `getpass.getpass`
-        :param prompt: str to display when prompting the user.
         :return: Any, the value mapped to key if one exists, else the value \
                  that the user interactively provided
         """

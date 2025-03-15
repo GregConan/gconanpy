@@ -8,7 +8,7 @@ Overlaps significantly with:
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-26
-Updated: 2025-03-13
+Updated: 2025-03-14
 """
 # Import standard libraries
 from glob import glob
@@ -18,8 +18,7 @@ import pdb
 import shutil
 from string import Formatter, Template
 import sys
-from typing import (Any, Callable, Dict, Hashable,
-                    Iterable, List, Mapping, Set)
+from typing import Any, Callable, Hashable, Iterable, Mapping
 
 
 # NOTE All classes and functions below are in alphabetical order.
@@ -57,7 +56,7 @@ class LoadedTemplate(Template):
         self.fields = self.get_field_names_in(template_str)
 
     @classmethod
-    def get_field_names_in(cls, template_str: str) -> Set[str]:
+    def get_field_names_in(cls, template_str: str) -> set[str]:
         """Get the name of every variables in template_str. Shamelessly \
             stolen from langchain_core.prompts.string.get_template_variables.
 

@@ -8,7 +8,7 @@ Overlaps significantly with:
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-03-13
+Updated: 2025-03-14
 """
 # Import standard libraries
 import datetime as dt
@@ -16,8 +16,8 @@ import os
 from pprint import pprint
 import re
 import sys
-from typing import (Any, Dict, Generator, Hashable, Iterable, List,
-                    Mapping, Sequence, SupportsBytes, Tuple)
+from typing import (Any, Generator, Hashable, Iterable,
+                    Mapping, Sequence, SupportsBytes)
 
 # Import third-party PyPI libraries
 import numpy as np
@@ -73,7 +73,7 @@ class Bytesifier:
         return bytesified
 
 
-def count_uniqs_in_cols(a_df: pd.DataFrame) -> Dict[str, int]:
+def count_uniqs_in_cols(a_df: pd.DataFrame) -> dict[str, int]:
     cols_uniqs = {colname: a_df[colname].value_counts().shape[0]
                   for colname in a_df.columns}
     # pprint_val_lens(cols_uniqs)
@@ -100,7 +100,7 @@ def extract_letters_from(a_str: str) -> str:
     return re.sub(r'[^a-zA-Z]', '', a_str)
 
 
-def extract_parentheticals_from(txt: str) -> List[Any]:
+def extract_parentheticals_from(txt: str) -> list[Any]:
     """ Get all parentheticals, ignoring nested parentheticals.
     Adapted from https://stackoverflow.com/a/35271017
 
@@ -115,7 +115,7 @@ def link_to_markdown(a_string: str, a_URL: str) -> str:
     return f"[{a_string}]({a_URL})"
 
 
-def list_to_dict(a_list: List[str], delimiter: str = ": ") -> Dict[str, str]:
+def list_to_dict(a_list: list[str], delimiter: str = ": ") -> dict[str, str]:
     a_dict = dict()
     for eachstr in a_list:
         k, v = eachstr.split(delimiter)
@@ -123,7 +123,7 @@ def list_to_dict(a_list: List[str], delimiter: str = ": ") -> Dict[str, str]:
     return a_dict
 
 
-def markdown_to_link(md_link_text: str) -> Tuple[str, str]:
+def markdown_to_link(md_link_text: str) -> tuple[str, str]:
     md_link_text = md_link_text.strip()
     assert md_link_text[0] == "[" and md_link_text[-1] == ")"
     return md_link_text[1:-1].split("](")
@@ -158,7 +158,7 @@ def pprint_val_lens(a_map: Mapping) -> None:
     pprint({k: len(v) for k, v in a_map.items()})
 
 
-def search_sequence_numpy(arr: np.array, subseq: np.array) -> List[int]:
+def search_sequence_numpy(arr: np.array, subseq: np.array) -> list[int]:
     """
     Find sequence in an array using NumPy only. "Approach #1" of the code at
     https://stackoverflow.com/a/36535397 with an extra line to mimic str.find.
@@ -345,7 +345,7 @@ def to_file_path(dir_path: str, file_name: str, file_ext: str = "",
     return os.path.join(dir_path, file_name + ext)
 
 
-def uniqs_in(listlike: Iterable[Hashable]) -> List[Hashable]:
+def uniqs_in(listlike: Iterable[Hashable]) -> list[Hashable]:
     """Alphabetize and list the unique elements of an iterable.
     To list non-private local variables' names, call uniqs_in(locals()).
 

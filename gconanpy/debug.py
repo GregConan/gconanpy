@@ -6,7 +6,7 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-13
+Updated: 2025-03-14
 """
 # Import standard libraries
 import datetime as dt
@@ -16,8 +16,7 @@ import os
 import pdb
 import sys
 import tracemalloc
-from typing import (Any, Callable, Dict, Hashable,
-                    Iterable, List, Mapping, Set)
+from typing import Any, Callable, Hashable, Iterable, Mapping
 
 # Import third-party PyPI libraries
 import pandas as pd
@@ -76,14 +75,14 @@ class Debuggable:
 
 class HumanBytes:
     """ Shamelessly stolen from https://stackoverflow.com/a/63839503 """
-    METRIC_LABELS: List[str] = ["B", "kB", "MB", "GB", "TB", "PB",
+    METRIC_LABELS: list[str] = ["B", "kB", "MB", "GB", "TB", "PB",
                                 "EB", "ZB", "YB"]
-    BINARY_LABELS: List[str] = ["B", "KiB", "MiB", "GiB", "TiB",
+    BINARY_LABELS: list[str] = ["B", "KiB", "MiB", "GiB", "TiB",
                                 "PiB", "EiB", "ZiB", "YiB"]
 
     # PREDEFINED FOR SPEED
-    PRECISION_OFFSETS: List[float] = [0.5, 0.05, 0.005, 0.0005]
-    PRECISION_FORMATS: List[str] = ["{}{:.0f} {}", "{}{:.1f} {}",
+    PRECISION_OFFSETS: list[float] = [0.5, 0.05, 0.005, 0.0005]
+    PRECISION_FORMATS: list[str] = ["{}{:.0f} {}", "{}{:.1f} {}",
                                     "{}{:.2f} {}", "{}{:.3f} {}"]
 
     @staticmethod
@@ -93,11 +92,10 @@ class HumanBytes:
         Human-readable formatting of bytes, using binary (powers of 1024)
         or metric (powers of 1000) representation.
         """
-
         assert isinstance(num, (int, float)), "num must be an int or float"
         assert isinstance(metric, bool), "metric must be a bool"
-        assert (isinstance(precision, int) and 0 <= precision <= 3,
-                "precision must be an int (range 0-3)")
+        assert isinstance(precision, int) and 0 <= precision <= 3, \
+            "precision must be an int (range 0-3)"
 
         unit_labels = (HumanBytes.METRIC_LABELS if metric
                        else HumanBytes.BINARY_LABELS)

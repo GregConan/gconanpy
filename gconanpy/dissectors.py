@@ -8,14 +8,13 @@ Overlaps significantly with:
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-13
+Updated: 2025-03-14
 """
 # Import standard libraries
 from abc import ABC
 import itertools
 import pdb
-from typing import (Any, Callable, Dict, Hashable,
-                    Iterable, List, Mapping, Set)
+from typing import Any, Callable, Hashable, Iterable, Mapping
 
 # Import local custom libraries
 try:
@@ -26,7 +25,7 @@ except ModuleNotFoundError:
 
 class DifferenceBetween:
     difference: str | None
-    diffs: List[str | None]
+    diffs: list[str | None]
 
     def __init__(self, *args: Any, **kwargs: Any):
         """ Identify difference(s) between any Python objects or values.

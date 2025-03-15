@@ -4,14 +4,13 @@
 Functions to import/export data from/to remote files/pages/apps on the Web.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-13
-Updated: 2025-03-13
+Updated: 2025-03-14
 """
 # Import standard libraries
 import datetime as dt
 import pdb
 import requests
-from typing import (Any, Callable, Dict, Hashable, Iterable, List,
-                    Mapping, Optional, SupportsBytes, Tuple)
+from typing import Any, Callable, Hashable, Iterable, Mapping
 from urllib.parse import parse_qs, urlparse
 import urllib.request
 
@@ -36,7 +35,7 @@ def download_GET(path_URL: str, headers: Mapping[str, Any]) -> Any:
               f"{response.status_code} Error: {response.reason}")
 
 
-def extract_params_from_url(a_url: str) -> Dict[str, Any]:
+def extract_params_from_url(a_url: str) -> dict[str, Any]:
     return parse_qs(urlparse(a_url).query)
 
 
