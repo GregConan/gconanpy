@@ -70,7 +70,7 @@ class DifferenceBetween:
             if self.difference:
                 return lens
 
-            try:
+            try:  # Mapping.keys, Mapping.get ?
                 diff_keys = self.compare_sets("key", dict.keys, dict.get)
                 if self.difference:
                     return diff_keys
@@ -258,6 +258,33 @@ class Peeler(ABC):
         else:
             # fruits.append(to_peel)
             fruits = [to_peel, ]
+        return fruits
+
+    @classmethod
+    def peel2(cls, to_peel: Any) -> list:
+        fruits = [to_peel]
+        fruit_lists = None
+        if to_peel is not None:
+            try:
+                if not str.strip(to_peel):
+                    fruits = list()
+            except TypeError:
+                try:
+                    fruit_lists = [cls.peel2(to_peel[k])
+                                   for k in to_peel.keys()]
+                except (AttributeError, TypeError):
+                    try:
+                        # if isinstance(to_peel, bs4.PageElement):
+                        if len(to_peel.contents):
+                            fruit_lists = [cls.peel2(c) for c
+                                           in to_peel.contents]
+                    except AttributeError:
+                        try:
+                            fruit_lists = [cls.peel2(el) for el in to_peel]
+                        except TypeError:
+                            pass
+        if fruit_lists is not None:
+            fruits = list(itertools.chain(*fruit_lists))
         return fruits
 
     @staticmethod
