@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-14
+Updated: 2025-03-16
 """
 # Import standard libraries
 import pdb
@@ -16,12 +16,12 @@ from cryptography.fernet import Fernet
 # Import local custom libraries
 try:
     from dissectors import Xray
-    from seq import Bytesifier
-    from debug import Debuggable, noop
+    from seq import Bytesifier, noop
+    from debug import Debuggable
 except ModuleNotFoundError:
     from gconanpy.dissectors import Xray
-    from gconanpy.seq import Bytesifier
-    from gconanpy.debug import Debuggable, noop
+    from gconanpy.seq import Bytesifier, noop
+    from gconanpy.debug import Debuggable
 
 
 class Explictionary(dict):

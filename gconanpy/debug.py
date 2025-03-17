@@ -6,7 +6,7 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-14
+Updated: 2025-03-16
 """
 # Import standard libraries
 import datetime as dt
@@ -25,10 +25,10 @@ from pympler.asizeof import asizeof
 # Import local custom libraries
 try:
     from dissectors import Xray
-    from seq import stringify_dt, stringify_list, uniqs_in
+    from seq import noop, stringify_dt, stringify_list, uniqs_in
 except ModuleNotFoundError:
     from gconanpy.dissectors import Xray
-    from gconanpy.seq import stringify_dt, stringify_list, uniqs_in
+    from gconanpy.seq import noop, stringify_dt, stringify_list, uniqs_in
 
 # Constants
 LOGGER_NAME = __package__
@@ -137,14 +137,6 @@ def log(content: str, level: int = logging.INFO,
                   defined by logging module's 0 (ignore) to 50 (urgent) scale
     """
     logging.getLogger(logger_name).log(msg=content, level=level)
-
-
-def noop(*_args: Any, **_kwargs: Any) -> None:
-    """Do nothing. Convenient to use as a default callable function parameter.
-
-    :return: None
-    """
-    pass  # or `...`
 
 
 def show_keys_in(a_dict: Mapping[str, Any],  # show: Callable = print,

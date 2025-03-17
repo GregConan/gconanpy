@@ -4,11 +4,11 @@
 """
 Lower-level utility classes/functions primarily to manipulate Sequences.
 Overlaps significantly with:
-    emailbot/seq.py, Knower/seq.py, audit-ABCC/src/utilities.py, \
+    audit-ABCC/src/utilities.py, \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-03-15
+Updated: 2025-03-16
 """
 # Import standard libraries
 import datetime as dt
@@ -136,6 +136,14 @@ def nan_rows_in(a_df: pd.DataFrame) -> pd.DataFrame:
              value in for at least 1 a_df column
     """
     return a_df[a_df.isna().any(axis=1)]
+
+
+def noop(*_args: Any, **_kwargs: Any) -> None:  # TODO Move somewhere more apt
+    """Do nothing. Convenient to use as a default callable function parameter.
+
+    :return: None
+    """
+    pass  # or `...`
 
 
 def parentheticals_in(txt: str) -> Generator[regex.Match, None, None]:

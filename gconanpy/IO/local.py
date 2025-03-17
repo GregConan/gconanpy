@@ -4,7 +4,7 @@
 """
 Functions/classes to import/export data from/to files on the local filesystem.
 Overlaps significantly with:
-    Knower/utilities.py, audit-ABCC/src/utilities.py, \
+    audit-ABCC/src/utilities.py, \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-26

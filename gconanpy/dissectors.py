@@ -4,7 +4,7 @@
 Classes to inspect/examine/unwrap abstract data structures.
 Extremely useful and convenient for debugging, but not necessary otherwise.
 Overlaps significantly with:
-    emailbot/debugging.py, Knower/debugging.py, audit-ABCC/src/utilities.py, \
+    audit-ABCC/src/utilities.py, \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
@@ -19,11 +19,9 @@ from typing import (Any, Callable, Hashable, Iterable,
 
 # Import local custom libraries
 try:
-    from debug import noop
-    from seq import stringify_list, uniqs_in
+    from seq import noop, stringify_list, uniqs_in
 except ModuleNotFoundError:
-    from gconanpy.debug import noop
-    from gconanpy.seq import stringify_list, uniqs_in
+    from gconanpy.seq import noop, stringify_list, uniqs_in
 
 
 class DifferenceBetween:
