@@ -8,18 +8,21 @@ Overlaps significantly with:
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-14
+Updated: 2025-03-16
 """
 # Import standard libraries
 from abc import ABC
 import itertools
 import pdb
-from typing import Any, Callable, Hashable, Iterable, Mapping
+from typing import (Any, Callable, Hashable, Iterable,
+                    Mapping, Sequence, TypeVar)
 
 # Import local custom libraries
 try:
+    from debug import noop
     from seq import stringify_list, uniqs_in
 except ModuleNotFoundError:
+    from gconanpy.debug import noop
     from gconanpy.seq import stringify_list, uniqs_in
 
 
@@ -292,6 +295,83 @@ class Peeler(ABC):
         while len(a_dict.keys()) < 2:
             _, a_dict = a_dict.popitem()
         return a_dict
+
+
+class Whittler(ABC):
+    """ Iteratively "whittle down" a string(/etc) and stop as soon as
+    (a) it meets a certain condition, and/or
+    (b) you found what you were looking for inside it. """
+    _T = TypeVar("T")
+    _S = TypeVar("S")
+    _X = TypeVar("X")
+
+    def is_none(x: Any): return x is None  # Mostly to use as default argument
+
+    @staticmethod
+    def whittle(to_modify: _T, iter_over: Sequence[_S],
+                modify: Callable[[_T, _S, tuple[_X, ...]], _T],
+                is_not_ready: Callable[[_T], bool] = is_none,
+                modify_args: Iterable[_X] = list(), start_at: int = 0,
+                end_at: int | None = None, step: int = 1,
+                is_viable: Callable[[_T], bool] = len) -> _T:
+        """ While to_modify is_not_ready, modify it by iterating iter_over.
+
+        :param to_modify: _T, _description_
+        :param iter_over: Sequence[_S] to iterate over
+        :param modify: Callable[[_T, _S, tuple[_X, ...]], _T], _description_
+        :param is_not_ready: Callable[[_T], bool], sufficient condition; \
+            returns False if to_modify is ready to return and True if it \
+            needs further modification; defaults to "to_modify is None"
+        :param modify_args: Iterable[_X], additional positional arguments to call \
+            modify(to_modify) with on every iteration
+        :param start_at: int, iter_over index to begin at; defaults to 0
+        :param end_at: int, iter_over index to stop at; defaults to len(iter_over)
+        :param step: int, increment to iterate iter_over by; defaults to 1
+        :param is_viable: Callable[[_T], bool], necessary condition; \
+            returns True if to_modify is a valid/acceptable/sensical value \
+            to return or True otherwise; defaults to len(to_modify) > 0
+        :param modify_kwargs: Mapping[str, Any], keyword arguments to pass
+            into the to_
+        :return: _T, _description_
+        """
+        # if is_not_ready(to_modify):
+        ix = start_at
+        end = len(iter_over) if end_at is None else end_at
+
+        not_yet_at, step = (int.__lt__, abs(step)) if \
+            ix <= end else (int.__ge__, -abs(step))
+
+        while is_not_ready(to_modify) and not_yet_at(ix, end):
+            modified = modify(to_modify, iter_over[ix], *modify_args)
+            if is_viable(modified):
+                to_modify = modified
+            ix += 1
+
+        return to_modify
+
+    @classmethod
+    def pop(cls, parts: Iterable[str],
+            is_not_ready: Callable[[str], bool] = is_none,
+            min_len: int = 1, get_target: Callable[[str], _T | None] = noop,
+            pop_ix: int = -1, join_on: str = " ") -> tuple[str, _T | None]:
+        """
+        _summary_
+        :param parts: Iterable[str], _description_
+        :param is_not_ready: Callable[[str], bool], function that returns False \
+            if join_on.join(parts) is ready to return and True if it still \
+            needs to be modified further; defaults to Whittler.is_none
+        :param pop_ix: int,_description_, defaults to -1
+        :param join_on: str,_description_, defaults to " "
+        :return: _type_, _description_
+        """
+        gotten = get_target(parts[-1])
+        rejoined = join_on.join(parts)
+        while is_not_ready(rejoined) and len(parts) > min_len \
+                and cls.is_none(gotten):
+            parts.pop(pop_ix)
+            gotten = get_target(parts[-1])
+            rejoined = join_on.join(parts)
+        return rejoined, gotten
 
 
 class Xray(list):

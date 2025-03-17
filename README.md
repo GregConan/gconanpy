@@ -6,10 +6,6 @@
 
 Centralized repository containing the basic and lower-level Python tools that I reuse across multiple projects. I intend my projects to import from here to prevent redundancy.
 
-### Current Version
-
-v0.1.1
-
 ## File Structure
 
 ### cli.py
@@ -49,4 +45,4 @@ Functions and classes primarily to manipulate Sequences, especially strings. Bas
 ### About This Document
 
 - Created by @GregConan on 2025-03-13
-- Updated by @GregConan on 2025-03-13
+- Updated by @GregConan on 2025-03-16
