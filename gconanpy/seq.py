@@ -207,17 +207,25 @@ def seq_startswith(seq: Sequence, prefix: Sequence) -> bool:
     return len(seq) >= len(prefix) and seq[:len(prefix)] == prefix
 
 
-def setdefaults_of(a_dict: dict, **kwargs: Any) -> dict:  # Dict[str, Any]:
-    """ dict.update prefers to overwrite old values with new ones.
+def setdefaults_of(a_dict: dict, keep_Nones: bool = True, **kwargs: Any
+                   ) -> dict:
+    """
+    dict.update prefers to overwrite old values with new ones.
     setdefaults_of is basically dict.update that prefers to keep old values.
 
     :param a_dict: dict
-    :param kwargs: Dict[str, Any] of values to add to a_dict if needed
-    :return: dict, a_dict that filled any missing values from kwargs
+    :param keep_Nones: bool, _description_, defaults to True
+    :param kwargs: dict[str, Any] of values to add to a_dict if needed
+    :return: dict, a_dict that filled any missing values from kwargs 
     """
-    for key, value in kwargs.items():
-        a_dict.setdefault(key, value)
-    return kwargs
+    if keep_Nones:
+        for key, value in kwargs.items():
+            a_dict.setdefault(key, value)
+    else:
+        for key, value in kwargs.items():
+            if a_dict.get(key, None) is None:
+                a_dict[key] = value
+    return a_dict
 
 
 def startswith(an_obj: Any, prefix: Any) -> bool:

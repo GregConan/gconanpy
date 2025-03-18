@@ -4,9 +4,10 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-16
+Updated: 2025-03-17
 """
 # Import standard libraries
+from configparser import ConfigParser
 import pdb
 from typing import Any, Callable, Hashable, Iterable, Mapping, SupportsBytes
 
@@ -29,7 +30,7 @@ class Explictionary(dict):
         subset constructor method. """
 
     def __repr__(self) -> str:
-        """ 
+        """
         :return: str, string representation of custom dict class including\
                  its class name: "CustomDict({...})"
         """
@@ -61,7 +62,7 @@ class LazyDict(Explictionary):
     (yet) if self already has the key. If you pass a function to a "lazy" \
     method, then that function only needs to work if a value is missing.
     Extended LazyButHonestDict from https://stackoverflow.com/q/17532929
-    Keeps most core functionality of the Python dict type. 
+    Keeps most core functionality of the Python dict type.
     """
 
     def lazyget(self, key: str, get_if_absent: Callable = noop,
@@ -88,7 +89,7 @@ class LazyDict(Explictionary):
         key to the dictionary, set its value to the result of calling the \
         `get_if_absent` parameter with args & kwargs, then return that \
         result. Adapted from LazyButHonestDict.lazysetdefault from \
-        https://stackoverflow.com/q/17532929 
+        https://stackoverflow.com/q/17532929
 
         :param key: str to use as a dict key to map to value
         :param get_if_absent: Callable, function to set & return default value
@@ -200,6 +201,12 @@ class DotDict(Explictionary):
             if isinstance(v, replace) and not isinstance(v, self.__class__):
                 self[k] = self.__class__(v)
 
+    # TODO TEST
+    def from_lookups(self, to_look_up: Mapping[str, str], sep: str = ".",
+                     default: Any | None = None) -> "Configtionary":
+        return super().__init__({key: self.lookup(path, sep, default)
+                                 for key, path in to_look_up.items()})
+
     def is_ready_to(self, alter: str, attribute_name: str) -> bool:
         """ Check whether a given attribute of self is protected, if it's\
         alterable, or if self is still being initialized.
@@ -223,6 +230,44 @@ class DotDict(Explictionary):
             raise AttributeError(f"Cannot {alter} read-only "
                                  f"'{self.__class__.__name__}' object "
                                  f"attribute '{attribute_name}'")
+
+    # TODO TEST
+    def lookup(self, strpath: str, sep: str = ".",
+               default: Any | None = None) -> Any:
+        """ Get the value mapped to a key in nested structure. Adapted from \
+        https://gist.github.com/miku/dc6d06ed894bc23dfd5a364b7def5ed8
+
+        :param strpath: str, path to key in nested structure, e.g. "a.b.c"
+        :param sep: str, separator between keys in strpath; defaults to "."
+        :param default: Any | None, value to return if key is not found
+        :return: Any, the value mapped to the nested key
+        """
+        keypath = list(reversed(strpath.split(sep)))
+        retrieved = self
+        try:
+            while keypath:
+                key = keypath.pop()
+                try:
+                    retrieved = retrieved[key]
+                except KeyError:
+                    retrieved = retrieved[int(key)]
+
+        # If value is not found, then return the default value
+        except (KeyError, ValueError):
+            pdb.set_trace()
+            retrieved = self
+        return default if retrieved is self else retrieved
+
+
+class Configtionary(DotDict):  # TODO Add comments
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.autodotdictify()
+
+    @classmethod
+    def from_configparser(cls, config: ConfigParser):
+        return cls({section: {k: v for k, v in config.items(section)}
+                   for section in config.sections()})
 
 
 class LazyDotDict(DotDict, LazyDict):
@@ -356,8 +401,3 @@ class Cryptionary(Promptionary, Bytesifier):
         :return: Any | None, _description_
         """
         return self[key] if key in self else default
-
-
-class DotCryptionary(Cryptionary, LazyDotDict):  # NOTE: This may be useless
-    def __init__(self, *args, debugging: bool = False, **kwargs):
-        super().__init__(*args, debugging=debugging, **kwargs)
