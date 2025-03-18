@@ -204,8 +204,8 @@ class DotDict(Explictionary):
     # TODO TEST
     def from_lookups(self, to_look_up: Mapping[str, str], sep: str = ".",
                      default: Any | None = None) -> "Configtionary":
-        return super().__init__({key: self.lookup(path, sep, default)
-                                 for key, path in to_look_up.items()})
+        return Configtionary({key: self.lookup(path, sep, default)
+                              for key, path in to_look_up.items()})
 
     def is_ready_to(self, alter: str, attribute_name: str) -> bool:
         """ Check whether a given attribute of self is protected, if it's\
