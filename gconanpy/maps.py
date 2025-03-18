@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-17
+Updated: 2025-03-18
 """
 # Import standard libraries
 from configparser import ConfigParser
@@ -17,12 +17,45 @@ from cryptography.fernet import Fernet
 # Import local custom libraries
 try:
     from dissectors import Xray
-    from seq import Bytesifier, noop
+    from seq import noop
     from debug import Debuggable
 except ModuleNotFoundError:
     from gconanpy.dissectors import Xray
-    from gconanpy.seq import Bytesifier, noop
+    from gconanpy.seq import noop
     from gconanpy.debug import Debuggable
+
+
+class Bytesifier(Debuggable):
+    """ Class with a method to convert objects into bytes without knowing \
+    what type those things are."""
+
+    @staticmethod
+    def can_bytesify(an_object: Any) -> bool:
+        """
+        :return: bool, True if self.bytesify(an_object) will work, else \
+                       False if it will raise an exception
+        """  # TODO No, just use try: self.bytesify(an_object) ?
+        return isinstance(an_object, bytes) or hasattr(an_object, "encode") \
+            or hasattr(an_object, "to_bytes")
+
+    def bytesify(self, an_obj: SupportsBytes, **kwargs) -> bytes:
+        """
+        :param an_obj: SupportsBytes, something to convert to bytes
+        :raises AttributeError: if an_obj has no 'to_bytes' or 'encode' method
+        :return: bytes, an_obj converted to bytes
+        """
+        defaults = Defaultionary(**kwargs)
+        defaults.setdefaults(encoding="utf-8", length=1,
+                             byteorder="big", signed=False)
+        try:
+            bytesified = an_obj if isinstance(an_obj, bytes) else \
+                str.encode(an_obj, encoding=defaults.pop("encoding"))
+        except TypeError:
+            try:
+                bytesified = int.to_bytes(an_obj, **defaults)
+            except TypeError as err:
+                self.debug_or_raise(err, locals())
+        return bytesified
 
 
 class Explictionary(dict):
@@ -36,6 +69,8 @@ class Explictionary(dict):
         """
         return f"{self.__class__.__name__}({dict.__repr__(self)})"
 
+
+class Defaultionary(Explictionary):
     @classmethod
     def from_subset_of(cls, a_map: Mapping, *keys_to_keep: Hashable,
                        keep_empties: bool = True):
@@ -43,19 +78,37 @@ class Explictionary(dict):
         """ Construct an instance of this class by picking a subset of \
         key-value pairs to keep.
 
-        :param a_map: Mapping to build an Explictionary from a subset of.
+        :param a_map: Mapping to build an Defaultionary from a subset of.
         :param keys_to_keep: Iterable[Hashable] of a_map keys to copy into \
-            the returned Explictionary with their values.
+            the returned Defaultionary with their values.
         :param keep_empties: bool, False to exclude keys mapped to None in \
-            a_map from the returned Explictionary, otherwise (by default) \
+            a_map from the returned Defaultionary, otherwise (by default) \
             True to include them.
-        :return: Explictionary mapping keys_to_keep to their a_map values.
+        :return: Defaultionary mapping keys_to_keep to their a_map values.
         """
         return cls({k: a_map[k] for k in keys_to_keep} if keep_empties else
                    {k: a_map[k] for k in keys_to_keep if a_map[k] is not None})
 
+    def setdefaults(self, keep_empties: bool = True, **kwargs: Any) -> None:
+        """ Fill any missing values in self from kwargs.
+        dict.update prefers to overwrite old values with new ones.
+        setdefaults is basically dict.update that prefers to keep old values.
 
-class LazyDict(Explictionary):
+        :param keep_empties: bool, False to exclude keys mapped to None in \
+            a_map from the returned Defaultionary, otherwise (by default) \
+            True to include them.
+        :param kwargs: Mapping[str, Any] of values to add to a_dict if needed
+        """
+        if keep_empties:
+            for key, value in kwargs.items():
+                self.setdefault(key, value)
+        else:
+            for key, value in kwargs.items():
+                if self.get(key, None) is None:
+                    self[key] = value
+
+
+class LazyDict(Defaultionary):
     """ Dict that can get/set items and ignore the default parameter \
     until/unless it is needed, ONLY evaluating it after failing to get/set \
     an existing key. Benefit: The `default=` code does not need to be valid \
@@ -101,7 +154,7 @@ class LazyDict(Explictionary):
         return self[key]
 
 
-class DotDict(Explictionary):
+class DotDict(Defaultionary):
     """ dict with dot.notation item access. Compare `sklearn.utils.Bunch`.
     DotDict can get/set items as attributes: `self.item is self['item']`.
     Benefit: You can get/set items by using '.' or key names in brackets.

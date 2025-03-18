@@ -8,11 +8,12 @@ Overlaps significantly with:
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-03-16
+Updated: 2025-03-18
 """
 # Import standard libraries
 import datetime as dt
 import os
+import pdb
 from pprint import pprint
 import re
 import sys
@@ -42,35 +43,6 @@ def as_HTTPS_URL(*parts: str, **url_params: Any) -> str:
         str_params = [f"{k}={v}" for k, v in url_params.items()]
         url += "?" + "&".join(str_params)
     return url
-
-
-class Bytesifier:
-    """ Class with a method to convert objects into bytes without knowing \
-    what type those things are."""
-
-    def can_bytesify(self, an_object: Any) -> bool:
-        """
-        :return: bool, True if self.bytesify(an_object) will work, else \
-                       False if it will raise an exception
-        """  # TODO No, just use try: self.bytesify(an_object) ?
-        return isinstance(an_object, bytes) or hasattr(an_object, "encode") \
-            or hasattr(an_object, "to_bytes")
-
-    def bytesify(self, an_obj: SupportsBytes, **kwargs) -> bytes:
-        """
-        :param an_obj: SupportsBytes, something to convert to bytes
-        :raises AttributeError: if an_obj has no 'to_bytes' or 'encode' method
-        :return: bytes, an_obj converted to bytes
-        """
-        try:
-            bytesified = an_obj if isinstance(an_obj, bytes) else \
-                str.encode(an_obj, **setdefaults_of(kwargs,
-                                                    encoding="utf-8"))
-        except TypeError:
-            bytesified = int.to_bytes(an_obj, **setdefaults_of(
-                kwargs, length=1, byteorder="big", signed=False
-            ))
-        return bytesified
 
 
 def count_uniqs_in_cols(a_df: pd.DataFrame) -> dict[str, int]:
