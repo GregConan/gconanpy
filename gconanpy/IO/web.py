@@ -4,7 +4,7 @@
 Functions to import/export data from/to remote files/pages/apps on the Web.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-13
-Updated: 2025-03-14
+Updated: 2025-03-25
 """
 # Import standard libraries
 import datetime as dt
@@ -41,3 +41,8 @@ def extract_params_from_url(a_url: str) -> dict[str, Any]:
 
 def read_webpage_at(a_URL: str) -> Any:  # urllib.request._UrlopenRet:
     return urllib.request.urlopen(a_URL).read()
+
+
+def without_parameters(a_url: str) -> dict[str, Any]:
+    parsed = urlparse(a_url)
+    return f"{parsed.scheme}://{''.join(parsed[1:3])}"

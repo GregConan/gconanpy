@@ -6,7 +6,7 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-16
+Updated: 2025-03-18
 """
 # Import standard libraries
 import datetime as dt
@@ -25,10 +25,12 @@ from pympler.asizeof import asizeof
 # Import local custom libraries
 try:
     from dissectors import Xray
-    from seq import noop, stringify_dt, stringify_list, uniqs_in
+    from seq import noop, uniqs_in
+    from ToString import stringify_dt, stringify_list
 except ModuleNotFoundError:
     from gconanpy.dissectors import Xray
-    from gconanpy.seq import noop, stringify_dt, stringify_list, uniqs_in
+    from gconanpy.seq import noop, uniqs_in
+    from gconanpy.ToString import stringify_dt, stringify_list
 
 # Constants
 LOGGER_NAME = __package__
@@ -43,21 +45,22 @@ def debug(an_err: Exception, local_vars: Mapping[str, Any]) -> None:
     :param local_vars: Dict[str, Any] mapping variables' names to their \
                        values; locals() called from where an_err originated
     """
+    errs = [an_err]
     locals().update(local_vars)
-    logger = logging.getLogger(LOGGER_NAME)
-    logger.exception(an_err)
     try:
-        print(Xray(locals(), list_its="Local variables"))
-    except:
-        pass
+        logger = logging.getLogger(LOGGER_NAME)
+        logger.exception(an_err)
+        print("Local variables: " + stringify_list([x for x in locals()]))
+    except Exception as new_err:
+        errs.append(new_err)
     # show_keys_in(locals(), level=logger.level)
     pdb.set_trace()
     pass
 
 
 class Debuggable:
-    """I put the debugger function in a class so it can use its \
-    implementer classes' self.debugging variable."""
+    """ I put the debugger function in a class so it can use its \
+    implementer classes' self.debugging variable. """
 
     def debug_or_raise(self, an_err: Exception, local_vars: Mapping[str, Any]
                        ) -> None:
@@ -67,7 +70,7 @@ class Debuggable:
                            values; locals() called from where an_err originated
         :raises an_err: if self.debugging is False; otherwise pause to debug
         """
-        if self.debugging:
+        if getattr(self, "debugging", None):
             debug(an_err, local_vars)
         else:
             raise an_err

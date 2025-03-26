@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-18
+Updated: 2025-03-25
 """
 # Import standard libraries
 from configparser import ConfigParser
@@ -16,58 +16,24 @@ from cryptography.fernet import Fernet
 
 # Import local custom libraries
 try:
-    from dissectors import Xray
-    from seq import noop
     from debug import Debuggable
+    from dissectors import Xray
+    from seq import nameof, noop
 except ModuleNotFoundError:
-    from gconanpy.dissectors import Xray
-    from gconanpy.seq import noop
     from gconanpy.debug import Debuggable
-
-
-class Bytesifier(Debuggable):
-    """ Class with a method to convert objects into bytes without knowing \
-    what type those things are."""
-
-    @staticmethod
-    def can_bytesify(an_object: Any) -> bool:
-        """
-        :return: bool, True if self.bytesify(an_object) will work, else \
-                       False if it will raise an exception
-        """  # TODO No, just use try: self.bytesify(an_object) ?
-        return isinstance(an_object, bytes) or hasattr(an_object, "encode") \
-            or hasattr(an_object, "to_bytes")
-
-    def bytesify(self, an_obj: SupportsBytes, **kwargs) -> bytes:
-        """
-        :param an_obj: SupportsBytes, something to convert to bytes
-        :raises AttributeError: if an_obj has no 'to_bytes' or 'encode' method
-        :return: bytes, an_obj converted to bytes
-        """
-        defaults = Defaultionary(**kwargs)
-        defaults.setdefaults(encoding="utf-8", length=1,
-                             byteorder="big", signed=False)
-        try:
-            bytesified = an_obj if isinstance(an_obj, bytes) else \
-                str.encode(an_obj, encoding=defaults.pop("encoding"))
-        except TypeError:
-            try:
-                bytesified = int.to_bytes(an_obj, **defaults)
-            except TypeError as err:
-                self.debug_or_raise(err, locals())
-        return bytesified
+    from gconanpy.dissectors import Xray
+    from gconanpy.seq import nameof, noop
 
 
 class Explictionary(dict):
-    """ dict that explicitly includes its class name in __repr__ and has a \
-        subset constructor method. """
+    """ dict that explicitly includes its class name in __repr__ """
 
     def __repr__(self) -> str:
         """
         :return: str, string representation of custom dict class including\
                  its class name: "CustomDict({...})"
         """
-        return f"{self.__class__.__name__}({dict.__repr__(self)})"
+        return f"{nameof(self)}({dict.__repr__(self)})"
 
 
 class Defaultionary(Explictionary):
@@ -97,7 +63,7 @@ class Defaultionary(Explictionary):
         :param keep_empties: bool, False to exclude keys mapped to None in \
             a_map from the returned Defaultionary, otherwise (by default) \
             True to include them.
-        :param kwargs: Mapping[str, Any] of values to add to a_dict if needed
+        :param kwargs: Mapping[str, Any] of values to add to self if needed
         """
         if keep_empties:
             for key, value in kwargs.items():
@@ -106,6 +72,8 @@ class Defaultionary(Explictionary):
             for key, value in kwargs.items():
                 if self.get(key, None) is None:
                     self[key] = value
+
+    def copy(self): return self.__class__(self)
 
 
 class LazyDict(Defaultionary):
@@ -136,7 +104,8 @@ class LazyDict(Defaultionary):
 
     def lazysetdefault(self, key: str, get_if_absent: Callable = noop,
                        getter_args: Iterable = list(),
-                       getter_kwargs: Mapping = dict()) -> Any:
+                       getter_kwargs: Mapping = dict(),
+                       exclude_empties: bool = False) -> Any:
         """
         Return the value for key if key is in the dictionary; else add that \
         key to the dictionary, set its value to the result of calling the \
@@ -149,7 +118,10 @@ class LazyDict(Defaultionary):
         :param args: Unpacked Iterable[Any] of get_if_absent arguments
         :param kwargs: Unpacked Mapping[Any] of get_if_absent keyword arguments
         """
-        if key not in self:  # if self.get(key) is None:
+        will_setdefault = (self.get(key, None) is None if exclude_empties
+                           else (key not in self))
+        # if key not in self:  # if self.get(key) is None:
+        if will_setdefault:
             self[key] = get_if_absent(*getter_args, **getter_kwargs)
         return self[key]
 
@@ -254,11 +226,21 @@ class DotDict(Defaultionary):
             if isinstance(v, replace) and not isinstance(v, self.__class__):
                 self[k] = self.__class__(v)
 
-    # TODO TEST
-    def from_lookups(self, to_look_up: Mapping[str, str], sep: str = ".",
-                     default: Any | None = None) -> "Configtionary":
-        return Configtionary({key: self.lookup(path, sep, default)
-                              for key, path in to_look_up.items()})
+    def get_subset_from_lookups(self, to_look_up: Mapping[str, str],
+                                sep: str = ".", default: Any = None):
+        """ `self.lookups({"a": "b/c"}, sep="/") -> DotDict({"a": self.b.c})`
+
+        :param to_look_up: Mapping[str, str] of every key to put in the \
+            returned DotDict to the path to its value in this DotDict (self)
+        :param sep: str, separator between subkeys in to_look_up.values(), \
+            defaults to "."
+        :param default: Any, value to map to any keys not found in self; \
+            defaults to None
+        :return: self.__class__ mapping every key in to_look_up to the value \
+            at its mapped path in self
+        """
+        return self.__class__({key: self.lookup(path, sep, default)
+                               for key, path in to_look_up.items()})
 
     def is_ready_to(self, alter: str, attribute_name: str) -> bool:
         """ Check whether a given attribute of self is protected, if it's\
@@ -281,21 +263,19 @@ class DotDict(Defaultionary):
             return True
         if is_protected:  # Attribute is protected => can't alter; raise error
             raise AttributeError(f"Cannot {alter} read-only "
-                                 f"'{self.__class__.__name__}' object "
+                                 f"'{nameof(self)}' object "
                                  f"attribute '{attribute_name}'")
 
-    # TODO TEST
-    def lookup(self, strpath: str, sep: str = ".",
-               default: Any | None = None) -> Any:
+    def lookup(self, path: str, sep: str = ".", default: Any = None) -> Any:
         """ Get the value mapped to a key in nested structure. Adapted from \
         https://gist.github.com/miku/dc6d06ed894bc23dfd5a364b7def5ed8
 
-        :param strpath: str, path to key in nested structure, e.g. "a.b.c"
-        :param sep: str, separator between keys in strpath; defaults to "."
-        :param default: Any | None, value to return if key is not found
+        :param path: str, path to key in nested structure, e.g. "a.b.c"
+        :param sep: str, separator between keys in path; defaults to "."
+        :param default: Any, value to return if key is not found
         :return: Any, the value mapped to the nested key
         """
-        keypath = list(reversed(strpath.split(sep)))
+        keypath = list(reversed(path.split(sep)))
         retrieved = self
         try:
             while keypath:
@@ -306,19 +286,24 @@ class DotDict(Defaultionary):
                     retrieved = retrieved[int(key)]
 
         # If value is not found, then return the default value
-        except (KeyError, ValueError):
-            pdb.set_trace()
-            retrieved = self
+        except (KeyError, TypeError, ValueError):
+            pass
         return default if retrieved is self else retrieved
 
 
 class Configtionary(DotDict):  # TODO Add comments
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
+        """ Initialize Configtionary from existing Mapping (*args) or from \
+        new Mapping (**kwargs). """
         super().__init__(*args, **kwargs)
         self.autodotdictify()
 
     @classmethod
     def from_configparser(cls, config: ConfigParser):
+        """
+        :param config: ConfigParser to convert into Configtionary
+        :return: Configtionary with the key-value mapping structure of config
+        """
         return cls({section: {k: v for k, v in config.items(section)}
                    for section in config.sections()})
 
@@ -343,10 +328,16 @@ class LazyDotDict(DotDict, LazyDict):
 
 
 class Promptionary(LazyDict, Debuggable):
-    """LazyDict that can interactively prompt the user to fill missing values.
+    """ LazyDict able to interactively prompt the user to fill missing values.
     """
 
-    def __init__(self, *args, debugging: bool = False, **kwargs) -> None:
+    def __init__(self, *args, debugging: bool = False, **kwargs: Any) -> None:
+        """ Initialize Promptionary from existing Mapping (*args) or from \
+        new Mapping (**kwargs).
+
+        :param debugging: bool, True to pause and interact on error, else \
+            False to raise errors/exceptions; defaults to False.
+        """
         # This class can pause and debug when an exception occurs
         self.debugging = debugging
         super().__init__(*args, **kwargs)
@@ -368,7 +359,7 @@ class Promptionary(LazyDict, Debuggable):
 
     def setdefault_or_prompt_for(self, key: str, prompt: str,
                                  prompt_fn: Callable = input) -> Any:
-        """ Given a key, return the value mapped to it if one already exists;\
+        """ Return the value mapped to key in self if one already exists; \
         otherwise prompt the user to interactively provide it, store the \
         provided value by mapping it to key, and return that value.
 
@@ -381,6 +372,39 @@ class Promptionary(LazyDict, Debuggable):
                  that the user interactively provided
         """
         return self.lazysetdefault(key, prompt_fn, [prompt])
+
+
+class Bytesifier(Debuggable):
+    """ Class with a method to convert objects into bytes without knowing \
+    what type those things are."""
+
+    @staticmethod
+    def can_bytesify(an_object: Any) -> bool:
+        """
+        :return: bool, True if self.bytesify(an_object) will work, else \
+                       False if it will raise an exception
+        """  # TODO No, just use try: self.bytesify(an_object) ?
+        return isinstance(an_object, bytes) or hasattr(an_object, "encode") \
+            or hasattr(an_object, "to_bytes")
+
+    def bytesify(self, an_obj: SupportsBytes, **kwargs) -> bytes:
+        """
+        :param an_obj: SupportsBytes, something to convert to bytes
+        :raises AttributeError: if an_obj has no 'to_bytes' or 'encode' method
+        :return: bytes, an_obj converted to bytes
+        """
+        defaults = Defaultionary(**kwargs)
+        defaults.setdefaults(encoding="utf-8", length=1,
+                             byteorder="big", signed=False)
+        try:
+            bytesified = an_obj if isinstance(an_obj, bytes) else \
+                str.encode(an_obj, encoding=defaults.pop("encoding"))
+        except TypeError:
+            try:
+                bytesified = int.to_bytes(an_obj, **defaults)
+            except TypeError as err:
+                self.debug_or_raise(err, locals())
+        return bytesified
 
 
 class Cryptionary(Promptionary, Bytesifier):
@@ -415,19 +439,17 @@ class Cryptionary(Promptionary, Bytesifier):
         """
         try:
             retrieved = dict.__getitem__(self, dict_key)
-            if retrieved is not None:
+            if dict_key in self.encrypted and retrieved is not None:
                 retrieved = self.cryptor.decrypt(retrieved).decode("utf-8")
             return retrieved
         except (KeyError, TypeError) as e:
             self.debug_or_raise(e, locals())
 
-    def __setitem__(self, dict_key: str,
-                    dict_value: SupportsBytes) -> None:
+    def __setitem__(self, dict_key: str, dict_value: SupportsBytes) -> None:
         """ Set self[dict_key] to dict_value after encrypting dict_value.
 
         :param dict_key: str, key mapped to the value to retrieve.
         :param dict_value: SupportsBytes, value to encrypt and store.
-        :return: None
         """
         try:
             if self.can_bytesify(dict_value):
@@ -445,12 +467,13 @@ class Cryptionary(Promptionary, Bytesifier):
         self.encrypted.discard(key)
         del self[key]
 
-    def get(self, key: str, default: Any = None) -> Any | None:
+    def get(self, key: str, default: Any = None) -> Any:
         """Return the (decrypted) value for key if key is in the Cryptionary,\
            else return default.
 
         :param key: str, key mapped to the (encrypted) value to return
         :param default: Any, object to return if key is not in the Cryptionary
-        :return: Any | None, _description_
+        :return: Any, (decrypted) value mapped to key in this Cryptionary if \
+            any, else default
         """
         return self[key] if key in self else default

@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 
 """
@@ -8,17 +7,17 @@ Overlaps significantly with:
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-03-18
+Updated: 2025-03-25
 """
 # Import standard libraries
 import datetime as dt
+import itertools
 import os
 import pdb
 from pprint import pprint
 import re
-import sys
-from typing import (Any, Generator, Hashable, Iterable,
-                    Mapping, Sequence, SupportsBytes)
+from typing import (Any, Callable, Generator, Hashable, Iterable,
+                    Mapping, Sequence)
 
 # Import third-party PyPI libraries
 import numpy as np
@@ -26,8 +25,33 @@ import pandas as pd
 import pathvalidate
 import regex
 
+# Import local custom libraries
+try:
+    from ToString import stringify, stringify_dt
+except ModuleNotFoundError:
+    from gconanpy.ToString import stringify, stringify_dt
+
 
 # NOTE All classes and functions below are in alphabetical order.
+
+
+def are_all_equal(comparables: Iterable) -> bool:
+    """ `are_all_equal([x, y, z])` means `x == y == z`.
+
+    :param comparables: Iterable of objects to check for equality.
+    :return: bool, True if every item in comparables is equal to every
+                other item, otherwise False.
+    """
+    are_equal = True
+    looping = True
+    combos_iter = itertools.combinations(comparables, 2)
+    while looping and are_equal:
+        next_pair = next(combos_iter, None)
+        if not next_pair:  # is None:
+            looping = False
+        elif next_pair[0] != next_pair[1]:
+            are_equal = False
+    return are_equal
 
 
 def as_HTTPS_URL(*parts: str, **url_params: Any) -> str:
@@ -82,6 +106,27 @@ def extract_parentheticals_from(txt: str) -> list[Any]:
     return regex.findall(r"\((?:[^()]+|(?R))*+\)", txt)
 
 
+def find_an_attr_in(attrs_of: Any, attr_names: Iterable[str], default:
+                    Any = None, method_names: set[str] = set()) -> Any:
+    found_attr = default
+    ix = 0
+    while ix + 1 < len(attr_names) and not hasattr(attrs_of,
+                                                   attr_names[ix]):
+        ix += 1
+    try:
+        name = attr_names[ix]
+        found_attr = getattr(attrs_of, name, default)
+        if name in method_names:
+            found_attr = found_attr()
+    except (AttributeError, IndexError, TypeError):
+        pass
+    return found_attr
+
+
+# Mostly to use as default argument
+def is_not_none(x: Any): return x is not None
+
+
 def link_to_markdown(a_string: str, a_URL: str) -> str:
     a_string = a_string.replace('[', '\[').replace(']', '\]')
     return f"[{a_string}]({a_URL})"
@@ -99,6 +144,15 @@ def markdown_to_link(md_link_text: str) -> tuple[str, str]:
     md_link_text = md_link_text.strip()
     assert md_link_text[0] == "[" and md_link_text[-1] == ")"
     return md_link_text[1:-1].split("](")
+
+
+def nameof(an_obj: Any) -> str:
+    """ Get the `__name__` of an object or of its type/class.
+
+    :param an_obj: Any
+    :return: str naming an_obj, usually its type/class name.
+    """
+    return getattr(an_obj, "__name__", type(an_obj).__name__)
 
 
 def nan_rows_in(a_df: pd.DataFrame) -> pd.DataFrame:
@@ -179,27 +233,6 @@ def seq_startswith(seq: Sequence, prefix: Sequence) -> bool:
     return len(seq) >= len(prefix) and seq[:len(prefix)] == prefix
 
 
-def setdefaults_of(a_dict: dict, keep_Nones: bool = True, **kwargs: Any
-                   ) -> dict:
-    """
-    dict.update prefers to overwrite old values with new ones.
-    setdefaults_of is basically dict.update that prefers to keep old values.
-
-    :param a_dict: dict
-    :param keep_Nones: bool, _description_, defaults to True
-    :param kwargs: dict[str, Any] of values to add to a_dict if needed
-    :return: dict, a_dict that filled any missing values from kwargs 
-    """
-    if keep_Nones:
-        for key, value in kwargs.items():
-            a_dict.setdefault(key, value)
-    else:
-        for key, value in kwargs.items():
-            if a_dict.get(key, None) is None:
-                a_dict[key] = value
-    return a_dict
-
-
 def startswith(an_obj: Any, prefix: Any) -> bool:
     """ Check if the beginning of an_obj is prefix.
     Type-agnostic extension of str.startswith and bytes.startswith.
@@ -215,90 +248,6 @@ def startswith(an_obj: Any, prefix: Any) -> bool:
             result = seq_startswith(an_obj, prefix)
     except TypeError:  # then an_obj isn't a Sequence or prefix isn't
         result = seq_startswith(stringify(an_obj), stringify(prefix))
-    return result
-
-
-def stringify(an_obj: Any, encoding: str = sys.getdefaultencoding(),
-              errors: str = "ignore") -> str:
-    """Improved str() function that automatically decodes bytes.
-
-    :param an_obj: Any
-    :param encoding: str, _description_, probably "utf-8" by default
-    :param errors: str, _description_, defaults to "ignore"
-    :return: str, _description_
-    """
-    try:
-        stringified = str(an_obj, encoding=encoding, errors=errors)
-    except TypeError:
-        stringified = str(an_obj)
-    return stringified
-
-
-def stringify_duck(an_obj: str | SupportsBytes | dt.datetime | list,
-                   sep: str = "_", timespec: str = "seconds",
-                   encoding: str = sys.getdefaultencoding(),
-                   errors: str = "ignore") -> str:
-    """
-    _summary_ 
-    :param an_obj: str | SupportsBytes | dt.datetime | list, _description_
-    :param sep: str,_description_, defaults to "_"
-    :param timespec: str,_description_, defaults to "seconds"
-    :param encoding: str,_description_, defaults to sys.getdefaultencoding()
-    :param errors: str,_description_, defaults to "ignore"
-    :return: str, _description_
-    """  # TODO REFACTOR (INELEGANT)
-    if an_obj is None:
-        stringified = ""
-    elif isinstance(an_obj, str):
-        stringified = an_obj
-    elif hasattr(an_obj, "isoformat"):  # .strftime("%Y-%m-%d_%H-%M-%S")
-        stringified = an_obj.isoformat(sep=sep, timespec=timespec
-                                       ).replace(":", "-")
-    elif isinstance(an_obj, list):
-        list_with_str_els = [stringify_duck(el) for el in an_obj]
-        if len(an_obj) > 1:
-            stringified = "'{}'".format("', '".join(list_with_str_els))
-        else:
-            stringified = list_with_str_els[0]
-    else:
-        try:
-            stringified = str(an_obj, encoding=encoding, errors=errors)
-        except TypeError:
-            stringified = str(an_obj)
-    return stringified
-
-
-def stringify_dt(moment: dt.datetime) -> str:
-    """
-    :param moment: datetime, a specific moment
-    :return: String, that moment in "YYYY-mm-dd_HH-MM-SS" format
-    """  # TODO Combine w/ stringify() function?
-    return moment.isoformat(sep="_", timespec="seconds"
-                            ).replace(":", "-")  # .strftime("%Y-%m-%d_%H-%M-%S")
-
-
-def stringify_list(a_list: list, quote: str | None = "'",
-                   sep: str = ",") -> str:
-    """
-    :param a_list: List[Any]
-    :return: str containing all items in a_list, single-quoted and \
-             comma-separated if there are multiple
-    """  # TODO Combine w/ stringify() function?
-    result = a_list
-    if isinstance(a_list, list):  # TODO REFACTOR (INELEGANT)
-        list_with_str_els = [stringify(el) for el in a_list]
-
-        match len(a_list):
-            case 0:
-                result = ""
-            case 1:
-                result = quote + list_with_str_els[0] + quote \
-                    if quote else list_with_str_els[0]
-            case 2:
-                result = " and ".join(list_with_str_els)
-            case _:
-                except_end = (sep + " ").join(list_with_str_els[:-1])
-                result = f"{except_end}{sep} and {list_with_str_els[-1]}"
     return result
 
 
