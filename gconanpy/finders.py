@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Iterators that break once they find what they're looking for.
+Iterator classes that break once they find what they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-19
 Updated: 2025-03-25

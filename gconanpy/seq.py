@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Lower-level utility classes/functions primarily to manipulate Sequences.
+Lower-level utility functions primarily to manipulate Sequences.
 Overlaps significantly with:
     audit-ABCC/src/utilities.py, \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
@@ -32,7 +32,7 @@ except ModuleNotFoundError:
     from gconanpy.ToString import stringify, stringify_dt
 
 
-# NOTE All classes and functions below are in alphabetical order.
+# NOTE All functions below are in alphabetical order.
 
 
 def are_all_equal(comparables: Iterable) -> bool:
