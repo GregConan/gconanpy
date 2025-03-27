@@ -6,7 +6,7 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-18
+Updated: 2025-03-26
 """
 # Import standard libraries
 import datetime as dt
@@ -25,12 +25,10 @@ from pympler.asizeof import asizeof
 # Import local custom libraries
 try:
     from dissectors import Xray
-    from seq import noop, uniqs_in
-    from ToString import stringify_dt, stringify_list
+    from seq import noop, stringify_dt, stringify_list, uniqs_in
 except ModuleNotFoundError:
     from gconanpy.dissectors import Xray
-    from gconanpy.seq import noop, uniqs_in
-    from gconanpy.ToString import stringify_dt, stringify_list
+    from gconanpy.seq import noop, stringify_dt, stringify_list, uniqs_in
 
 # Constants
 LOGGER_NAME = __package__

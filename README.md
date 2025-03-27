@@ -42,11 +42,7 @@ Classes that are useful/convenient custom extensions of Python's dictionary clas
 
 ### seq.py
 
-Functions primarily to manipulate Sequences, especially strings.
-
-### ToString.py
-
-Class to convert objects into strings. Base-level (no local imports).
+Functions and classes primarily to manipulate Sequences, especially strings. Base-level (no local imports).
 
 ### typevars.py
 

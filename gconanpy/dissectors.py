@@ -1,28 +1,24 @@
 #!/usr/bin/env python3
 
 """
-Classes to inspect/examine/unwrap abstract data structures.
-Extremely useful and convenient for debugging, but not necessary otherwise.
-Overlaps significantly with:
-    audit-ABCC/src/utilities.py, \
-    abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
+Classes to inspect/examine/unwrap complex/nested data structures.
+Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-25
+Updated: 2025-03-26
 """
 # Import standard libraries
-from abc import ABC
-import itertools
 import pdb
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping, Generator
 
 # Import local custom libraries
 try:
-    from seq import are_all_equal, find_an_attr_in, nameof, uniqs_in
-    from ToString import stringify_list
+    from seq import are_all_equal, chain, nameof, stringify_list, uniqs_in
+    from skippers import KeepTryingUntilNoException
 except ModuleNotFoundError:
-    from gconanpy.seq import are_all_equal, find_an_attr_in, nameof, uniqs_in
-    from gconanpy.ToString import stringify_list
+    from gconanpy.seq import (are_all_equal, chain, nameof,
+                              stringify_list, uniqs_in)
+    from gconanpy.skippers import KeepTryingUntilNoException
 
 
 class DifferenceBetween:
@@ -190,16 +186,29 @@ class DifferenceBetween:
         return result
 
 
-class Peeler(ABC):
+class Peeler:
+    def __init__(self, max_peels: int = 1000):
+        self.max_peels = max_peels
+        self.peeled = list()
 
-    @classmethod
-    def core(cls, to_peel: Iterable) -> Any:
+    def can_peel(self, an_obj: Any):
+        return not isinstance(an_obj, str) and \
+            not isinstance(an_obj, Callable) and \
+            not isinstance(an_obj, Generator) and \
+            an_obj not in self.peeled and an_obj and \
+            not (hasattr(an_obj, "__dict__") and
+                 an_obj.__dict__ in self.peeled)
+
+    def are_peelable(self, an_obj: Iterable) -> bool:
+        return isinstance(an_obj, Iterable) and self.can_peel(an_obj)
+
+    def core(self, to_peel: Iterable) -> Any:
         """ Extract the biggest (longest) datum from a nested data structure.
 
         :param to_peel: Iterable, especially a nested container data structure
         :return: Any, the longest datum buried in to-peel's nested layers
         """
-        fruits = cls.peel(to_peel)
+        fruits = self.peel(to_peel)
         if len(fruits) > 1:
             sizes = [len(f) for f in fruits]
             biggest = fruits[sizes.index(max(sizes))]
@@ -207,20 +216,27 @@ class Peeler(ABC):
             biggest = fruits[0]
         return biggest
 
-    @classmethod
-    def peel(cls, to_peel: Any) -> list:
+    def peel(self, to_peel: Any) -> list:
         fruits = [to_peel]
-        fruit_lists = None
-        try:
-            if not to_peel.strip():
-                fruits = list()
-        except (AttributeError, TypeError):
+        fruit_lists = list()
+        if to_peel not in self.peeled and len(self.peeled) < self.max_peels:
+            self.peeled.append(to_peel)
+            with KeepTryingUntilNoException() as next_try:
+                with next_try():
+                    if not to_peel.strip():
+                        fruits = list()
+                with next_try():
+                    fruit_lists = self.peel_values_in(to_peel.__dict__)
+                with next_try():
+                    if self.are_peelable(to_peel):
+                        fruit_lists = [self.peel(v) for v in to_peel
+                                       if v not in self.peeled]
             try:
-                fruit_lists = [cls.peel(v) for v in find_an_attr_in(
-                    to_peel, ("values", "contents"), to_peel, {"values"})]
-                fruits = list(itertools.chain(*fruit_lists))
-            except TypeError:
+                fruit_lists += self.peel_values_in(to_peel)
+            except (AttributeError, ValueError, TypeError):
                 pass
+            if fruit_lists and any(fruit_lists):
+                fruits = chain(fruit_lists)
             if any([isinstance(x, list) for x in fruits]):
                 pdb.set_trace()
         return fruits
@@ -230,6 +246,13 @@ class Peeler(ABC):
         while len(a_dict.keys()) < 2:
             _, a_dict = a_dict.popitem()
         return a_dict
+
+    def peel_values_in(self, to_peel: Any) -> list:
+        self.peeled.append(to_peel)
+        return chain([[self.peel(part) for part in value if part not in
+                       self.peeled and part != to_peel and part != value]
+                      for value in to_peel.values()
+                      if self.are_peelable(value) and value != to_peel])
 
 
 class Xray(list):

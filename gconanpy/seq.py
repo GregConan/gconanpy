@@ -1,23 +1,25 @@
 #!/usr/bin/env python3
 
 """
-Lower-level utility functions primarily to manipulate Sequences.
+Lower-level utility functions and classes primarily to manipulate Sequences.
 Overlaps significantly with:
     audit-ABCC/src/utilities.py, \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-03-25
+Updated: 2025-03-26
 """
 # Import standard libraries
+import builtins
 import datetime as dt
 import itertools
 import os
 import pdb
 from pprint import pprint
 import re
+import sys
 from typing import (Any, Callable, Generator, Hashable, Iterable,
-                    Mapping, Sequence)
+                    Mapping, Sequence, TypeVar)
 
 # Import third-party PyPI libraries
 import numpy as np
@@ -25,14 +27,10 @@ import pandas as pd
 import pathvalidate
 import regex
 
-# Import local custom libraries
-try:
-    from ToString import stringify, stringify_dt
-except ModuleNotFoundError:
-    from gconanpy.ToString import stringify, stringify_dt
+# Constant: TypeVar for chain(...) function
+T = TypeVar("T")
 
-
-# NOTE All functions below are in alphabetical order.
+# NOTE All functions/classes below are in alphabetical order.
 
 
 def are_all_equal(comparables: Iterable) -> bool:
@@ -67,6 +65,10 @@ def as_HTTPS_URL(*parts: str, **url_params: Any) -> str:
         str_params = [f"{k}={v}" for k, v in url_params.items()]
         url += "?" + "&".join(str_params)
     return url
+
+
+def chain(iterables: Iterable[Iterable[T]]) -> Iterable[T]:
+    return [x for x in itertools.chain(*iterables)]
 
 
 def count_uniqs_in_cols(a_df: pd.DataFrame) -> dict[str, int]:
@@ -123,8 +125,8 @@ def find_an_attr_in(attrs_of: Any, attr_names: Iterable[str], default:
     return found_attr
 
 
-# Mostly to use as default argument
-def is_not_none(x: Any): return x is not None
+# Mostly to use as default value of input parameters in class methods
+def is_not_none(x: Any) -> bool: return x is not None
 
 
 def link_to_markdown(a_string: str, a_URL: str) -> str:
@@ -172,7 +174,7 @@ def noop(*_args: Any, **_kwargs: Any) -> None:  # TODO Move somewhere more apt
     pass  # or `...`
 
 
-def parentheticals_in(txt: str) -> Generator[regex.Match, None, None]:
+def parentheticals_in(txt: str) -> Generator[regex.Match[str], None, None]:
     """ Get all parentheticals, ignoring nested parentheticals.
     Adapted from https://stackoverflow.com/a/35271017
 
@@ -280,6 +282,130 @@ def to_file_path(dir_path: str, file_name: str, file_ext: str = "",
         ext = file_ext if file_ext[0] == "." else "." + file_ext
 
     return os.path.join(dir_path, file_name + ext)
+
+
+class ToString(str):
+    NoneType = type(None)
+
+    def enclosed_by(self, affix: str):
+        return self.that_ends_with(affix).that_starts_with(affix)
+
+    @classmethod
+    def from_datetime(cls, moment: dt.date | dt.time | dt.datetime,
+                      sep: str = "_", timespec: str = "seconds",
+                      replace: Mapping[str, str] = {":": "-"}):
+        match type(moment):
+            case dt.date:
+                stringified = dt.date.isoformat(moment)
+            case dt.time:
+                stringified = dt.time.isoformat(moment, timespec=timespec)
+            case dt.datetime:
+                stringified = dt.datetime.isoformat(moment, sep=sep,
+                                                    timespec=timespec)
+        for to_replace, replace_with in replace.items():
+            stringified = stringified.replace(to_replace, replace_with)
+        return cls(stringified)
+
+    @classmethod
+    def from_iterable(cls, an_obj: Iterable, quote: str | None = "'",
+                      sep: str = ",", quote_numbers: bool = False):
+        """
+
+        :param a_list: list[Any]
+        :param quote: str | None,_description_, defaults to "'"
+        :param sep: str,_description_, defaults to ","
+        :return: ToString of all items in a_list, {quote}-quoted and \
+                 {sep}-separated if there are multiple 
+        """
+        result = an_obj
+        if isinstance(an_obj, str):
+            if quote:
+                result = cls(an_obj).enclosed_by(quote)
+        elif isinstance(an_obj, Iterable):  # TODO Refactor from LBYL to EAFP?
+            list_with_str_els = cls.quotate(*an_obj, quote=quote,
+                                            quote_numbers=quote_numbers)
+            if len(an_obj) > 2:
+                except_end = (sep + ' ').join(list_with_str_els[:-1])
+                result = f"{except_end}{sep} and {list_with_str_els[-1]}"
+            else:
+                result = " and ".join(list_with_str_els)
+        return cls(result)
+
+    @classmethod
+    def from_object(cls, an_obj: Any):  # TODO Make this __init__(self, an_obj) ?
+        """ _summary_
+
+        :param an_obj: None | str | SupportsBytes | dt.datetime | list, _description_
+        :param sep: str,_description_, defaults to "_"
+        :param timespec: str,_description_, defaults to "seconds"
+        :param encoding: str,_description_, defaults to sys.getdefaultencoding()
+        :param errors: str,_description_, defaults to "ignore"
+        :return: str, _description_
+        """  # TODO Class pattern match? stackoverflow.com/questions/72295812
+        match type(an_obj):
+            case builtins.bytes | builtins.bytearray:
+                stringified = cls(an_obj, encoding=sys.getdefaultencoding(),
+                                  errors="ignore")
+            case builtins.dict:  # TODO case Mapping equivalent after builtins
+                stringified = cls.from_mapping(an_obj)
+            case builtins.list | builtins.set | builtins.tuple:
+                stringified = cls.from_iterable(an_obj)
+            case dt.date | dt.time | dt.datetime:
+                stringified = cls.from_datetime(an_obj)
+            case cls.NoneType:
+                stringified = cls()
+            case _:  # str or other
+                stringified = cls(an_obj)
+        return stringified
+
+    @classmethod
+    def from_mapping(cls, a_map: Mapping, quote: str | None = "'",
+                     quote_numbers: bool = False, join_on: str = "=",
+                     max_len: int = 100):
+        quotate = cls.get_quotator(quote, quote_numbers)
+        return cls.from_iterable([truncate(join_on.join(
+            quotate(k), quotate(v)), max_len) for k, v in a_map.items()])
+
+    @classmethod
+    def get_quotator(cls, quote: str | None = "'", quote_numbers:
+                     bool = False) -> Callable[[Any], "ToString"]:
+        quotate = cls.quotate_number if quote_numbers else cls.quotate_obj
+        return cls.from_object if not quote else lambda x: quotate(x, quote)
+
+    @classmethod
+    def quotate(cls, *objects: Any, quote: str | None = "'",
+                quote_numbers: bool = False) -> list["ToString"]:
+        finish = cls.get_quotator(quote, quote_numbers)
+        return [finish(obj) for obj in objects]
+
+    @classmethod
+    def quotate_number(cls, a_num, quote: str = "'"):
+        stringified = cls.from_object(a_num)
+        return stringified if stringified.isdigit() else \
+            stringified.enclosed_by(quote)
+
+    @classmethod
+    def quotate_obj(cls, an_obj: Any, quote: str = "'"):
+        return cls.from_object(an_obj).enclosed_by(quote)
+
+    def that_ends_with(self, suffix: str):
+        return self if self.endswith(suffix) \
+            else self.__class__(self + suffix)
+
+    def that_starts_with(self, prefix: str):
+        return self if self.startswith(prefix) \
+            else self.__class__(prefix + self)
+
+
+# Shorter names to export
+stringify = ToString.from_object
+stringify_dt = ToString.from_datetime
+stringify_map = ToString.from_mapping
+stringify_list = ToString.from_iterable
+
+
+def truncate(a_seq: Sequence, max_len: int) -> Sequence:
+    return a_seq[:max_len] if len(a_seq) > max_len else a_seq
 
 
 def uniqs_in(listlike: Iterable[Hashable]) -> list[Hashable]:

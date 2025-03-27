@@ -37,6 +37,9 @@ class Explictionary(dict):
 
 
 class Defaultionary(Explictionary):
+
+    def copy(self): return self.__class__(self)
+
     @classmethod
     def from_subset_of(cls, a_map: Mapping, *keys_to_keep: Hashable,
                        keep_empties: bool = True):
@@ -72,8 +75,6 @@ class Defaultionary(Explictionary):
             for key, value in kwargs.items():
                 if self.get(key, None) is None:
                     self[key] = value
-
-    def copy(self): return self.__class__(self)
 
 
 class LazyDict(Defaultionary):
