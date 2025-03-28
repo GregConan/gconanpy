@@ -4,11 +4,12 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-25
+Updated: 2025-03-27
 """
 # Import standard libraries
 from configparser import ConfigParser
 import pdb
+import sys
 from typing import Any, Callable, Hashable, Iterable, Mapping, SupportsBytes
 
 # Import third-party PyPI libraries
@@ -19,10 +20,12 @@ try:
     from debug import Debuggable
     from dissectors import Xray
     from seq import nameof, noop
+    from skippers import KeepTryingUntilNoException
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
     from gconanpy.dissectors import Xray
     from gconanpy.seq import nameof, noop
+    from gconanpy.skippers import KeepTryingUntilNoException
 
 
 class Explictionary(dict):
@@ -42,7 +45,7 @@ class Defaultionary(Explictionary):
 
     @classmethod
     def from_subset_of(cls, a_map: Mapping, *keys_to_keep: Hashable,
-                       keep_empties: bool = True):
+                       exclude_empties: bool = False):
         # No return type hint so VSCode can infer making subclass instances
         """ Construct an instance of this class by picking a subset of \
         key-value pairs to keep.
@@ -50,31 +53,31 @@ class Defaultionary(Explictionary):
         :param a_map: Mapping to build an Defaultionary from a subset of.
         :param keys_to_keep: Iterable[Hashable] of a_map keys to copy into \
             the returned Defaultionary with their values.
-        :param keep_empties: bool, False to exclude keys mapped to None in \
+        :param exclude_empties: bool, True to exclude keys mapped to None in \
             a_map from the returned Defaultionary, otherwise (by default) \
-            True to include them.
+            False to include them.
         :return: Defaultionary mapping keys_to_keep to their a_map values.
         """
-        return cls({k: a_map[k] for k in keys_to_keep} if keep_empties else
-                   {k: a_map[k] for k in keys_to_keep if a_map[k] is not None})
+        return cls({k: a_map[k] for k in keys_to_keep if a_map[k] is not None}
+                   if exclude_empties else {k: a_map[k] for k in keys_to_keep})
 
-    def setdefaults(self, keep_empties: bool = True, **kwargs: Any) -> None:
+    def setdefaults(self, exclude_empties: bool = False, **kwargs: Any) -> None:
         """ Fill any missing values in self from kwargs.
         dict.update prefers to overwrite old values with new ones.
         setdefaults is basically dict.update that prefers to keep old values.
 
-        :param keep_empties: bool, False to exclude keys mapped to None in \
-            a_map from the returned Defaultionary, otherwise (by default) \
-            True to include them.
+        :param exclude_empties: bool, False to exclude keys mapped to None \
+            in a_map from the returned Defaultionary, otherwise (by default) \
+            False to include them.
         :param kwargs: Mapping[str, Any] of values to add to self if needed
         """
-        if keep_empties:
-            for key, value in kwargs.items():
-                self.setdefault(key, value)
-        else:
+        if exclude_empties:
             for key, value in kwargs.items():
                 if self.get(key, None) is None:
                     self[key] = value
+        else:
+            for key, value in kwargs.items():
+                self.setdefault(key, value)
 
 
 class LazyDict(Defaultionary):
@@ -87,9 +90,21 @@ class LazyDict(Defaultionary):
     Keeps most core functionality of the Python dict type.
     """
 
+    def will_getdefault(self, key: Any, exclude_empties: bool = False
+                        ) -> bool:
+        """
+        :param key: Any
+        :param exclude_empties: bool, what to return if key is None.
+        :return: bool, True if key is "empty" (not mapped to a value in \
+            self, or mapped to None if exclude_empties)
+        """
+        return ((self.get(key, None) is None) if exclude_empties else
+                (key not in self))
+
     def lazyget(self, key: str, get_if_absent: Callable = noop,
                 getter_args: Iterable = list(),
-                getter_kwargs: Mapping = dict()) -> Any:
+                getter_kwargs: Mapping = dict(),
+                exclude_empties: bool = False) -> Any:
         """
         Return the value for key if key is in the dictionary, else return \
         the result of calling the `get_if_absent` parameter with args & \
@@ -98,10 +113,14 @@ class LazyDict(Defaultionary):
 
         :param key: str to use as a dict key to map to value
         :param get_if_absent: function that returns the default value
+        :param getter_args: Iterable[Any] of get_if_absent arguments
+        :param getter_kwargs: Mapping[Any] of get_if_absent keyword arguments
+        :param exclude_empties: bool, True to return \
+            get_if_absent(*getter_args, **getter_kwargs) if key is mapped to \
+            None in self; else (by default) False to return mapped value
         """
-        # return self[key] if self.get(key) is not None else \
-        return self[key] if key in self else \
-            get_if_absent(*getter_args, **getter_kwargs)
+        return get_if_absent(*getter_args, **getter_kwargs) if \
+            self.will_getdefault(key, exclude_empties) else self[key]
 
     def lazysetdefault(self, key: str, get_if_absent: Callable = noop,
                        getter_args: Iterable = list(),
@@ -116,13 +135,13 @@ class LazyDict(Defaultionary):
 
         :param key: str to use as a dict key to map to value
         :param get_if_absent: Callable, function to set & return default value
-        :param args: Unpacked Iterable[Any] of get_if_absent arguments
-        :param kwargs: Unpacked Mapping[Any] of get_if_absent keyword arguments
+        :param getter_args: Iterable[Any] of get_if_absent arguments
+        :param getter_kwargs: Mapping[Any] of get_if_absent keyword arguments
+        :param exclude_empties: bool, True to replace None mapped to key in \
+            self with get_if_absent(*getter_args, **getter_kwargs) and \
+            return that; else (by default) False to return the mapped value
         """
-        will_setdefault = (self.get(key, None) is None if exclude_empties
-                           else (key not in self))
-        # if key not in self:  # if self.get(key) is None:
-        if will_setdefault:
+        if self.will_getdefault(key, exclude_empties):
             self[key] = get_if_absent(*getter_args, **getter_kwargs)
         return self[key]
 
@@ -216,7 +235,7 @@ class DotDict(Defaultionary):
         self.update(state)
         self.__dict__ = self
 
-    def autodotdictify(self, replace: type = dict):
+    def homogenize(self, replace: type = dict):
         """ Recursively transform every dict contained inside this DotDict \
         into a DotDict itself, ensuring nested dot access to dict attributes.
         From https://gist.github.com/miku/dc6d06ed894bc23dfd5a364b7def5ed8
@@ -229,7 +248,8 @@ class DotDict(Defaultionary):
 
     def get_subset_from_lookups(self, to_look_up: Mapping[str, str],
                                 sep: str = ".", default: Any = None):
-        """ `self.lookups({"a": "b/c"}, sep="/") -> DotDict({"a": self.b.c})`
+        """ `self.get_subset_from_lookups({"a": "b/c"}, sep="/")` \
+            -> `DotDict({"a": self.b.c})`
 
         :param to_look_up: Mapping[str, str] of every key to put in the \
             returned DotDict to the path to its value in this DotDict (self)
@@ -297,7 +317,7 @@ class Configtionary(DotDict):  # TODO Add comments
         """ Initialize Configtionary from existing Mapping (*args) or from \
         new Mapping (**kwargs). """
         super().__init__(*args, **kwargs)
-        self.autodotdictify()
+        self.homogenize()
 
     @classmethod
     def from_configparser(cls, config: ConfigParser):
@@ -344,8 +364,9 @@ class Promptionary(LazyDict, Debuggable):
         super().__init__(*args, **kwargs)
 
     def get_or_prompt_for(self, key: str, prompt: str,
-                          prompt_fn: Callable = input) -> Any:
-        """Given a key, return the value mapped to it if one already exists; \
+                          prompt_fn: Callable = input,
+                          exclude_empties: bool = False) -> Any:
+        """ Return the value mapped to key in self if one already exists; \
         otherwise prompt the user to interactively provide it and return that.
 
         :param key: str mapped to the value to retrieve
@@ -353,13 +374,18 @@ class Promptionary(LazyDict, Debuggable):
         :param prompt_fn: Callable, function to interactively prompt the \
                           user to provide the value, such as `input` or \
                           `getpass.getpass`
+        :param exclude_empties: bool, True to return `prompt_fn(prompt)` if \
+            key is mapped to None in self; else (by default) False to return \
+            the mapped value instead
         :return: Any, the value mapped to key if one exists, else the value \
                  that the user interactively provided
         """
-        return self.lazyget(key, prompt_fn, [prompt])
+        return self.lazyget(key, prompt_fn, [prompt],
+                            exclude_empties=exclude_empties)
 
     def setdefault_or_prompt_for(self, key: str, prompt: str,
-                                 prompt_fn: Callable = input) -> Any:
+                                 prompt_fn: Callable = input,
+                                 exclude_empties: bool = False) -> Any:
         """ Return the value mapped to key in self if one already exists; \
         otherwise prompt the user to interactively provide it, store the \
         provided value by mapping it to key, and return that value.
@@ -369,15 +395,21 @@ class Promptionary(LazyDict, Debuggable):
         :param prompt_fn: Callable, function to interactively prompt the \
                           user to provide the value, such as `input` or \
                           `getpass.getpass`
+        :param exclude_empties: bool, True to replace None mapped to key in \
+            self with prompt_fn(prompt) and return that; else (by default) \
+            False to return the mapped value instead
         :return: Any, the value mapped to key if one exists, else the value \
                  that the user interactively provided
         """
-        return self.lazysetdefault(key, prompt_fn, [prompt])
+        return self.lazysetdefault(key, prompt_fn, [prompt],
+                                   exclude_empties=exclude_empties)
 
 
 class Bytesifier(Debuggable):
     """ Class with a method to convert objects into bytes without knowing \
-    what type those things are."""
+    what type those things are. """
+    DEFAULTS = dict(encoding=sys.getdefaultencoding(), length=1,
+                    byteorder="big", signed=False)
 
     @staticmethod
     def can_bytesify(an_object: Any) -> bool:
@@ -394,17 +426,19 @@ class Bytesifier(Debuggable):
         :raises AttributeError: if an_obj has no 'to_bytes' or 'encode' method
         :return: bytes, an_obj converted to bytes
         """
-        defaults = Defaultionary(**kwargs)
-        defaults.setdefaults(encoding="utf-8", length=1,
-                             byteorder="big", signed=False)
-        try:
-            bytesified = an_obj if isinstance(an_obj, bytes) else \
-                str.encode(an_obj, encoding=defaults.pop("encoding"))
-        except TypeError:
-            try:
+        defaults = Defaultionary(kwargs)
+        defaults.setdefaults(**self.DEFAULTS)
+        encoding = defaults.pop("encoding")
+        with KeepTryingUntilNoException(TypeError) as next_try:
+            with next_try():
+                bytesified = str.encode(an_obj, encoding=encoding)
+            with next_try():
                 bytesified = int.to_bytes(an_obj, **defaults)
-            except TypeError as err:
-                self.debug_or_raise(err, locals())
+            with next_try():
+                bytes.decode(an_obj, encoding=encoding)
+                bytesified = an_obj
+            with next_try():
+                self.debug_or_raise(next_try.errors[-1], locals())
         return bytesified
 
 
@@ -468,13 +502,18 @@ class Cryptionary(Promptionary, Bytesifier):
         self.encrypted.discard(key)
         del self[key]
 
-    def get(self, key: str, default: Any = None) -> Any:
-        """Return the (decrypted) value for key if key is in the Cryptionary,\
-           else return default.
+    def get(self, key: str, default: Any = None,
+            exclude_empties: bool = False) -> Any:
+        """ Return the (decrypted) value for key if key is in the \
+            Cryptionary, else return default.
 
         :param key: str, key mapped to the (encrypted) value to return
         :param default: Any, object to return if key is not in the Cryptionary
+        :param exclude_empties: bool, True to return default if key is \
+            mapped to None in self; else (by default) False to return \
+            mapped value instead
         :return: Any, (decrypted) value mapped to key in this Cryptionary if \
             any, else default
         """
-        return self[key] if key in self else default
+        return default if self.will_getdefault(key, exclude_empties) \
+            else self[key]

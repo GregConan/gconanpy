@@ -7,7 +7,7 @@ Overlaps significantly with:
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-03-26
+Updated: 2025-03-27
 """
 # Import standard libraries
 import builtins
@@ -285,10 +285,13 @@ def to_file_path(dir_path: str, file_name: str, file_ext: str = "",
 
 
 class ToString(str):
+    _S = TypeVar("_S")  # for truncate(...) function
+    Quotator = Callable[[Any], "ToString"]
     NoneType = type(None)
 
     def enclosed_by(self, affix: str):
-        return self.that_ends_with(affix).that_starts_with(affix)
+        return self.that_ends_with(affix).that_starts_with(affix) \
+            if len(self) else self.__class__(affix + affix)
 
     @classmethod
     def from_datetime(cls, moment: dt.date | dt.time | dt.datetime,
@@ -308,7 +311,9 @@ class ToString(str):
 
     @classmethod
     def from_iterable(cls, an_obj: Iterable, quote: str | None = "'",
-                      sep: str = ",", quote_numbers: bool = False):
+                      sep: str = ",", quote_numbers: bool = False,
+                      enclose_in: tuple[str, str] | None = ("[", "]"),
+                      max_len: int | None = None):
         """
 
         :param a_list: list[Any]
@@ -322,17 +327,20 @@ class ToString(str):
             if quote:
                 result = cls(an_obj).enclosed_by(quote)
         elif isinstance(an_obj, Iterable):  # TODO Refactor from LBYL to EAFP?
-            list_with_str_els = cls.quotate(*an_obj, quote=quote,
-                                            quote_numbers=quote_numbers)
+            list_with_str_els = cls.quotate(*an_obj, quote, quote_numbers,
+                                            max_len)
             if len(an_obj) > 2:
                 except_end = (sep + ' ').join(list_with_str_els[:-1])
                 result = f"{except_end}{sep} and {list_with_str_els[-1]}"
             else:
                 result = " and ".join(list_with_str_els)
+            if enclose_in:
+                result = f"{enclose_in[0]}{result}{enclose_in[1]}"
         return cls(result)
 
     @classmethod
-    def from_object(cls, an_obj: Any):  # TODO Make this __init__(self, an_obj) ?
+    # TODO Make this __init__(self, an_obj) ?
+    def from_object(cls, an_obj: Any, max_len: int | None = None):
         """ _summary_
 
         :param an_obj: None | str | SupportsBytes | dt.datetime | list, _description_
@@ -347,9 +355,9 @@ class ToString(str):
                 stringified = cls(an_obj, encoding=sys.getdefaultencoding(),
                                   errors="ignore")
             case builtins.dict:  # TODO case Mapping equivalent after builtins
-                stringified = cls.from_mapping(an_obj)
+                stringified = cls.from_mapping(an_obj, max_len=max_len)
             case builtins.list | builtins.set | builtins.tuple:
-                stringified = cls.from_iterable(an_obj)
+                stringified = cls.from_iterable(an_obj, max_len=max_len)
             case dt.date | dt.time | dt.datetime:
                 stringified = cls.from_datetime(an_obj)
             case cls.NoneType:
@@ -360,23 +368,34 @@ class ToString(str):
 
     @classmethod
     def from_mapping(cls, a_map: Mapping, quote: str | None = "'",
-                     quote_numbers: bool = False, join_on: str = "=",
-                     max_len: int = 100):
+                     quote_numbers: bool = False, join_on: str = ":",
+                     enclose_in: tuple[str, str] | None = ("{", "}"),
+                     sep: str = ",", max_len: int | None = None):
+        join_on = cls(join_on)
         quotate = cls.get_quotator(quote, quote_numbers)
-        return cls.from_iterable([truncate(join_on.join(
-            quotate(k), quotate(v)), max_len) for k, v in a_map.items()])
+        mappings = list()
+        for k, v in a_map.items():
+            v = quotate(v) if max_len is None else \
+                cls.from_object(v).truncate(max_len, quotate)
+            mappings.append(join_on.join(quotate(k), v))
+        return cls.from_iterable(mappings, None, sep, enclose_in=enclose_in)
 
     @classmethod
     def get_quotator(cls, quote: str | None = "'", quote_numbers:
-                     bool = False) -> Callable[[Any], "ToString"]:
+                     bool = False) -> Quotator:
         quotate = cls.quotate_number if quote_numbers else cls.quotate_obj
         return cls.from_object if not quote else lambda x: quotate(x, quote)
 
+    def join(self, *strings: str):
+        return self.__class__(str.join(self, strings))
+
     @classmethod
     def quotate(cls, *objects: Any, quote: str | None = "'",
-                quote_numbers: bool = False) -> list["ToString"]:
+                quote_numbers: bool = False, max_len: int | None = None
+                ) -> list["ToString"]:
         finish = cls.get_quotator(quote, quote_numbers)
-        return [finish(obj) for obj in objects]
+        return [finish(obj) if max_len is None else
+                finish(obj).truncate(max_len) for obj in objects]
 
     @classmethod
     def quotate_number(cls, a_num, quote: str = "'"):
@@ -395,6 +414,12 @@ class ToString(str):
     def that_starts_with(self, prefix: str):
         return self if self.startswith(prefix) \
             else self.__class__(prefix + self)
+
+    def truncate(self, max_len: int, quotate: Quotator | None = None,
+                 end_with: str = "..."):
+        truncated = self.__class__(self[:max_len] + end_with) \
+            if len(self) > max_len else self
+        return quotate(truncated) if quotate else truncated
 
 
 # Shorter names to export

@@ -4,7 +4,7 @@
 Iterator classes that break once they find what they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-19
-Updated: 2025-03-25
+Updated: 2025-03-27
 """
 # Import standard libraries
 import pdb
@@ -74,10 +74,6 @@ class BasicRange(Iterable):
     def has_next(self) -> bool:
         return self.not_yet_at(self.ix, self.end_ix)
 
-    @classmethod
-    def skip_to_end(cls, *args, **kwargs) -> Types.S:
-        return cls(*args, **kwargs).end()
-
 
 class RangeFinder(BasicRange):
     """ Iterator like range() except that it breaks out of the loop early \
@@ -103,10 +99,6 @@ class RangeFinder(BasicRange):
         """
         super().__init__(iter_over, start_at, end_at, step)
         self.item_is_ready = lambda x: found_if(x, *found_args)
-
-    @classmethod
-    def find(cls, *args, **kwargs):
-        return cls.skip_to_end(*args, **kwargs)
 
     def has_next(self) -> bool:
         return not self.item_is_ready(self[self.ix]) and \
@@ -232,17 +224,6 @@ class Whittler(PickyModifinder):
                          end_at, step)
         self.to_whittle = to_whittle
         self.whittle_next = lambda x, y: whittle(x, y, *whittle_args)
-
-    @classmethod
-    def whittle(cls, to_whittle: Types.T, iter_over: Sequence[Types.S],
-                whittle: Types.Whittler,
-                whittle_args: Iterable[Types.W] = list(),
-                ready_if: Types.Ready = is_not_none,
-                ready_args: Iterable[Types.R] = list(),
-                viable_if: Types.Whittled = len,
-                default: Types.D = None) -> Types.S | Types.D:
-        return cls.skip_to_end(to_whittle, iter_over, whittle, whittle_args,
-                               ready_if, ready_args, viable_if, default)
 
     def __getitem__(self, ix: int) -> Types.M:
         return self.whittle_next(self.to_whittle, self.to_iter[ix])
