@@ -237,6 +237,11 @@ class Peeler:
                 pass
             if fruit_lists and any(fruit_lists):
                 fruits = chain(fruit_lists)
+            try:
+                while len(fruits) == 1:
+                    fruits = fruits[0]
+            except (AttributeError, ValueError, TypeError):
+                pass
             if any([isinstance(x, list) for x in fruits]):
                 pdb.set_trace()
         return fruits
@@ -249,10 +254,10 @@ class Peeler:
 
     def peel_values_in(self, to_peel: Any) -> list:
         self.peeled.append(to_peel)
-        return chain([[self.peel(part) for part in value if part not in
+        return chain(*[[self.peel(part) for part in value if part not in
                        self.peeled and part != to_peel and part != value]
-                      for value in to_peel.values()
-                      if self.are_peelable(value) and value != to_peel])
+                       for value in to_peel.values()
+                       if self.are_peelable(value) and value != to_peel])
 
 
 class Xray(list):
