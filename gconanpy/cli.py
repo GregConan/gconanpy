@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 
 """
@@ -12,6 +11,12 @@ import argparse
 import os
 import pdb
 from typing import Callable, Any
+
+# Import local custom libraries
+try:
+    from metafunc import wrap_with_params
+except ModuleNotFoundError:
+    from gconanpy.metafunc import wrap_with_params
 
 
 # NOTE: Functions and classes below are in alphabetical order.
@@ -72,21 +77,6 @@ class ArgParser(argparse.ArgumentParser):
                   "one will be created. By default, the value for this "
                   f"argument will be `{default}`."),
         )
-
-
-def wrap_with_params(call: Callable, *args: Any, **kwargs: Any) -> Callable:
-    """
-    Define values to pass into a previously-defined function ("call"), and
-    return that function object wrapped with its new preset/default values
-    :param call: Callable, function to add preset/default parameter values to
-    :return: Callable, "call" with preset/default values for the 'args' and
-             'kwargs' parameters, so it only accepts one positional parameter
-    """
-    def wrapped(*fn_args: Any, **fn_kwargs: Any) -> Any:
-        fn_kwargs.update(kwargs)
-        # print(f"Calling {call.__name__}(*{args}, *{fn_args}, **{fn_kwargs})")
-        return call(*args, *fn_args, **fn_kwargs)
-    return wrapped
 
 
 class Valid:

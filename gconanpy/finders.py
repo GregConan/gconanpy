@@ -4,7 +4,7 @@
 Iterator classes that break once they find what they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-19
-Updated: 2025-03-27
+Updated: 2025-03-28
 """
 # Import standard libraries
 import pdb
@@ -12,10 +12,12 @@ from typing import Any, Callable, Iterable, Sequence
 
 # Import local custom libraries
 try:
-    from seq import is_not_none, noop
+    from metafunc import is_not_none, noop
+    from seq import insert_into
     from typevars import FinderTypes as Types
 except ModuleNotFoundError:
-    from gconanpy.seq import is_not_none, noop
+    from gconanpy.metafunc import is_not_none, noop
+    from gconanpy.seq import insert_into
     from gconanpy.typevars import FinderTypes as Types
 
 
@@ -79,8 +81,9 @@ class RangeFinder(BasicRange):
     """ Iterator like range() except that it breaks out of the loop early \
     if it finds an element that meets a specific condition. """
 
+    # TODO Add el_ix to RangeFinder descendants?
     def __init__(self, iter_over: Sequence[Types.S], found_if: Types.Found,
-                 found_args: Iterable[Types.F] = list(),
+                 found_args: Iterable[Types.F] = list(), el_ix: int = 0,
                  start_at: int = 0, end_at: int | None = None, step: int = 1
                  ) -> None:
         """ Iterator like range() except that it breaks out of the loop \
@@ -92,13 +95,16 @@ class RangeFinder(BasicRange):
             item is what we're looking for or False to continue iterating
         :param found_args: Iterable[F] of positional arguments to pass into \
             the found_if function after the iter_over item
+        :param el_ix: int, the index/position within found_args to place the \
+            next iter_over element at when calling found_if; defaults to 0
         :param start_at: int, iter_over index to begin at; defaults to 0
         :param end_at: int, iter_over index to stop at; defaults to \
             len(iter_over)
         :param step: int, increment to iterate iter_over by; defaults to 1
         """
         super().__init__(iter_over, start_at, end_at, step)
-        self.item_is_ready = lambda x: found_if(x, *found_args)
+        self.item_is_ready = lambda x: found_if(*insert_into(found_args,
+                                                             x, el_ix))
 
     def has_next(self) -> bool:
         return not self.item_is_ready(self[self.ix]) and \

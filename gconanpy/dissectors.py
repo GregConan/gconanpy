@@ -5,20 +5,21 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-26
+Updated: 2025-03-28
 """
 # Import standard libraries
 import pdb
-from typing import Any, Callable, Iterable, Mapping, Generator
+from typing import Any, Callable, Iterable, Iterator, Mapping, Generator, TypeVar
 
 # Import local custom libraries
 try:
-    from seq import are_all_equal, chain, nameof, stringify_list, uniqs_in
-    from skippers import KeepTryingUntilNoException
+    from debug import Debuggable
+    from metafunc import IgnoreExceptions, KeepTryingUntilNoException, nameof
+    from seq import are_all_equal, chain, stringify_list, uniqs_in
 except ModuleNotFoundError:
-    from gconanpy.seq import (are_all_equal, chain, nameof,
-                              stringify_list, uniqs_in)
-    from gconanpy.skippers import KeepTryingUntilNoException
+    from gconanpy.debug import Debuggable
+    from gconanpy.metafunc import IgnoreExceptions, KeepTryingUntilNoException, nameof
+    from gconanpy.seq import are_all_equal, chain, stringify_list, uniqs_in
 
 
 class DifferenceBetween:
@@ -186,78 +187,129 @@ class DifferenceBetween:
         return result
 
 
-class Peeler:
-    def __init__(self, max_peels: int = 1000):
-        self.max_peels = max_peels
-        self.peeled = list()
+def has_method(an_obj, method_name: str) -> bool:
+    return callable(getattr(an_obj, method_name, None))
 
-    def can_peel(self, an_obj: Any):
-        return not isinstance(an_obj, str) and \
-            not isinstance(an_obj, Callable) and \
-            not isinstance(an_obj, Generator) and \
-            an_obj not in self.peeled and an_obj and \
-            not (hasattr(an_obj, "__dict__") and
-                 an_obj.__dict__ in self.peeled)
 
-    def are_peelable(self, an_obj: Iterable) -> bool:
-        return isinstance(an_obj, Iterable) and self.can_peel(an_obj)
+class IteratorFactory:
+    _T = TypeVar("_T")
+    IGNORABLES = (AttributeError, IndexError, KeyError, TypeError, ValueError)
 
-    def core(self, to_peel: Iterable) -> Any:
+    @classmethod
+    def first_element_of(cls, an_obj: Iterable[_T] | _T) -> _T:
+        return next(cls.iterate(an_obj))
+
+    @classmethod
+    def iterate(cls, an_obj: Iterable[_T] | _T) -> Iterator[_T]:
+        with KeepTryingUntilNoException(*cls.IGNORABLES) as next_try:
+            with next_try():
+                iterator = iter(an_obj.values())
+            with next_try():
+                iterator = iter(an_obj)
+            with next_try():
+                iterator = iter([an_obj])
+        return iterator
+
+
+class Peeler(IteratorFactory):
+
+    @classmethod
+    def can_peel(cls, an_obj: Any) -> bool:
+        try:
+            return len(an_obj) == 1 and not has_method(an_obj, "strip")
+        except cls.IGNORABLES:
+            return False
+
+    @classmethod
+    def peel(self, to_peel: Iterable) -> Iterable:
+        while self.can_peel(to_peel):
+            to_peel = self.first_element_of(to_peel)
+        return to_peel
+
+
+class RollingPin(Peeler, Debuggable):
+    _T = TypeVar("_T")
+
+    def __init__(self, max_rolls: int = 1000, debugging: bool = False):
+        self.debugging: bool = debugging
+        self.max_rolls: int = max_rolls
+        self.num_rolls: int = 0
+
+    def can_flatten(self, an_obj: Any) -> bool:
+        return an_obj and self.num_rolls < self.max_rolls \
+            and isinstance(an_obj, Iterable) \
+            and not has_method(an_obj, "strip") \
+            and not callable(an_obj) \
+            and not isinstance(an_obj, Generator)
+
+    def can_flatten_all(self, an_obj: Iterable) -> bool:
+        try:
+            return all(self.can_flatten(part) for part in an_obj)
+        except self.IGNORABLES:
+            return False
+
+    def chain(self, iterables: Iterable[Iterable[_T]]) -> Iterable[_T]:
+        return self.peel([x for x in chain(iterables)]) \
+            if self.can_flatten_all(iterables) else iterables
+
+    def flatten(self, an_obj: Any) -> list:
+        flattened = [an_obj]
+        parts = list()
+        if self.can_flatten(an_obj):
+            an_obj = self.peel(an_obj)
+            with IgnoreExceptions(*self.IGNORABLES):
+                parts += self.flatten(an_obj.__dict__)
+            if self.can_flatten(an_obj):
+                for part in an_obj:
+                    self.num_rolls += 1
+                    with IgnoreExceptions(*self.IGNORABLES):
+                        parts.append(self.flatten(part))
+            with IgnoreExceptions(*self.IGNORABLES):
+                parts += self.flatten_values_in(an_obj)
+            if any(parts):
+                flattened = self.chain(parts)
+        return self.peel(flattened)
+
+    def flatten_values_in(self, an_obj: Any) -> list:
+        an_obj = self.peel(an_obj)
+        flattened = list()
+        for value in an_obj.values():
+            try:
+                while self.can_flatten(value):
+                    value = self.flatten(value)
+                    self.num_rolls += 1
+                flattened.append(value)
+            except self.IGNORABLES as err:
+                pdb.set_trace()
+                print()
+        self.num_rolls += 1
+        return self.chain(flattened)
+
+
+class Corer(RollingPin):
+
+    def core(self, to_core: Iterable) -> Any:
         """ Extract the biggest (longest) datum from a nested data structure.
 
-        :param to_peel: Iterable, especially a nested container data structure
-        :return: Any, the longest datum buried in to-peel's nested layers
+        :param to_core: Iterable, especially a nested container data structure
+        :return: Any, the longest datum buried in to_core's nested layers
         """
-        fruits = self.peel(to_peel)
-        if len(fruits) > 1:
-            sizes = [len(f) for f in fruits]
-            biggest = fruits[sizes.index(max(sizes))]
-        else:
-            biggest = fruits[0]
-        return biggest
-
-    def peel(self, to_peel: Any) -> list:
-        fruits = [to_peel]
-        fruit_lists = list()
-        if to_peel not in self.peeled and len(self.peeled) < self.max_peels:
-            self.peeled.append(to_peel)
-            with KeepTryingUntilNoException() as next_try:
-                with next_try():
-                    if not to_peel.strip():
-                        fruits = list()
-                with next_try():
-                    fruit_lists = self.peel_values_in(to_peel.__dict__)
-                with next_try():
-                    if self.are_peelable(to_peel):
-                        fruit_lists = [self.peel(v) for v in to_peel
-                                       if v not in self.peeled]
-            try:
-                fruit_lists += self.peel_values_in(to_peel)
-            except (AttributeError, ValueError, TypeError):
-                pass
-            if fruit_lists and any(fruit_lists):
-                fruits = chain(fruit_lists)
-            try:
-                while len(fruits) == 1:
-                    fruits = fruits[0]
-            except (AttributeError, ValueError, TypeError):
-                pass
-            if any([isinstance(x, list) for x in fruits]):
-                pdb.set_trace()
-        return fruits
-
-    @staticmethod
-    def peel_dict(a_dict: Mapping) -> Mapping:
-        while len(a_dict.keys()) < 2:
-            _, a_dict = a_dict.popitem()
-        return a_dict
-
-    def peel_values_in(self, to_peel: Any) -> list:
-        self.peeled.append(to_peel)
-        return chain(*[[self.peel(part) for part in value if part not in
-                       self.peeled and part != to_peel and part != value]
-                       for value in to_peel.values()
-                       if self.are_peelable(value) and value != to_peel])
+        try:
+            parts = self.flatten(to_core)
+            if len(parts) > 1:
+                sizes = list()
+                for part in parts:
+                    try:
+                        part_size = len(part)
+                    except self.IGNORABLES:
+                        part_size = 1
+                    sizes.append(part_size)
+                biggest = parts[sizes.index(max(sizes))]
+            else:
+                biggest = parts[0]
+            return biggest
+        except self.IGNORABLES as err:
+            self.debug_or_raise(err, locals())
 
 
 class Xray(list):
@@ -265,7 +317,7 @@ class Xray(list):
     Extremely convenient for interactive debugging."""
 
     def __init__(self, an_obj: Any, list_its: str | None = None) -> None:
-        """ Given any object, easily check what kinds of things it contains. 
+        """ Given any object, easily check what kinds of things it contains.
 
         :param an_obj: Any
         :param list_its: str, which detail of an_obj to list.\
@@ -296,8 +348,7 @@ class Xray(list):
 
         if not list_its:
             list_its = what_elements_are
-        self.what_elements_are = \
-            f"{nameof(an_obj)} {list_its if list_its else what_elements_are}"
+        self.what_elements_are = f"{nameof(an_obj)} {list_its if list_its else what_elements_are}"
 
         try:
             gotten = uniqs_in(gotten)

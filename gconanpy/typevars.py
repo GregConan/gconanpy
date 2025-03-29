@@ -4,7 +4,7 @@
 Classes and metaclasses to define generic types in other classes
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-25
-Updated: 2025-03-25
+Updated: 2025-03-28
 """
 # Import standard libraries
 from abc import ABC
@@ -13,9 +13,9 @@ from typing import Any, Callable, TypeVar
 
 # Import local custom libraries
 try:
-    from seq import find_an_attr_in
+    from metafunc import find_an_attr_in
 except ModuleNotFoundError:
-    from gconanpy.seq import find_an_attr_in
+    from gconanpy.metafunc import find_an_attr_in
 
 
 class BoolableMeta(type):  # https://realpython.com/python-interface/

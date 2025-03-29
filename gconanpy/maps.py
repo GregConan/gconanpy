@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-27
+Updated: 2025-03-28
 """
 # Import standard libraries
 from configparser import ConfigParser
@@ -19,13 +19,11 @@ from cryptography.fernet import Fernet
 try:
     from debug import Debuggable
     from dissectors import Xray
-    from seq import nameof, noop
-    from skippers import KeepTryingUntilNoException
+    from metafunc import KeepTryingUntilNoException, nameof, noop
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
     from gconanpy.dissectors import Xray
-    from gconanpy.seq import nameof, noop
-    from gconanpy.skippers import KeepTryingUntilNoException
+    from gconanpy.metafunc import KeepTryingUntilNoException, nameof, noop
 
 
 class Explictionary(dict):
@@ -90,16 +88,22 @@ class LazyDict(Defaultionary):
     Keeps most core functionality of the Python dict type.
     """
 
-    def will_getdefault(self, key: Any, exclude_empties: bool = False
-                        ) -> bool:
+    def get(self, key: str, default: Any = None,
+            exclude_empties: bool = False) -> Any:
+        """ Return the value mapped to key in this LazyDict, if any; \
+        else return default. Explicitly defined to add exclude_empties \
+        option to dict.get.
+
+        :param key: str, key mapped to the value to return
+        :param default: Any, object to return if key is not in the Cryptionary
+        :param exclude_empties: bool, True to return default if key is \
+            mapped to None in self; else (by default) False to return \
+            mapped value instead
+        :return: Any, (decrypted) value mapped to key in this Cryptionary if \
+            any, else default
         """
-        :param key: Any
-        :param exclude_empties: bool, what to return if key is None.
-        :return: bool, True if key is "empty" (not mapped to a value in \
-            self, or mapped to None if exclude_empties)
-        """
-        return ((self.get(key, None) is None) if exclude_empties else
-                (key not in self))
+        return default if self.will_getdefault(key, exclude_empties) \
+            else self[key]
 
     def lazyget(self, key: str, get_if_absent: Callable = noop,
                 getter_args: Iterable = list(),
@@ -144,6 +148,17 @@ class LazyDict(Defaultionary):
         if self.will_getdefault(key, exclude_empties):
             self[key] = get_if_absent(*getter_args, **getter_kwargs)
         return self[key]
+
+    def will_getdefault(self, key: Any, exclude_empties: bool = False
+                        ) -> bool:
+        """
+        :param key: Any
+        :param exclude_empties: bool, what to return if key is None.
+        :return: bool, True if key is "empty" (not mapped to a value in \
+            self, or mapped to None if exclude_empties)
+        """
+        return ((self.get(key, None) is None) if exclude_empties else
+                (key not in self))
 
 
 class DotDict(Defaultionary):
@@ -235,17 +250,6 @@ class DotDict(Defaultionary):
         self.update(state)
         self.__dict__ = self
 
-    def homogenize(self, replace: type = dict):
-        """ Recursively transform every dict contained inside this DotDict \
-        into a DotDict itself, ensuring nested dot access to dict attributes.
-        From https://gist.github.com/miku/dc6d06ed894bc23dfd5a364b7def5ed8
-
-        :param replace: type of element/child/attribute to change to DotDict.
-        """
-        for k, v in self.items():
-            if isinstance(v, replace) and not isinstance(v, self.__class__):
-                self[k] = self.__class__(v)
-
     def get_subset_from_lookups(self, to_look_up: Mapping[str, str],
                                 sep: str = ".", default: Any = None):
         """ `self.get_subset_from_lookups({"a": "b/c"}, sep="/")` \
@@ -262,6 +266,17 @@ class DotDict(Defaultionary):
         """
         return self.__class__({key: self.lookup(path, sep, default)
                                for key, path in to_look_up.items()})
+
+    def homogenize(self, replace: type = dict):
+        """ Recursively transform every dict contained inside this DotDict \
+        into a DotDict itself, ensuring nested dot access to dict attributes.
+        From https://gist.github.com/miku/dc6d06ed894bc23dfd5a364b7def5ed8
+
+        :param replace: type of element/child/attribute to change to DotDict.
+        """
+        for k, v in self.items():
+            if isinstance(v, replace) and not isinstance(v, self.__class__):
+                self[k] = self.__class__(v)
 
     def is_ready_to(self, alter: str, attribute_name: str) -> bool:
         """ Check whether a given attribute of self is protected, if it's\
@@ -443,10 +458,10 @@ class Bytesifier(Debuggable):
 
 
 class Cryptionary(Promptionary, Bytesifier):
-    """ Extended LazyDict that automatically encrypts values before storing \
-    them and automatically decrypts values before returning them. Created to \
-    store user credentials slightly more securely, and reduce the likelihood \
-    of accidentally exposing them. """
+    """ Extended Promptionary that automatically encrypts values before \
+    storing them and automatically decrypts values before returning them.
+    Created to store user credentials slightly more securely, and to \
+    slightly reduce the likelihood of accidentally exposing them. """
 
     def __init__(self, from_map: Mapping = dict(),
                  debugging: bool = False, **kwargs):
@@ -501,19 +516,3 @@ class Cryptionary(Promptionary, Bytesifier):
         """
         self.encrypted.discard(key)
         del self[key]
-
-    def get(self, key: str, default: Any = None,
-            exclude_empties: bool = False) -> Any:
-        """ Return the (decrypted) value for key if key is in the \
-            Cryptionary, else return default.
-
-        :param key: str, key mapped to the (encrypted) value to return
-        :param default: Any, object to return if key is not in the Cryptionary
-        :param exclude_empties: bool, True to return default if key is \
-            mapped to None in self; else (by default) False to return \
-            mapped value instead
-        :return: Any, (decrypted) value mapped to key in this Cryptionary if \
-            any, else default
-        """
-        return default if self.will_getdefault(key, exclude_empties) \
-            else self[key]

@@ -7,7 +7,7 @@ Overlaps significantly with:
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-03-27
+Updated: 2025-03-28
 """
 # Import standard libraries
 import builtins
@@ -27,7 +27,7 @@ import pandas as pd
 import pathvalidate
 import regex
 
-# Constant: TypeVar for chain(...) function
+# Constant: TypeVar for chain(...) and insert_into(...) functions
 T = TypeVar("T")
 
 # NOTE All functions/classes below are in alphabetical order.
@@ -108,25 +108,9 @@ def extract_parentheticals_from(txt: str) -> list[Any]:
     return regex.findall(r"\((?:[^()]+|(?R))*+\)", txt)
 
 
-def find_an_attr_in(attrs_of: Any, attr_names: Iterable[str], default:
-                    Any = None, method_names: set[str] = set()) -> Any:
-    found_attr = default
-    ix = 0
-    while ix + 1 < len(attr_names) and not hasattr(attrs_of,
-                                                   attr_names[ix]):
-        ix += 1
-    try:
-        name = attr_names[ix]
-        found_attr = getattr(attrs_of, name, default)
-        if name in method_names:
-            found_attr = found_attr()
-    except (AttributeError, IndexError, TypeError):
-        pass
-    return found_attr
-
-
-# Mostly to use as default value of input parameters in class methods
-def is_not_none(x: Any) -> bool: return x is not None
+def insert_into(a_seq: Sequence[T], item: T, at_ix: int) -> list[T]:
+    # TODO items: Iterable[T] ?
+    return [*a_seq[:at_ix], item, *a_seq[at_ix:]]
 
 
 def link_to_markdown(a_string: str, a_URL: str) -> str:
@@ -148,15 +132,6 @@ def markdown_to_link(md_link_text: str) -> tuple[str, str]:
     return md_link_text[1:-1].split("](")
 
 
-def nameof(an_obj: Any) -> str:
-    """ Get the `__name__` of an object or of its type/class.
-
-    :param an_obj: Any
-    :return: str naming an_obj, usually its type/class name.
-    """
-    return getattr(an_obj, "__name__", type(an_obj).__name__)
-
-
 def nan_rows_in(a_df: pd.DataFrame) -> pd.DataFrame:
     """ 
     :param a_df: pd.DataFrame
@@ -164,14 +139,6 @@ def nan_rows_in(a_df: pd.DataFrame) -> pd.DataFrame:
              value in for at least 1 a_df column
     """
     return a_df[a_df.isna().any(axis=1)]
-
-
-def noop(*_args: Any, **_kwargs: Any) -> None:  # TODO Move somewhere more apt
-    """Do nothing. Convenient to use as a default callable function parameter.
-
-    :return: None
-    """
-    pass  # or `...`
 
 
 def parentheticals_in(txt: str) -> Generator[regex.Match[str], None, None]:
