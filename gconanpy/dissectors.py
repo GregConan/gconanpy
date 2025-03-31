@@ -5,20 +5,25 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-28
+Updated: 2025-03-30
 """
 # Import standard libraries
 import pdb
-from typing import Any, Callable, Iterable, Iterator, Mapping, Generator, TypeVar
+from typing import (Any, Callable, Hashable, Iterable, Iterator, Mapping,
+                    Generator, SupportsFloat, TypeVar)
 
 # Import local custom libraries
 try:
     from debug import Debuggable
-    from metafunc import IgnoreExceptions, KeepTryingUntilNoException, nameof
+    from maps import Defaultionary
+    from metafunc import (has_method, IgnoreExceptions,
+                          KeepTryingUntilNoException, nameof)
     from seq import are_all_equal, chain, stringify_list, uniqs_in
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
-    from gconanpy.metafunc import IgnoreExceptions, KeepTryingUntilNoException, nameof
+    from gconanpy.maps import Defaultionary
+    from gconanpy.metafunc import (has_method, IgnoreExceptions,
+                                   KeepTryingUntilNoException, nameof)
     from gconanpy.seq import are_all_equal, chain, stringify_list, uniqs_in
 
 
@@ -187,10 +192,6 @@ class DifferenceBetween:
         return result
 
 
-def has_method(an_obj, method_name: str) -> bool:
-    return callable(getattr(an_obj, method_name, None))
-
-
 class IteratorFactory:
     _T = TypeVar("_T")
     IGNORABLES = (AttributeError, IndexError, KeyError, TypeError, ValueError)
@@ -216,9 +217,10 @@ class Peeler(IteratorFactory):
     @classmethod
     def can_peel(cls, an_obj: Any) -> bool:
         try:
-            return len(an_obj) == 1 and not has_method(an_obj, "strip")
+            is_peelable = len(an_obj) == 1 and not has_method(an_obj, "strip")
         except cls.IGNORABLES:
-            return False
+            is_peelable = False
+        return is_peelable
 
     @classmethod
     def peel(self, to_peel: Iterable) -> Iterable:
@@ -230,8 +232,10 @@ class Peeler(IteratorFactory):
 class RollingPin(Peeler, Debuggable):
     _T = TypeVar("_T")
 
-    def __init__(self, max_rolls: int = 1000, debugging: bool = False):
+    def __init__(self, max_rolls: int = 1000, debugging: bool = False,
+                 exclude: Iterable[Hashable] = set()):
         self.debugging: bool = debugging
+        self.exclude_keys: set = set(exclude)
         self.max_rolls: int = max_rolls
         self.num_rolls: int = 0
 
@@ -253,42 +257,44 @@ class RollingPin(Peeler, Debuggable):
             if self.can_flatten_all(iterables) else iterables
 
     def flatten(self, an_obj: Any) -> list:
+        an_obj = self.peel(an_obj)
         flattened = [an_obj]
         parts = list()
-        if self.can_flatten(an_obj):
-            an_obj = self.peel(an_obj)
-            with IgnoreExceptions(*self.IGNORABLES):
-                parts += self.flatten(an_obj.__dict__)
-            if self.can_flatten(an_obj):
-                for part in an_obj:
+        with IgnoreExceptions(*self.IGNORABLES):
+            parts += self.flatten_map(an_obj.__dict__)
+        with KeepTryingUntilNoException(*self.IGNORABLES) as next_try:
+            with next_try():
+                parts += self.flatten_map(an_obj)
+            with next_try():
+                if self.can_flatten(an_obj):
+                    parts += self.chain([self.flatten(part)
+                                         for part in an_obj])
                     self.num_rolls += 1
-                    with IgnoreExceptions(*self.IGNORABLES):
-                        parts.append(self.flatten(part))
-            with IgnoreExceptions(*self.IGNORABLES):
-                parts += self.flatten_values_in(an_obj)
-            if any(parts):
-                flattened = self.chain(parts)
-        return self.peel(flattened)
+        if any(parts):
+            flattened = self.chain(parts)
+        return flattened
 
-    def flatten_values_in(self, an_obj: Any) -> list:
-        an_obj = self.peel(an_obj)
-        flattened = list()
-        for value in an_obj.values():
-            try:
-                while self.can_flatten(value):
-                    value = self.flatten(value)
-                    self.num_rolls += 1
-                flattened.append(value)
-            except self.IGNORABLES as err:
-                pdb.set_trace()
-                print()
+    def flatten_map(self, a_map: Mapping):
+        if self.exclude_keys:
+            include_keys = set(a_map.keys()) - self.exclude_keys
+            a_map = Defaultionary.from_subset_of(a_map, *include_keys,
+                                                 exclude_empties=False)
+        flattened = self.flatten(a_map.values())
         self.num_rolls += 1
-        return self.chain(flattened)
+        return flattened
+
+    def peel(self, to_peel: Any) -> Any:
+        while self.can_peel(to_peel):
+            to_peel = self.first_element_of(to_peel)
+            self.num_rolls += 1
+        return to_peel
 
 
 class Corer(RollingPin):
+    Comparer = Callable[[Any], SupportsFloat]
 
-    def core(self, to_core: Iterable) -> Any:
+    def core(self, to_core: Iterable, default: Any = None,
+             compare_their: Comparer = len) -> Any:
         """ Extract the biggest (longest) datum from a nested data structure.
 
         :param to_core: Iterable, especially a nested container data structure
@@ -296,17 +302,20 @@ class Corer(RollingPin):
         """
         try:
             parts = self.flatten(to_core)
-            if len(parts) > 1:
-                sizes = list()
-                for part in parts:
-                    try:
-                        part_size = len(part)
-                    except self.IGNORABLES:
-                        part_size = 1
-                    sizes.append(part_size)
-                biggest = parts[sizes.index(max(sizes))]
-            else:
-                biggest = parts[0]
+            match len(parts):
+                case 0:
+                    biggest = default
+                case 1:
+                    biggest = parts[0]
+                case _:
+                    sizes = list()
+                    for part in parts:
+                        try:
+                            part_size = compare_their(part)
+                        except self.IGNORABLES:
+                            part_size = 1
+                        sizes.append(part_size)
+                    biggest = parts[sizes.index(max(sizes))]
             return biggest
         except self.IGNORABLES as err:
             self.debug_or_raise(err, locals())

@@ -33,23 +33,27 @@ T = TypeVar("T")
 # NOTE All functions/classes below are in alphabetical order.
 
 
-def are_all_equal(comparables: Iterable) -> bool:
+def are_all_equal(comparables: Iterable[T], equality: str = "__eq__") -> bool:
     """ `are_all_equal([x, y, z])` means `x == y == z`.
+    `are_all_equal({x, y}, "is_like")` means `x.is_like(y) and y.is_like(x)`.
+    `are_all_equal([w, x, y, z], "__ne__")` means `w != x != y != z`. Etc.
 
-    :param comparables: Iterable of objects to check for equality.
-    :return: bool, True if every item in comparables is equal to every
-                other item, otherwise False.
+    :param comparables: Iterable of objects to compare.
+    :param equality: str naming the method of every item in comparables to \
+        call on every other item. Defaults to "__eq__" (i.e., `==`).
+    :return: bool, True if calling the `equality` method attribute of every \
+        item in comparables on every other item always returns True; \
+        otherwise False.
     """
-    are_equal = True
-    looping = True
+    are_same = None
     combos_iter = itertools.combinations(comparables, 2)
-    while looping and are_equal:
+    while are_same is None:
         next_pair = next(combos_iter, None)
         if not next_pair:  # is None:
-            looping = False
-        elif next_pair[0] != next_pair[1]:
-            are_equal = False
-    return are_equal
+            are_same = True
+        elif not getattr(next_pair[0], equality)(next_pair[1]):
+            are_same = False
+    return are_same
 
 
 def as_HTTPS_URL(*parts: str, **url_params: Any) -> str:

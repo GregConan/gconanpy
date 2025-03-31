@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-28
+Updated: 2025-03-30
 """
 # Import standard libraries
 from configparser import ConfigParser
@@ -18,11 +18,9 @@ from cryptography.fernet import Fernet
 # Import local custom libraries
 try:
     from debug import Debuggable
-    from dissectors import Xray
     from metafunc import KeepTryingUntilNoException, nameof, noop
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
-    from gconanpy.dissectors import Xray
     from gconanpy.metafunc import KeepTryingUntilNoException, nameof, noop
 
 

@@ -4,7 +4,7 @@
 Functions/classes to manipulate, or be manipulated by, functions/classes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-03-28
+Updated: 2025-03-30
 """
 # Import standard libraries
 import pdb
@@ -26,6 +26,10 @@ def find_an_attr_in(attrs_of: Any, attr_names: Iterable[str], default:
     except (AttributeError, IndexError, TypeError):
         pass
     return found_attr
+
+
+def has_method(an_obj, method_name: str) -> bool:
+    return callable(getattr(an_obj, method_name, None))
 
 
 # Mostly to use as default value of input parameters in class methods

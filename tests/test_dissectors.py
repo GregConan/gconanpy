@@ -1,58 +1,42 @@
 #!/usr/bin/env python3
 
 """
-Classes to inspect/examine/unwrap complex/nested data structures.
-Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-03-28
+Updated: 2025-03-30
 """
-
 # Import local custom libraries
-from gconanpy.debug import *
-from gconanpy.dissectors import *
-from gconanpy.finders import *
-from gconanpy.maps import *
-from gconanpy.seq import *
+from gconanpy.dissectors import Corer, RollingPin
+from tests.testers import Tester
 
 
-class Tester(Debuggable):
-    def __init__(self, debugging: bool = False):
-        self.debugging = debugging
+class TestDissectors(Tester):
+    def test_1(self):
+        self.add_basics()
+        corer = Corer()
+        cored = corer.core(self.adict)
+        self.check_result(cored, 1)
 
-        self.adict = dict(a=1, b=2, c=3)
-        self.alist = [1, 2, 3, 4, 5]
-        self.bytes_nums = b'7815 11461 11468 11507 11516 17456 17457 17460'
-
-    def test1(self):
+    def test_2(self):
+        self.add_basics()
         rolled = RollingPin().flatten(('OK', [self.bytes_nums]))
         self.check_result(rolled, ['OK', self.bytes_nums])
 
-    def test2(self):
-        self.cli_args = DotDict({"address": None, "password": "my_password",
-                                 "debugging": True, "a dict": self.adict,
-                                 "a list": [*self.alist, Peeler],
-                                 "bytes_nums": self.bytes_nums})
-        self.cli_args.creds = Cryptionary.from_subset_of(
-            self.cli_args, "address", "debugging", "password",
-            exclude_empties=True)
-        cored = Corer(debugging=True).core(self.cli_args)
+    def test_3(self):
+        self.add_cli_args()
+        cored = Corer(exclude={"__doc__"}).core(self.cli_args)
         self.check_result(cored, self.bytes_nums)
 
-    def check_result(self, result, expected_result):
-        succeeded = result == expected_result
-        msg = f"`{expected_result}` {'=' if succeeded else '!'}= `{result}`"
-        if succeeded:
-            print(msg)
-        else:
-            self.debug_or_raise(ValueError(msg), locals())
-
-
-def main():
-    tester = Tester(debugging=True)
-    tester.test1()
-    tester.test2()
-
-
-if __name__ == "__main__":
-    main()
+    def test_4(self):
+        emailmsg = ['OK', [(  # Same structure as an IMAP message received
+            b"12345 (RFC822 {123456}", b"Delivered-To: test@test.com\r\n"
+            b"Received: by 1234:a01:1234:321a:a7:123:abcd:wxyz with SMTP id "
+            b"a0b1c2d3e4f5g6h7;\r\n        Sat, 20 Apr 2069 04:20:52 -0700 "
+            b"(PDT)\r\nX-Google-Smtp-Source: AGHT+ABCDEFGHIJKLMNOPQRSTUVWXYZ0"
+            b"+abcdefghijklmnopqrstu+vwxyz123/1234567890xD\r\nX-Received: by "
+            b"4321:a05:9876:5432:h8:6x9:420c:4hi7 with SMTP id 1234567890xyz"
+            b"-a0b1c2d3e4f5g6h7i8j9k0l.42.1234567890123;\r\n        Sat, 20 "
+            b"Apr 2069 04:44:52 -0700 (PDT)\r\nARC-Seal: i=1; a=rsa-sha256; "
+            b"t=1234567890; cv=none;\r\n        d=googl"), b")"]]
+        cored = Corer(exclude={"__doc__"}).core(emailmsg)
+        self.check_result(cored, emailmsg[1][0][1])

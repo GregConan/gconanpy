@@ -4,7 +4,7 @@
 Classes and metaclasses to define generic types in other classes
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-25
-Updated: 2025-03-28
+Updated: 2025-03-30
 """
 # Import standard libraries
 from abc import ABC
