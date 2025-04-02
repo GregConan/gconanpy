@@ -115,10 +115,10 @@ class Modifinder(RangeFinder):
     def __init__(self, iter_over: Sequence[Types.S], modify: Types.Modify,
                  modify_args: Iterable[Types.X] = list(),
                  found_if: Types.Found = is_not_none,
-                 found_args: Iterable[Types.F] = list(),
+                 found_args: Iterable[Types.F] = list(), el_ix: int = 0,
                  start_at: int = 0, end_at: int | None = None, step: int = 1
                  ) -> None:
-        super().__init__(iter_over, found_if, found_args,
+        super().__init__(iter_over, found_if, found_args, el_ix,
                          start_at, end_at, step)
         self.modify = lambda x: modify(x, *modify_args)
 
@@ -131,11 +131,11 @@ class TryExceptifinder(Modifinder):
                  modify_args: Iterable[Types.X] = list(),
                  found_if: Types.Found = is_not_none,
                  found_args: Iterable[Types.F] = list(),
-                 default: Types.D = None, start_at: int = 0,
-                 end_at: int | None = None, step: int = 1,
+                 el_ix: int = 0, default: Types.D = None,
+                 start_at: int = 0, end_at: int | None = None, step: int = 1,
                  catch: Iterable[type] = Types.Errors) -> None:
         super().__init__(iter_over, modify, modify_args, found_if,
-                         found_args, start_at, end_at, step)
+                         found_args, el_ix, start_at, end_at, step)
         self.errs = catch
         self.prev_item = default  # iter_over[start_at]
 
@@ -158,7 +158,7 @@ class PickyModifinder(Modifinder):
                  found_if: Types.Found = is_not_none,
                  found_args: Iterable[Types.F] = list(),
                  viable_if: Types.Viable = is_not_none,
-                 default: Types.D = None, start_at: int = 0,
+                 el_ix: int = 0, default: Types.D = None, start_at: int = 0,
                  end_at: int | None = None, step: int = 1) -> None:
         """
         _summary_
@@ -175,7 +175,7 @@ class PickyModifinder(Modifinder):
         :param step: int, increment to iterate iter_over by; defaults to 1
         """
         super().__init__(iter_over, modify, modify_args,
-                         found_if, found_args, start_at, end_at, step)
+                         found_if, found_args, el_ix, start_at, end_at, step)
         self.prev_item = default  # iter_over[start_at]
 
         def is_viable(x):
@@ -197,7 +197,7 @@ class Whittler(PickyModifinder):
                  whittle: Types.Whittler,
                  whittle_args: Iterable[Types.W] = list(),
                  ready_if: Types.Ready = is_not_none,
-                 ready_args: Iterable[Types.R] = list(),
+                 ready_args: Iterable[Types.R] = list(), el_ix: int = 0,
                  viable_if: Types.Whittled = len,
                  default: Types.D = None, start_at: int = 0,
                  end_at: int | None = None, step: int = 1) -> None:
@@ -226,7 +226,7 @@ class Whittler(PickyModifinder):
             until is_viable(to_whittle) and is_ready(to_whittle).
         """
         super().__init__(iter_over, whittle, whittle_args, ready_if,
-                         ready_args, viable_if, default, start_at,
+                         ready_args, el_ix, viable_if, default, start_at,
                          end_at, step)
         self.to_whittle = to_whittle
         self.whittle_next = lambda x, y: whittle(x, y, *whittle_args)

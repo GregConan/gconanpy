@@ -4,12 +4,12 @@
 Classes and metaclasses to define generic types in other classes
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-25
-Updated: 2025-03-30
+Updated: 2025-04-01
 """
 # Import standard libraries
 from abc import ABC
 import pdb
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, Hashable, Iterable, TypeVar
 
 # Import local custom libraries
 try:
@@ -35,6 +35,33 @@ class BoolableMeta(type):  # https://realpython.com/python-interface/
 
 class Boolable(metaclass=BoolableMeta):
     ...
+
+
+class CanIgnoreCertainErrors:
+    IGNORABLES = (AttributeError, IndexError, KeyError, TypeError, ValueError)
+
+
+class DifferTypes(ABC):
+    # TODO Figure out standard way to centralize, reuse, & document TypeVars?
+    """ Type vars to specify which dissecators.DifferenceBetween class's \
+    methods' input arguments need to be the same type/class as which other(s).
+
+    :param Diff: Any, _description_
+    :param ToCompare: Any, _description_
+    :param PartName: Hashable, _description_
+    :param GetComparator: Callable[[ToCompare], Diff], _description_
+    :param GetPartNames: Callable[[ToCompare], Iterable[PartName]], _description_
+    :param GetSubcomparator: Callable[[ToCompare, PartName], Diff], _description_
+    :return: _type_, _description_
+    """
+    Diff = TypeVar("Diff")
+    ToCompare = TypeVar("ToCompare")
+    PartName = TypeVar("ToSubCompare", bound=Hashable)
+    GetComparator = TypeVar("Comparator", bound=Callable[[ToCompare], Diff])
+    GetPartNames = TypeVar("GetPartNames",
+                           bound=Callable[[ToCompare], Iterable[PartName]])
+    GetSubcomparator = TypeVar("Subcomparator",
+                               bound=Callable[[ToCompare, PartName], Diff])
 
 
 class FinderTypes(ABC):

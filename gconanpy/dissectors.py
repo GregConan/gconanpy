@@ -5,33 +5,37 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-30
+Updated: 2025-04-01
 """
 # Import standard libraries
 import pdb
-from typing import (Any, Callable, Hashable, Iterable, Iterator, Mapping,
-                    Generator, SupportsFloat, TypeVar)
+from typing import (Any, Callable, Hashable, Iterable, Iterator,
+                    SupportsFloat, TypeVar)
 
 # Import local custom libraries
 try:
     from debug import Debuggable
-    from maps import Defaultionary
-    from metafunc import (has_method, IgnoreExceptions,
+    from metafunc import (get_item_of, has_method, IgnoreExceptions,
                           KeepTryingUntilNoException, nameof)
-    from seq import are_all_equal, chain, stringify_list, uniqs_in
+    from seq import (are_all_equal, differentiate_sets,
+                     get_key_set, stringify_list, uniqs_in)
+    from typevars import CanIgnoreCertainErrors, DifferTypes as Typ
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
-    from gconanpy.maps import Defaultionary
-    from gconanpy.metafunc import (has_method, IgnoreExceptions,
+    from gconanpy.metafunc import (get_item_of, has_method, IgnoreExceptions,
                                    KeepTryingUntilNoException, nameof)
-    from gconanpy.seq import are_all_equal, chain, stringify_list, uniqs_in
+    from gconanpy.seq import (are_all_equal, differentiate_sets,
+                              get_key_set, stringify_list, uniqs_in)
+    from gconanpy.typevars import CanIgnoreCertainErrors, DifferTypes as Typ
 
 
 class DifferenceBetween:
+    comparables: list[Typ.ToCompare]
     difference: str | None
     diffs: list[str | None]
+    names: list[str]
 
-    def __init__(self, *args: Any, **kwargs: Any):
+    def __init__(self, *args: Typ.ToCompare, **kwargs: Typ.ToCompare):
         """ Identify difference(s) between any Python objects or values.
 
         :param args: Iterable[Any] of objects to compare.
@@ -47,7 +51,7 @@ class DifferenceBetween:
 
         for arg in args:
             self.comparables.append(arg)
-            arg_type = type(arg).__name__
+            arg_type = nameof(arg)
             arg_name = arg_type
             i = 1
             while arg_name in self.names:
@@ -58,143 +62,106 @@ class DifferenceBetween:
         self.is_different = not are_all_equal(self.comparables)
         self.diffs = self.find_difference() if self.is_different else None
 
-    def find_difference(self) -> list | None:
+    def compare_all_in(self, on: str, get_subcomparator: Typ.GetSubcomparator,
+                       comparisons: Iterable[Typ.PartName]) -> list[Typ.Diff]:
+        diffs = list()
+        get_comparison = iter(comparisons)
+        next_name = next(get_comparison, None)
+        while next_name is not None and not self.difference:
+            diffs = self.compare_by(f"{on} {next_name}", lambda y:
+                                    get_subcomparator(y, next_name))
+            next_name = next(get_comparison, None)
+        return diffs
+
+    def compare_by(self, on: str, get_comparator: Typ.GetComparator
+                   ) -> list[Typ.Diff]:
+        """ _summary_
+
+        :param on: str, name of the possible difference to find
+        :param get_comparator: Callable[[Any], Any], \
+            1-arg-to-1-arg function that extracts things to compare
+        :return: list, _description_
+        """
+        comparables = [get_comparator(c) for c in self.comparables]
+        if not are_all_equal(comparables):
+            self.difference = on
+        return comparables
+
+    def compare_elements_0_to(self, end_ix: int) -> list[Typ.Diff]:
+        return self.compare_all_in("element", get_item_of,
+                                   [x for x in range(end_ix)])
+
+    def compare_sets(self, on: str, get_comparisons: Typ.GetPartNames,
+                     get_subcomparator: Typ.GetSubcomparator
+                     ) -> list[Typ.Diff]:
+        """ _summary_ 
+
+        :param on: str, name of the possible difference to find
+        :param get_comparisons: Callable[[Any], Iterable[Any]], _description_
+        :param get_subcomparator: Callable[[Any, Any], Any], _description_
+        :return: list[Diff], _description_
+        """
+        keys = self.compare_by(on, get_comparisons)
+        return differentiate_sets(keys) if self.difference else \
+            self.compare_all_in(on, get_subcomparator, keys)
+
+    def find_difference(self) -> list[Typ.Diff] | None:
         """ Find the difference(s) between the objects in self.comparables.
         Returns the first difference found, not an exhaustive list.
 
         :return: list | None, the values that differ between the objects, or
                  None if no difference is found.
         """
-        types = self.compare_their("type", type)
+        types = self.compare_by("type", type)
         if self.difference:
             return types
 
-        try:
-            lens = self.compare_their("length", len)
+        with IgnoreExceptions(TypeError):
+            lens = self.compare_by("length", len)
             if self.difference:
                 return lens
 
-            try:  # Mapping.keys, Mapping.get ?
-                diff_keys = self.compare_sets("key", dict.keys, dict.get)
+            with IgnoreExceptions(AttributeError, TypeError):
+                keys = self.compare_by("key", get_key_set)
                 if self.difference:
+                    diff_keys = differentiate_sets(keys)
                     return diff_keys
-            except (AttributeError, TypeError):
-                pass
+                else:
+                    values = self.compare_all_in("value", get_item_of, keys)
+                    if self.difference:
+                        return values
 
-            try:
-                diff_elements = self.compare_all_in(
-                    [x for x in range(lens[0])], "element", lambda x, i: x[i])
+            with IgnoreExceptions(KeyError):
+                ix_diffs = self.compare_elements_0_to(set(lens).pop())
                 if self.difference:
-                    return diff_elements
-            except KeyError:
-                pass
-
-        except TypeError:
-            pass
+                    return ix_diffs
 
         diff_attrs = self.compare_sets("unique attribute(s)", dir, getattr)
         if self.difference:
             return diff_attrs
 
-    def compare_sets(self, on: str, get_strings: Callable[[Any], Iterable[str]],
-                     get_subcomparator: Callable[[Any, Any], Any]) -> list:
-        """
-
-        :param on: str, name of the possible difference to find
-        :param get_strings: Callable[[Any], Iterable[str]], _description_
-        :param get_subcomparator: Callable[[Any, Any], Any], _description_
-        :return: list, _description_
-        """
-        comparables = self.compare_their(on, set, get_strings)
-        if self.difference:
-            to_return = [None] * len(comparables)
-            for i in range(len(comparables)):
-                for other_set in comparables[:i] + comparables[i+1:]:
-                    to_return[i] = comparables[i] - other_set
-        else:
-            to_return = self.compare_all_in(comparables[0], on,
-                                            get_subcomparator)
-        return to_return
-
-    def compare_all_in(self, comparables: Iterable, on: str,
-                       get_subcomparator: Callable[[Any, Any], Any]
-                       ) -> list | None:  # tuple[Any, Any] | None:
-        """
-
-        :param comparables: Iterable, objects to compare to each other.
-        :param on: str, name of the comparables' possible difference to find.
-        :param get_subcomparator: Callable[[Any, Any], Any], _description_
-        :return: list | None, _description_
-        """
-        pair = None
-        on_iter = iter(comparables)
-        next_name = next(on_iter, None)
-        while next_name is not None and not self.difference:
-            pair = self.compare_their(f"{on} {next_name}", lambda y:
-                                      get_subcomparator(y, next_name))
-            next_name = next(on_iter, None)
-        return pair
-
-    def compare_their(self, on: str, *comparablifiers: Callable[[Any], Any]
-                      ) -> list:
-        """
-
-        :param on: str, name of the possible difference to find
-        :param comparablifiers: Iterable[Callable[[Any], Any]] \
-            listing 1-arg-to-1-arg functions that extract things to compare
-        :return: list, _description_
-        """
-        difference, comparables = self.compare(
-            self.comparables.copy(), on, self.difference, *comparablifiers)
-        self.difference = difference
-        return comparables
-
-    @classmethod
-    def compare(cls, comparables: Iterable, on: str,
-                difference: str | None,
-                *comparablifiers: Callable[[Any], Any],
-                skip: type | None = Callable
-                ) -> tuple[str | None, list]:
-        """
-
-        :param comparables: Iterable, objects to compare to each other.
-        :param on: str, name of the possible difference to find
-        :param difference: str | None, name of a difference already found
-        :param comparablifiers: Iterable[Callable[[Any], Any]]
-        :param skip: None | type, comparables to ignore, Callable by default
-        :return: tuple[str | None, list], comparable as
-        """
-
-        for get_comparator in reversed(comparablifiers):
-            for i in range(len(comparables)):
-                comparables[i] = get_comparator(comparables[i])
-
-        difference = None if any([isinstance(x, skip) for x in comparables]
-                                 ) or are_all_equal(comparables) else on
-
-        return difference, comparables
-
     def __repr__(self) -> str:
         """
         :return: str, human-readable summary of how self.comparables differ.
         """
-        if self.difference:
-            differences = stringify_list([
-                f"{self.difference} of {self.names[i]} == {self.diffs[i]}"
-                for i in range(len(self.diffs))], quote=None)
-            result = f"{self.difference} differs between " \
-                f"{stringify_list(self.names)}:\n{differences}."
-        elif self.is_different:
-            result = f"A difference between {stringify_list(self.names)} " \
-                "exists, but it could not be identified."
-        else:
+        if not self.is_different:
             result = " == ".join(self.names)
+        else:
+            names = stringify_list(self.names, enclose_in=None)
+            if self.difference:
+                differences = stringify_list([
+                    f"{self.difference} of {self.names[i]} == {self.diffs[i]}"
+                    for i in range(len(self.diffs))], quote=None, enclose_in=None)
+                result = f"{self.difference} differs between {names}:" \
+                    f"\n{differences}."
+            else:
+                result = f"A difference between {names} exists, but it " \
+                    "could not be identified."
         return result
 
 
-class IteratorFactory:
+class IteratorFactory(CanIgnoreCertainErrors):
     _T = TypeVar("_T")
-    IGNORABLES = (AttributeError, IndexError, KeyError, TypeError, ValueError)
 
     @classmethod
     def first_element_of(cls, an_obj: Iterable[_T] | _T) -> _T:
@@ -229,93 +196,105 @@ class Peeler(IteratorFactory):
         return to_peel
 
 
-class RollingPin(Peeler, Debuggable):
+class Shredder(Debuggable):
     _T = TypeVar("_T")
+    SHRED_ERRORS = (AttributeError, TypeError)
 
-    def __init__(self, max_rolls: int = 1000, debugging: bool = False,
+    # TODO Remove max_shreds and exclude b/c they're unneeded?
+    def __init__(self, max_shreds: int = 500, debugging: bool = False,
                  exclude: Iterable[Hashable] = set()):
         self.debugging: bool = debugging
         self.exclude_keys: set = set(exclude)
-        self.max_rolls: int = max_rolls
-        self.num_rolls: int = 0
+        self.max_shreds: int = max_shreds
+        self.reset()
 
-    def can_flatten(self, an_obj: Any) -> bool:
-        return an_obj and self.num_rolls < self.max_rolls \
-            and isinstance(an_obj, Iterable) \
-            and not has_method(an_obj, "strip") \
-            and not callable(an_obj) \
-            and not isinstance(an_obj, Generator)
+    def _collect(self, an_obj: Any) -> None:
+        try:  # If it's a string, then it's not shreddable, so save it
+            self.parts.add(an_obj.strip())
+        except self.SHRED_ERRORS:
 
-    def can_flatten_all(self, an_obj: Iterable) -> bool:
+            try:  # If it's a non-str Iterable, then shred it
+                iter(an_obj)
+                self._shred_iterable(an_obj)
+
+            # Hashable but not Iterable means not shreddable, so save it
+            except TypeError:
+                self.parts.add(an_obj)
+
+    def _shred_iterable(self, an_obj: Iterable) -> None:
+        # If we already shredded it, then don't shred it again
+        objID = id(an_obj)
+        if objID not in self.shredded and len(self.shredded
+                                              ) < self.max_shreds:
+            self.shredded.add(objID)
+
+            # If it has a __dict__, then shred that
+            with IgnoreExceptions(*self.SHRED_ERRORS):
+                self._shred_iterable(an_obj.__dict__)
+
+            try:  # If it's a Mapping, then shred or save each of its values
+                for k, v in an_obj.items():
+                    if k not in self.exclude_keys:
+                        self._collect(v)
+            except self.SHRED_ERRORS:
+
+                # If it's not a Mapping, then shred or save each element
+                for element in an_obj:
+                    self._collect(element)
+
+    def reset(self) -> None:
+        self.parts: set[Hashable] = set()
+        self.shredded: set[int] = set()
+
+    def shred(self, an_obj: Any, remember: bool = False) -> set:
         try:
-            return all(self.can_flatten(part) for part in an_obj)
-        except self.IGNORABLES:
-            return False
-
-    def chain(self, iterables: Iterable[Iterable[_T]]) -> Iterable[_T]:
-        return self.peel([x for x in chain(iterables)]) \
-            if self.can_flatten_all(iterables) else iterables
-
-    def flatten(self, an_obj: Any) -> list:
-        an_obj = self.peel(an_obj)
-        flattened = [an_obj]
-        parts = list()
-        with IgnoreExceptions(*self.IGNORABLES):
-            parts += self.flatten_map(an_obj.__dict__)
-        with KeepTryingUntilNoException(*self.IGNORABLES) as next_try:
-            with next_try():
-                parts += self.flatten_map(an_obj)
-            with next_try():
-                if self.can_flatten(an_obj):
-                    parts += self.chain([self.flatten(part)
-                                         for part in an_obj])
-                    self.num_rolls += 1
-        if any(parts):
-            flattened = self.chain(parts)
-        return flattened
-
-    def flatten_map(self, a_map: Mapping):
-        if self.exclude_keys:
-            include_keys = set(a_map.keys()) - self.exclude_keys
-            a_map = Defaultionary.from_subset_of(a_map, *include_keys,
-                                                 exclude_empties=False)
-        flattened = self.flatten(a_map.values())
-        self.num_rolls += 1
-        return flattened
-
-    def peel(self, to_peel: Any) -> Any:
-        while self.can_peel(to_peel):
-            to_peel = self.first_element_of(to_peel)
-            self.num_rolls += 1
-        return to_peel
+            if not remember:
+                self.reset()
+            self._collect(an_obj)
+            to_return = self.parts
+            if not remember:
+                self.reset()
+            return to_return
+        except RecursionError as err:
+            self.debug_or_raise(err, locals())
 
 
-class Corer(RollingPin):
+class Corer(Shredder, CanIgnoreCertainErrors):
     Comparer = Callable[[Any], SupportsFloat]
 
     def core(self, to_core: Iterable, default: Any = None,
-             compare_their: Comparer = len) -> Any:
+             compare_their: Comparer = len,
+             make_comparable: Callable = str) -> Any:
         """ Extract the biggest (longest) datum from a nested data structure.
 
         :param to_core: Iterable, especially a nested container data structure
         :return: Any, the longest datum buried in to_core's nested layers
         """
         try:
-            parts = self.flatten(to_core)
+            parts = self.shred(to_core)
             match len(parts):
                 case 0:
                     biggest = default
                 case 1:
-                    biggest = parts[0]
+                    biggest = parts.pop()
                 case _:
-                    sizes = list()
+
+                    # TODO Extract the block below into standalone comparison function?
+                    biggest = "0"
+                    max_size = compare_their(biggest)
                     for part in parts:
                         try:
                             part_size = compare_their(part)
                         except self.IGNORABLES:
-                            part_size = 1
-                        sizes.append(part_size)
-                    biggest = parts[sizes.index(max(sizes))]
+                            try:
+                                part_size = compare_their(
+                                    make_comparable(part))
+                            except self.IGNORABLES:
+                                part_size = 1.0
+                        if part_size >= max_size:
+                            biggest = part
+                            max_size = part_size
+
             return biggest
         except self.IGNORABLES as err:
             self.debug_or_raise(err, locals())

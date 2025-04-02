@@ -7,7 +7,7 @@ Overlaps significantly with:
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-03-28
+Updated: 2025-03-31
 """
 # Import standard libraries
 import builtins
@@ -27,16 +27,15 @@ import pandas as pd
 import pathvalidate
 import regex
 
-# Constant: TypeVar for chain(...) and insert_into(...) functions
+# Constant: TypeVar for chain, differentiate_sets, & insert_into functions
 T = TypeVar("T")
 
 # NOTE All functions/classes below are in alphabetical order.
 
 
-def are_all_equal(comparables: Iterable[T], equality: str = "__eq__") -> bool:
+def are_all_equal(comparables: Iterable[T], equality: str | None = None) -> bool:
     """ `are_all_equal([x, y, z])` means `x == y == z`.
     `are_all_equal({x, y}, "is_like")` means `x.is_like(y) and y.is_like(x)`.
-    `are_all_equal([w, x, y, z], "__ne__")` means `w != x != y != z`. Etc.
 
     :param comparables: Iterable of objects to compare.
     :param equality: str naming the method of every item in comparables to \
@@ -46,12 +45,15 @@ def are_all_equal(comparables: Iterable[T], equality: str = "__eq__") -> bool:
         otherwise False.
     """
     are_same = None
+    are_both_equal = (lambda x, y: getattr(x, equality)(y)
+                      ) if equality else (lambda x, y: x == y)
     combos_iter = itertools.combinations(comparables, 2)
     while are_same is None:
         next_pair = next(combos_iter, None)
         if not next_pair:  # is None:
             are_same = True
-        elif not getattr(next_pair[0], equality)(next_pair[1]):
+        # elif not getattr(next_pair[0], equality)(next_pair[1]):
+        elif not are_both_equal(*next_pair):
             are_same = False
     return are_same
 
@@ -98,6 +100,14 @@ def default_pop(poppable: Any, key: Any = None,
     return to_return
 
 
+def differentiate_sets(sets: Iterable[set[T]]) -> list[T]:
+    to_return = [None] * len(sets)
+    for i in range(len(sets)):
+        for other_set in sets[:i] + sets[i+1:]:
+            to_return[i] = sets[i] - other_set
+    return to_return
+
+
 def extract_letters_from(a_str: str) -> str:
     return re.sub(r'[^a-zA-Z]', '', a_str)
 
@@ -110,6 +120,10 @@ def extract_parentheticals_from(txt: str) -> list[Any]:
     :return: List[Any], _description_
     """
     return regex.findall(r"\((?:[^()]+|(?R))*+\)", txt)
+
+
+def get_key_set(a_map: Mapping[T, Any]) -> set[T]:
+    return set(a_map.keys())
 
 
 def insert_into(a_seq: Sequence[T], item: T, at_ix: int) -> list[T]:
@@ -298,8 +312,8 @@ class ToString(str):
             if quote:
                 result = cls(an_obj).enclosed_by(quote)
         elif isinstance(an_obj, Iterable):  # TODO Refactor from LBYL to EAFP?
-            list_with_str_els = cls.quotate(*an_obj, quote, quote_numbers,
-                                            max_len)
+            list_with_str_els = cls.quotate_all(an_obj, quote,
+                                                quote_numbers, max_len)
             if len(an_obj) > 2:
                 except_end = (sep + ' ').join(list_with_str_els[:-1])
                 result = f"{except_end}{sep} and {list_with_str_els[-1]}"
@@ -361,9 +375,9 @@ class ToString(str):
         return self.__class__(str.join(self, strings))
 
     @classmethod
-    def quotate(cls, *objects: Any, quote: str | None = "'",
-                quote_numbers: bool = False, max_len: int | None = None
-                ) -> list["ToString"]:
+    def quotate_all(cls, objects: Iterable, quote: str | None = "'",
+                    quote_numbers: bool = False, max_len: int | None = None
+                    ) -> list["ToString"]:
         finish = cls.get_quotator(quote, quote_numbers)
         return [finish(obj) if max_len is None else
                 finish(obj).truncate(max_len) for obj in objects]

@@ -28,6 +28,9 @@ def find_an_attr_in(attrs_of: Any, attr_names: Iterable[str], default:
     return found_attr
 
 
+def get_item_of(x, i): return x[i]
+
+
 def has_method(an_obj, method_name: str) -> bool:
     return callable(getattr(an_obj, method_name, None))
 

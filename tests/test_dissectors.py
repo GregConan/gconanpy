@@ -3,10 +3,10 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-03-30
+Updated: 2025-04-01
 """
 # Import local custom libraries
-from gconanpy.dissectors import Corer, RollingPin
+from gconanpy.dissectors import Corer, Shredder
 from tests.testers import Tester
 
 
@@ -14,18 +14,19 @@ class TestDissectors(Tester):
     def test_1(self):
         self.add_basics()
         corer = Corer()
-        cored = corer.core(self.adict)
-        self.check_result(cored, 1)
+        for to_core in (self.adict, [self.adict, 0, 2]):
+            cored = corer.core(to_core)
+            self.check_result(cored, 3)
 
     def test_2(self):
         self.add_basics()
-        rolled = RollingPin().flatten(('OK', [self.bytes_nums]))
-        self.check_result(rolled, ['OK', self.bytes_nums])
+        rolled = Shredder().shred(('OK', [self.bytes_nums]))
+        self.check_result(rolled, {'OK', self.bytes_nums.strip()})
 
     def test_3(self):
-        self.add_cli_args()
-        cored = Corer(exclude={"__doc__"}).core(self.cli_args)
-        self.check_result(cored, self.bytes_nums)
+        cli_args = self.build_cli_args()
+        cored = Corer(exclude={"__doc__"}).core(cli_args)
+        self.check_result(cored, self.bytes_nums.strip())
 
     def test_4(self):
         emailmsg = ['OK', [(  # Same structure as an IMAP message received
@@ -38,5 +39,24 @@ class TestDissectors(Tester):
             b"-a0b1c2d3e4f5g6h7i8j9k0l.42.1234567890123;\r\n        Sat, 20 "
             b"Apr 2069 04:44:52 -0700 (PDT)\r\nARC-Seal: i=1; a=rsa-sha256; "
             b"t=1234567890; cv=none;\r\n        d=googl"), b")"]]
-        cored = Corer(exclude={"__doc__"}).core(emailmsg)
-        self.check_result(cored, emailmsg[1][0][1])
+        for to_core in (emailmsg, [0, emailmsg]):
+            cored = Corer().core(to_core)  # exclude={"__doc__"}
+            self.check_result(cored, emailmsg[1][0][1])
+
+    def test_5(self):
+        shreddables = [list, dict, set, tuple]
+        soup = self.get_soup()
+        shredder = Shredder()
+        shredded = shredder.shred(soup)
+        for x in shredded:
+            for shreddable in shreddables:
+                assert not isinstance(x, shreddable)
+
+    def test_6(self):
+        soup = self.get_soup()
+        cored = Corer().core(soup)
+        print(cored)
+        assert cored.strip().startswith("Thank you")
+
+        # pdb.set_trace()
+        # print()
