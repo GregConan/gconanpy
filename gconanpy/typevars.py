@@ -4,11 +4,10 @@
 Classes and metaclasses to define generic types in other classes
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-25
-Updated: 2025-04-01
+Updated: 2025-04-02
 """
 # Import standard libraries
 from abc import ABC
-import pdb
 from typing import Any, Callable, Hashable, Iterable, TypeVar
 
 # Import local custom libraries
@@ -83,16 +82,13 @@ class FinderTypes(ABC):
     """
     D = TypeVar("D")
     F = TypeVar("F")
+    I = TypeVar("I")
     M = TypeVar("M")
     R = TypeVar("R")
-    S = TypeVar("S")
     T = TypeVar("T")
     X = TypeVar("X")
-    W = TypeVar("W")
     Errors = (AttributeError, IndexError, KeyError, TypeError, ValueError)
-    Found = TypeVar("Found", bound=Callable[[S, tuple[F, ...]], bool])
-    Modify = TypeVar("Modify", bound=Callable[[S, tuple[X, ...]], M])
-    Ready = TypeVar("Ready", bound=Callable[[T], bool])
+    Modify = TypeVar("Modify", bound=Callable[[I, tuple[X, ...]], M])
+    Ready = TypeVar("Ready", bound=Callable[[M, tuple[R, ...]], Boolable])
     Viable = TypeVar("Viable", bound=Callable[[M], bool])
-    Whittled = TypeVar("Whittled", bound=Callable[[T], Boolable])
-    Whittler = TypeVar("Whittler", bound=Callable[[T, S, tuple[W, ...]], T])
+    Whittler = TypeVar("Whittler", bound=Callable[[T, I, tuple[X, ...]], T])

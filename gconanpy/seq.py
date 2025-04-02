@@ -7,7 +7,7 @@ Overlaps significantly with:
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-03-31
+Updated: 2025-04-01
 """
 # Import standard libraries
 import builtins
@@ -33,7 +33,7 @@ T = TypeVar("T")
 # NOTE All functions/classes below are in alphabetical order.
 
 
-def are_all_equal(comparables: Iterable[T], equality: str | None = None) -> bool:
+def are_all_equal(comparables: Iterable, equality: str | None = None) -> bool:
     """ `are_all_equal([x, y, z])` means `x == y == z`.
     `are_all_equal({x, y}, "is_like")` means `x.is_like(y) and y.is_like(x)`.
 
@@ -100,7 +100,13 @@ def default_pop(poppable: Any, key: Any = None,
     return to_return
 
 
-def differentiate_sets(sets: Iterable[set[T]]) -> list[T]:
+def differentiate_sets(sets: Iterable[set[T]]) -> list[set[T]]:
+    """ Remove all shared/non-unique items from sets until they no longer \
+    overlap/intersect at all.
+
+    :param sets: Iterable[set[T]], _description_
+    :return: list[set[T]], unique items in each set
+    """
     to_return = [None] * len(sets)
     for i in range(len(sets)):
         for other_set in sets[:i] + sets[i+1:]:

@@ -196,16 +196,10 @@ class Peeler(IteratorFactory):
         return to_peel
 
 
-class Shredder(Debuggable):
-    _T = TypeVar("_T")
+class SimpleShredder:
     SHRED_ERRORS = (AttributeError, TypeError)
 
-    # TODO Remove max_shreds and exclude b/c they're unneeded?
-    def __init__(self, max_shreds: int = 500, debugging: bool = False,
-                 exclude: Iterable[Hashable] = set()):
-        self.debugging: bool = debugging
-        self.exclude_keys: set = set(exclude)
-        self.max_shreds: int = max_shreds
+    def __init__(self) -> None:
         self.reset()
 
     def _collect(self, an_obj: Any) -> None:
@@ -220,6 +214,46 @@ class Shredder(Debuggable):
             # Hashable but not Iterable means not shreddable, so save it
             except TypeError:
                 self.parts.add(an_obj)
+
+    def _shred_iterable(self, an_obj: Iterable) -> None:
+        # If we already shredded it, then don't shred it again
+        objID = id(an_obj)
+        if objID not in self.shredded:
+            self.shredded.add(objID)
+
+            try:  # If it has a __dict__, then shred that
+                self._shred_iterable(an_obj.__dict__)
+            except self.SHRED_ERRORS:
+                pass
+
+            # Shred or save each of an_obj's...
+            try:  # ...values if it's a Mapping
+                for v in an_obj.values():
+                    self._collect(v)
+            except self.SHRED_ERRORS:
+
+                # ...elements if it's not
+                for element in an_obj:
+                    self._collect(element)
+
+    def reset(self):
+        self.parts: set = set()
+        self.shredded: set[int] = set()
+
+    def shred(self, an_obj: Any) -> set:
+        self._collect(an_obj)
+        return self.parts
+
+
+class Shredder(SimpleShredder, Debuggable):
+    _T = TypeVar("_T")
+
+    def __init__(self, max_shreds: int = 500, debugging: bool = False,
+                 exclude: Iterable[Hashable] = set()):
+        self.debugging: bool = debugging
+        self.exclude_keys: set = set(exclude)
+        self.max_shreds: int = max_shreds
+        self.reset()
 
     def _shred_iterable(self, an_obj: Iterable) -> None:
         # If we already shredded it, then don't shred it again
@@ -242,16 +276,11 @@ class Shredder(Debuggable):
                 for element in an_obj:
                     self._collect(element)
 
-    def reset(self) -> None:
-        self.parts: set[Hashable] = set()
-        self.shredded: set[int] = set()
-
     def shred(self, an_obj: Any, remember: bool = False) -> set:
         try:
             if not remember:
                 self.reset()
-            self._collect(an_obj)
-            to_return = self.parts
+            to_return = super(Shredder, self).shred(an_obj)
             if not remember:
                 self.reset()
             return to_return

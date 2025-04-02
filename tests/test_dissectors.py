@@ -6,7 +6,7 @@ Created: 2025-03-28
 Updated: 2025-04-01
 """
 # Import local custom libraries
-from gconanpy.dissectors import Corer, Shredder
+from gconanpy.dissectors import Corer, Shredder, SimpleShredder
 from tests.testers import Tester
 
 
@@ -20,8 +20,9 @@ class TestDissectors(Tester):
 
     def test_2(self):
         self.add_basics()
-        rolled = Shredder().shred(('OK', [self.bytes_nums]))
-        self.check_result(rolled, {'OK', self.bytes_nums.strip()})
+        for shredder_type in (Shredder, SimpleShredder):
+            rolled = shredder_type().shred(('OK', [self.bytes_nums]))
+            self.check_result(rolled, {'OK', self.bytes_nums.strip()})
 
     def test_3(self):
         cli_args = self.build_cli_args()
@@ -46,17 +47,13 @@ class TestDissectors(Tester):
     def test_5(self):
         shreddables = [list, dict, set, tuple]
         soup = self.get_soup()
-        shredder = Shredder()
-        shredded = shredder.shred(soup)
-        for x in shredded:
-            for shreddable in shreddables:
-                assert not isinstance(x, shreddable)
+        for shredder_type in (Shredder, SimpleShredder):
+            for chunk in shredder_type().shred(soup):
+                for shreddable in shreddables:
+                    assert not isinstance(chunk, shreddable)
 
     def test_6(self):
         soup = self.get_soup()
         cored = Corer().core(soup)
         print(cored)
         assert cored.strip().startswith("Thank you")
-
-        # pdb.set_trace()
-        # print()
