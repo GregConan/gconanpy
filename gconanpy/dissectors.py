@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-01
+Updated: 2025-04-03
 """
 # Import standard libraries
 import pdb
@@ -250,9 +250,9 @@ class Shredder(SimpleShredder, Debuggable):
 
     def __init__(self, max_shreds: int = 500, debugging: bool = False,
                  exclude: Iterable[Hashable] = set()):
-        self.debugging: bool = debugging
-        self.exclude_keys: set = set(exclude)
-        self.max_shreds: int = max_shreds
+        self.debugging = debugging
+        self.exclude_keys = set(exclude)
+        self.max_shreds = max_shreds
         self.reset()
 
     def _shred_iterable(self, an_obj: Iterable) -> None:

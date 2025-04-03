@@ -4,7 +4,7 @@
 Functions that iterate and break once they find what they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-04-02
+Updated: 2025-04-03
 """
 # Import standard libraries
 import pdb
@@ -12,14 +12,14 @@ from typing import Any, Callable, Iterable
 
 # Import remote custom libraries
 try:
-    from metafunc import KeepTryingUntilNoException, is_not_none, noop
+    from metafunc import IgnoreExceptions, is_not_none, noop
     from typevars import FinderTypes as Typ
 except ModuleNotFoundError:
-    from gconanpy.metafunc import KeepTryingUntilNoException, is_not_none, noop
+    from gconanpy.metafunc import IgnoreExceptions, is_not_none, noop
     from gconanpy.typevars import FinderTypes as Typ
 
 
-def modifind(iter_over: Iterable[Typ.I],
+def modifind(find_in: Iterable[Typ.I],
              modify: Typ.Modify | None = None,
              modify_args: Iterable[Typ.X] = list(),
              found_if: Typ.Ready = is_not_none,
@@ -27,16 +27,16 @@ def modifind(iter_over: Iterable[Typ.I],
              default: Typ.D = None,
              errs: Iterable[BaseException] = list()) -> Typ.I | Typ.D:
     i = 0
-    found = False
-    modified = default
-    with KeepTryingUntilNoException(*errs) as next_try:
-        while not found and i < len(iter_over):
-            with next_try():
-                modified = modify(iter_over[i], *modify_args
-                                  ) if modify else iter_over[i]
-                found = found_if(modified, *found_args)
-            i += 1
-    return modified
+    is_found = False
+    iter_over = list(find_in)
+    while not is_found and i < len(iter_over):
+        with IgnoreExceptions(*errs):
+            modified = modify(iter_over[i], *modify_args
+                              ) if modify else iter_over[i]
+        with IgnoreExceptions(*errs):
+            is_found = found_if(modified, *found_args)
+        i += 1
+    return modified if is_found else default
 
 
 def spliterate(parts: Iterable[str], ready_if:
@@ -72,14 +72,15 @@ def whittle(to_whittle: Typ.T, iter_over: Iterable[Typ.I],
             errs: Iterable[BaseException] = list()) -> Typ.T:
     i = 0
     is_ready = False
-    with KeepTryingUntilNoException(*errs) as next_try:
-        while not is_ready and i < len(iter_over):
-            with next_try():
-                prev = to_whittle
-                to_whittle = whittler(to_whittle, iter_over[i], *whittle_args
-                                      ) if whittler else to_whittle
-                is_ready = ready_if(to_whittle, *ready_args)
-                if not viable_if(to_whittle):
-                    to_whittle = prev
-            i += 1
+    while not is_ready and i < len(iter_over):
+        prev = to_whittle
+        with IgnoreExceptions(*errs):
+            to_whittle = whittler(to_whittle, iter_over[i], *whittle_args
+                                  ) if whittler else to_whittle
+        with IgnoreExceptions(*errs):
+            is_ready = ready_if(to_whittle, *ready_args)
+        with IgnoreExceptions(*errs):
+            if not viable_if(to_whittle):
+                to_whittle = prev
+        i += 1
     return to_whittle
