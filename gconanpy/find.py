@@ -4,7 +4,7 @@
 Functions that iterate and break once they find what they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-04-03
+Updated: 2025-04-07
 """
 # Import standard libraries
 import pdb
@@ -17,6 +17,23 @@ try:
 except ModuleNotFoundError:
     from gconanpy.metafunc import IgnoreExceptions, is_not_none, noop
     from gconanpy.typevars import FinderTypes as Typ
+
+
+def get_nested_attribute_from(an_obj: Any, *attribute_names: str) -> Any:
+    # TODO Integrate this into DotDict.lookup method?
+    """
+    get_nested_attribute_from(an_obj, "first", "second", "third") will return
+    an_obj.first.second.third if it exists, and None if it doesn't.
+    :param an_obj: Any
+    :param attribute_names: Iterable[str] of attribute names. The first names
+                            an attribute of an_obj; the second names an
+                            attribute of that first attribute; and etc. 
+    :return: Any, the attribute of an attribute ... of an attribute of an_obj
+    """
+    attributes = list(attribute_names)  # TODO reversed(attribute_names) ?
+    while attributes and is_not_none(an_obj):
+        an_obj = getattr(an_obj, attributes.pop(0), None)
+    return an_obj
 
 
 def modifind(find_in: Iterable[Typ.I],
@@ -63,7 +80,7 @@ def spliterate(parts: Iterable[str], ready_if:
     return rejoined, gotten
 
 
-def whittle(to_whittle: Typ.T, iter_over: Iterable[Typ.I],
+def whittle(to_whittle: Typ.T, find_in: Iterable[Typ.I],
             whittler: Typ.Whittler | None = None,
             whittle_args: Iterable[Typ.X] = list(),
             ready_if: Typ.Ready = is_not_none,
@@ -72,6 +89,7 @@ def whittle(to_whittle: Typ.T, iter_over: Iterable[Typ.I],
             errs: Iterable[BaseException] = list()) -> Typ.T:
     i = 0
     is_ready = False
+    iter_over = list(find_in)
     while not is_ready and i < len(iter_over):
         prev = to_whittle
         with IgnoreExceptions(*errs):

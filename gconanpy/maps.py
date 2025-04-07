@@ -4,13 +4,14 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-30
+Updated: 2025-04-07
 """
 # Import standard libraries
 from configparser import ConfigParser
 import pdb
 import sys
-from typing import Any, Callable, Hashable, Iterable, Mapping, SupportsBytes
+from typing import (Any, Callable, Hashable, Iterable,
+                    Mapping, SupportsBytes, TypeVar)
 
 # Import third-party PyPI libraries
 from cryptography.fernet import Fernet
@@ -25,7 +26,8 @@ except ModuleNotFoundError:
 
 
 class Explictionary(dict):
-    """ dict that explicitly includes its class name in __repr__ """
+    """ Custom dict base class that explicitly includes its class name in \
+        its string representation(s) via __repr__ method. """
 
     def __repr__(self) -> str:
         """
@@ -34,17 +36,70 @@ class Explictionary(dict):
         """
         return f"{nameof(self)}({dict.__repr__(self)})"
 
+    def copy(self):
+        """ `D.copy()` -> a shallow copy of `D`. Return another instance \
+            of this same type of custom dictionary. """
+        return self.__class__(self)
 
-class Defaultionary(Explictionary):
 
-    def copy(self): return self.__class__(self)
+class Invertionary(Explictionary):
+    _T = TypeVar("_T")
+    CollisionHandler = Callable[[list[_T]], Iterable[_T]]
+
+    def invert(self, keep_collisions_in: CollisionHandler | None = None) -> None:
+        """ Swap keys and values. `{1: 2, 3: 4}.invert()` -> `{2: 1, 4: 3}`.
+
+        When 2+ keys are mapped to the same value, then that value will be \
+        mapped either to a `keep_collisions_in` container of all of those \
+        keys or (by default) to only the most recently-added key.
+
+        :param keep_collisions_in: CollisionHandler, type of container to \
+            map a value to when multiple keys were mapped to that value; \
+            e.g. `list`, `tuple`, or `set`
+        """
+        # Predefine to avoid RuntimeError(changed size during iteration)
+        keys = [k for k in self.keys()]
+
+        # If we are NOT keeping all keys mapped to the same value, then
+        # just keep whichever key was added most recently
+        if keep_collisions_in is None:
+            for key in keys:
+                self[self.pop(key)] = key
+
+        # If we ARE keeping all keys mapped to the same value, then:
+        else:  # Make new empty dict to avoid conflating keys & values
+            inverted = self.__class__()
+            collided = set()  # Keep track of which values collide
+
+            # Remove every key-value pairing, swap them, and put into new dict
+            for key in keys:
+                value = self.pop(key)
+                if value not in inverted:
+                    inverted[value] = key
+
+                # If 2+ former values (now keys) collide, then map them to a
+                # keep_collisions_in container holding all of the former keys
+                else:
+                    if value in collided:
+                        new_value = [*inverted[value], key]
+                    else:
+                        new_value = [inverted[value], key]
+                        collided.add(value)
+                    inverted[value] = keep_collisions_in(new_value)
+
+            # Remove all old k-v pairs and replace them with new v-k pairs
+            self.clear()
+            self.update(inverted)
+
+
+class Defaultionary(Invertionary):
 
     @classmethod
     def from_subset_of(cls, a_map: Mapping, *keys_to_keep: Hashable,
                        exclude_empties: bool = False):
         # No return type hint so VSCode can infer making subclass instances
         """ Construct an instance of this class by picking a subset of \
-        key-value pairs to keep.
+            key-value pairs to keep.
 
         :param a_map: Mapping to build an Defaultionary from a subset of.
         :param keys_to_keep: Iterable[Hashable] of a_map keys to copy into \
@@ -59,8 +114,8 @@ class Defaultionary(Explictionary):
 
     def setdefaults(self, exclude_empties: bool = False, **kwargs: Any) -> None:
         """ Fill any missing values in self from kwargs.
-        dict.update prefers to overwrite old values with new ones.
-        setdefaults is basically dict.update that prefers to keep old values.
+            dict.update prefers to overwrite old values with new ones.
+            setdefaults is basically dict.update that prefers to keep old values.
 
         :param exclude_empties: bool, False to exclude keys mapped to None \
             in a_map from the returned Defaultionary, otherwise (by default) \
@@ -82,15 +137,14 @@ class LazyDict(Defaultionary):
     an existing key. Benefit: The `default=` code does not need to be valid \
     (yet) if self already has the key. If you pass a function to a "lazy" \
     method, then that function only needs to work if a value is missing.
-    Extended LazyButHonestDict from https://stackoverflow.com/q/17532929
     Keeps most core functionality of the Python dict type.
-    """
+    Extended LazyButHonestDict from https://stackoverflow.com/q/17532929 """
 
     def get(self, key: str, default: Any = None,
             exclude_empties: bool = False) -> Any:
-        """ Return the value mapped to key in this LazyDict, if any; \
-        else return default. Explicitly defined to add exclude_empties \
-        option to dict.get.
+        """ Return the value mapped to key in this LazyDict, if any; else \
+            return default. Explicitly defined to add exclude_empties option \
+            to `dict.get`.
 
         :param key: str, key mapped to the value to return
         :param default: Any, object to return if key is not in the Cryptionary
@@ -107,10 +161,9 @@ class LazyDict(Defaultionary):
                 getter_args: Iterable = list(),
                 getter_kwargs: Mapping = dict(),
                 exclude_empties: bool = False) -> Any:
-        """
-        Return the value for key if key is in the dictionary, else return \
-        the result of calling the `get_if_absent` parameter with args & \
-        kwargs. Adapted from LazyButHonestDict.lazyget from \
+        """ Return the value for key if key is in the dictionary, else \
+        return the result of calling the `get_if_absent` parameter with args \
+        & kwargs. Adapted from LazyButHonestDict.lazyget from \
         https://stackoverflow.com/q/17532929
 
         :param key: str to use as a dict key to map to value
@@ -128,10 +181,9 @@ class LazyDict(Defaultionary):
                        getter_args: Iterable = list(),
                        getter_kwargs: Mapping = dict(),
                        exclude_empties: bool = False) -> Any:
-        """
-        Return the value for key if key is in the dictionary; else add that \
-        key to the dictionary, set its value to the result of calling the \
-        `get_if_absent` parameter with args & kwargs, then return that \
+        """ Return the value for key if key is in the dictionary; else add \
+        that key to the dictionary, set its value to the result of calling \
+        the `get_if_absent` parameter with args & kwargs, then return that \
         result. Adapted from LazyButHonestDict.lazysetdefault from \
         https://stackoverflow.com/q/17532929
 
@@ -176,14 +228,15 @@ class DotDict(Defaultionary):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Ensure that method names cannot be overwritten/deleted.
-        # To ensure that custom dict attrs are set AS attrs instead of items,\
-        # sets __protected_keywords__ relatively late to utilize is_ready_to.
+        """ Ensure that method names cannot be overwritten/deleted by \
+            defining protected keywords after adding all custom methods, \
+            ensuring that custom dict attributes are added AS attributes \
+            instead of items (to utilize `is_ready_to` method). """
         self.__protected_keywords__ = set(dir(__class__))
 
     def __delattr__(self, name: str) -> None:
         """ Implement `delattr(self, name)`.
-        Deletes item (key-value pair) or attribute.
+            Deletes item (key-value pair) or attribute.
 
         :param name: str naming the attribute of self to delete.
         """
@@ -194,9 +247,9 @@ class DotDict(Defaultionary):
 
     def __getattr__(self, name: str) -> Any:
         """ `__getattr__(self, name) == getattr(self, name) == self.<name>`
-        If name is not protected, then `self.<key> == self[key]`
+            If name is not protected, then `self.name == self["name"]`
 
-        Effectively the same as `__getattr__ = dict.__getitem__` except that\
+        Effectively the same as `__getattr__ = dict.__getitem__` except that \
         `hasattr(self, <not in dict>)` works; it does not raise a `KeyError`.
 
         :param name: str naming the attribute/element of self to return.
@@ -241,7 +294,7 @@ class DotDict(Defaultionary):
             dict.__setitem__(self, key, value)
 
     def __setstate__(self, state):
-        """Required for pickling. From https://stackoverflow.com/a/36968114
+        """ Required for pickling. From https://stackoverflow.com/a/36968114
 
         :param state: _type_, _description_
         """
@@ -267,20 +320,21 @@ class DotDict(Defaultionary):
 
     def homogenize(self, replace: type = dict):
         """ Recursively transform every dict contained inside this DotDict \
-        into a DotDict itself, ensuring nested dot access to dict attributes.
-        From https://gist.github.com/miku/dc6d06ed894bc23dfd5a364b7def5ed8
+            into a DotDict itself, ensuring nested dot access to attributes.
+            From https://gist.github.com/miku/dc6d06ed894bc23dfd5a364b7def5ed8
 
         :param replace: type of element/child/attribute to change to DotDict.
         """
         for k, v in self.items():
             if isinstance(v, replace) and not isinstance(v, self.__class__):
                 self[k] = self.__class__(v)
+                self[k].homogenize()
 
     def is_ready_to(self, alter: str, attribute_name: str) -> bool:
         """ Check whether a given attribute of self is protected, if it's\
-        alterable, or if self is still being initialized.
+            alterable, or if self is still being initialized.
 
-        :param alter: str, description of the alteration
+        :param alter: str, verb naming the alteration
         :param attribute_name: str, name of the attribute of self to alter
         :raises AttributeError: if the attribute is protected
         :return: bool, True if the attribute is not protected;\
@@ -302,7 +356,7 @@ class DotDict(Defaultionary):
 
     def lookup(self, path: str, sep: str = ".", default: Any = None) -> Any:
         """ Get the value mapped to a key in nested structure. Adapted from \
-        https://gist.github.com/miku/dc6d06ed894bc23dfd5a364b7def5ed8
+            https://gist.github.com/miku/dc6d06ed894bc23dfd5a364b7def5ed8
 
         :param path: str, path to key in nested structure, e.g. "a.b.c"
         :param sep: str, separator between keys in path; defaults to "."
@@ -328,7 +382,7 @@ class DotDict(Defaultionary):
 class Configtionary(DotDict):  # TODO Add comments
     def __init__(self, *args, **kwargs) -> None:
         """ Initialize Configtionary from existing Mapping (*args) or from \
-        new Mapping (**kwargs). """
+            new Mapping (**kwargs). """
         super().__init__(*args, **kwargs)
         self.homogenize()
 
@@ -367,7 +421,7 @@ class Promptionary(LazyDict, Debuggable):
 
     def __init__(self, *args, debugging: bool = False, **kwargs: Any) -> None:
         """ Initialize Promptionary from existing Mapping (*args) or from \
-        new Mapping (**kwargs).
+            new Mapping (**kwargs).
 
         :param debugging: bool, True to pause and interact on error, else \
             False to raise errors/exceptions; defaults to False.
@@ -380,7 +434,7 @@ class Promptionary(LazyDict, Debuggable):
                           prompt_fn: Callable = input,
                           exclude_empties: bool = False) -> Any:
         """ Return the value mapped to key in self if one already exists; \
-        otherwise prompt the user to interactively provide it and return that.
+            else prompt the user to interactively provide it and return that.
 
         :param key: str mapped to the value to retrieve
         :param prompt: str to display when prompting the user.
@@ -400,8 +454,8 @@ class Promptionary(LazyDict, Debuggable):
                                  prompt_fn: Callable = input,
                                  exclude_empties: bool = False) -> Any:
         """ Return the value mapped to key in self if one already exists; \
-        otherwise prompt the user to interactively provide it, store the \
-        provided value by mapping it to key, and return that value.
+            otherwise prompt the user to interactively provide it, store the \
+            provided value by mapping it to key, and return that value.
 
         :param key: str mapped to the value to retrieve
         :param prompt: str to display when prompting the user.
@@ -420,7 +474,7 @@ class Promptionary(LazyDict, Debuggable):
 
 class Bytesifier(Debuggable):
     """ Class with a method to convert objects into bytes without knowing \
-    what type those things are. """
+        what type those things are. """
     DEFAULTS = dict(encoding=sys.getdefaultencoding(), length=1,
                     byteorder="big", signed=False)
 
@@ -439,6 +493,7 @@ class Bytesifier(Debuggable):
         :raises AttributeError: if an_obj has no 'to_bytes' or 'encode' method
         :return: bytes, an_obj converted to bytes
         """
+        errs = None
         defaults = Defaultionary(kwargs)
         defaults.setdefaults(**self.DEFAULTS)
         encoding = defaults.pop("encoding")
@@ -451,15 +506,18 @@ class Bytesifier(Debuggable):
                 bytes.decode(an_obj, encoding=encoding)
                 bytesified = an_obj
             with next_try():
-                self.debug_or_raise(next_try.errors[-1], locals())
-        return bytesified
+                errs = next_try.errors
+        try:
+            return bytesified
+        except NameError:
+            self.debug_or_raise(errs[-1], locals())
 
 
 class Cryptionary(Promptionary, Bytesifier):
     """ Extended Promptionary that automatically encrypts values before \
-    storing them and automatically decrypts values before returning them.
-    Created to store user credentials slightly more securely, and to \
-    slightly reduce the likelihood of accidentally exposing them. """
+        storing them and automatically decrypts values before returning them.
+        Created to store user credentials slightly more securely, and to \
+        slightly reduce the likelihood of accidentally exposing them. """
 
     def __init__(self, from_map: Mapping = dict(),
                  debugging: bool = False, **kwargs):
@@ -481,6 +539,7 @@ class Cryptionary(Promptionary, Bytesifier):
 
     def __getitem__(self, dict_key: Hashable) -> Any:
         """ `x.__getitem__(y)` <==> `x[y]` 
+        Explicitly defined to automatically decrypt encrypted values.
 
         :param dict_key: Hashable, key mapped to the value to retrieve
         :return: Any, the decrypted value mapped to dict_key

@@ -47,6 +47,7 @@ class Tester(ABC):
 
     def check_result(self, result, expected_result):
         succeeded = result == expected_result
-        msg = f"`{expected_result}` {'=' if succeeded else '!'}= `{result}`"
+        msg = f"Result `{result}` {'=' if succeeded else '!'}= " \
+            f"expected `{expected_result}`"
         print(msg)
         assert succeeded

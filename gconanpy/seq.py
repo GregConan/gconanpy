@@ -7,7 +7,7 @@ Overlaps significantly with:
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-04-01
+Updated: 2025-04-07
 """
 # Import standard libraries
 import builtins
@@ -27,7 +27,7 @@ import pandas as pd
 import pathvalidate
 import regex
 
-# Constant: TypeVar for chain, differentiate_sets, & insert_into functions
+# Constant: TypeVar for differentiate_sets & insert_into functions
 T = TypeVar("T")
 
 # NOTE All functions/classes below are in alphabetical order.
@@ -39,7 +39,7 @@ def are_all_equal(comparables: Iterable, equality: str | None = None) -> bool:
 
     :param comparables: Iterable of objects to compare.
     :param equality: str naming the method of every item in comparables to \
-        call on every other item. Defaults to "__eq__" (i.e., `==`).
+        call on every other item. `==` (`__eq__`) is the default comparison.
     :return: bool, True if calling the `equality` method attribute of every \
         item in comparables on every other item always returns True; \
         otherwise False.
@@ -59,7 +59,7 @@ def are_all_equal(comparables: Iterable, equality: str | None = None) -> bool:
 
 
 def as_HTTPS_URL(*parts: str, **url_params: Any) -> str:
-    """Reusable convenience function to build HTTPS URL strings.
+    """ Reusable convenience function to build HTTPS URL strings.
 
     :param parts: Iterable[str] of slash-separated URL path parts
     :param url_params: Mapping[str, Any] of variable names and their values \
@@ -71,10 +71,6 @@ def as_HTTPS_URL(*parts: str, **url_params: Any) -> str:
         str_params = [f"{k}={v}" for k, v in url_params.items()]
         url += "?" + "&".join(str_params)
     return url
-
-
-def chain(iterables: Iterable[Iterable[T]]) -> Iterable[T]:
-    return [x for x in itertools.chain(*iterables)]
 
 
 def count_uniqs_in_cols(a_df: pd.DataFrame) -> dict[str, int]:

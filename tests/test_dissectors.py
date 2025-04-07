@@ -3,14 +3,14 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-04-01
+Updated: 2025-04-07
 """
 # Import local custom libraries
 from gconanpy.dissectors import Corer, Shredder, SimpleShredder
 from tests.testers import Tester
 
 
-class TestDissectors(Tester):
+class TestShredders(Tester):
     def test_1(self):
         self.add_basics()
         corer = Corer()
