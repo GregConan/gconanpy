@@ -4,7 +4,7 @@
 Functions/classes to manipulate, or be manipulated by, functions/classes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-03-30
+Updated: 2025-04-08
 """
 # Import standard libraries
 import pdb
@@ -48,7 +48,7 @@ def nameof(an_obj: Any) -> str:
     return getattr(an_obj, "__name__", type(an_obj).__name__)
 
 
-def noop(*_args: Any, **_kwargs: Any) -> None:  # TODO Move somewhere more apt
+def noop(*_args: Any, **_kwargs: Any) -> None:
     """Do nothing. Convenient to use as a default callable function parameter.
 
     :return: None
@@ -60,14 +60,18 @@ class SkipException(BaseException):
     ...
 
 
-class IgnoreExceptions:
+class BasicContextManager:
+    def __enter__(self): return self
+    def __exit__(self, exc_type: type[BaseException] | None = None,
+                 *_: Any) -> bool: return exc_type is None
+
+
+class IgnoreExceptions(BasicContextManager):
     def __init__(self, *catch: type[BaseException]) -> None:
         self.catch = catch
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type: type[BaseException] | None = None, *_: Any):
+    def __exit__(self, exc_type: type[BaseException] | None = None,
+                 *_: Any) -> bool:
         return (not self.catch) or (exc_type in self.catch)
 
 
@@ -92,7 +96,7 @@ class DontSkip(SkipOrNot):
         return super(DontSkip, self).__exit__(exc_type)
 
 
-class KeepTryingUntilNoException:
+class KeepTryingUntilNoException(BasicContextManager):
     def __init__(self, *catch: type[BaseException]):
         self.catch = catch
         self.errors = list()
@@ -102,14 +106,8 @@ class KeepTryingUntilNoException:
         skip_or_not = Skip if self.is_done else DontSkip
         return skip_or_not(self, *self.catch)
 
-    def __enter__(self):
-        return self
-
     def __exit__(self, exc_type: type[BaseException] | None = None, *_: Any):
         return exc_type is SkipException
-
-    def always_run_this_part(self) -> IgnoreExceptions:
-        return IgnoreExceptions(self, *self.catch)
 
 
 def wrap_with_params(call: Callable, *args: Any, **kwargs: Any) -> Callable:

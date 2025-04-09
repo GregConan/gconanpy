@@ -4,19 +4,65 @@
 Functions that iterate and break once they find what they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-04-07
+Updated: 2025-04-08
 """
 # Import standard libraries
 import pdb
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, Sequence
 
 # Import remote custom libraries
 try:
-    from metafunc import IgnoreExceptions, is_not_none, noop
+    from metafunc import (BasicContextManager, IgnoreExceptions,
+                          is_not_none, noop)
     from typevars import FinderTypes as Typ
 except ModuleNotFoundError:
-    from gconanpy.metafunc import IgnoreExceptions, is_not_none, noop
+    from gconanpy.metafunc import (BasicContextManager, IgnoreExceptions,
+                                   is_not_none, noop)
     from gconanpy.typevars import FinderTypes as Typ
+
+
+class BasicRange(Iterable):
+    """ Iterator like range() """
+
+    def __init__(self, iter_over: Sequence[Typ.I], start_at: int = 0,
+                 end_at: int | None = None, step: int = 1) -> None:
+        """ Iterator like range()
+
+        :param iter_over: Sequence[Any] to iterate over
+        :param start_at: int, iter_over index to begin at; defaults to 0
+        :param end_at: int, iter_over index to stop at; defaults to len(iter_over)
+        :param step: int, increment to iterate iter_over by; defaults to 1
+        """
+        self.end = len(iter_over) - 1 if end_at is None else end_at
+        self.is_iterating = True
+        self.ix = start_at
+        self.start = start_at
+        self.step, self.not_yet_at = (-abs(step), int.__ge__) if \
+            self.start > self.end else (abs(step), int.__lt__)
+        self.to_iter = iter_over
+
+    def __getitem__(self, ix: int) -> Typ.I:
+        return self.to_iter[ix]
+
+    def __iter__(self):
+        self.is_iterating = True
+        self.ix = self.start
+        return self
+
+    def __len__(self) -> int:
+        return len(self.to_iter)
+
+    def __next__(self) -> Typ.I:
+        if self.is_iterating:
+            next_value = self[self.ix]  # self.__getitem__(self.ix)
+            self.is_iterating = self.has_next()
+            self.ix += self.step
+            return next_value
+        else:
+            raise StopIteration()
+
+    def has_next(self) -> bool:
+        return self.not_yet_at(self.ix, self.end)
 
 
 def get_nested_attribute_from(an_obj: Any, *attribute_names: str) -> Any:
@@ -80,25 +126,19 @@ def spliterate(parts: Iterable[str], ready_if:
     return rejoined, gotten
 
 
-def whittle(to_whittle: Typ.T, find_in: Iterable[Typ.I],
-            whittler: Typ.Whittler | None = None,
-            whittle_args: Iterable[Typ.X] = list(),
-            ready_if: Typ.Ready = is_not_none,
-            ready_args: Iterable[Typ.R] = list(),
-            viable_if: Typ.Viable = len,
-            errs: Iterable[BaseException] = list()) -> Typ.T:
-    i = 0
-    is_ready = False
-    iter_over = list(find_in)
-    while not is_ready and i < len(iter_over):
-        prev = to_whittle
-        with IgnoreExceptions(*errs):
-            to_whittle = whittler(to_whittle, iter_over[i], *whittle_args
-                                  ) if whittler else to_whittle
-        with IgnoreExceptions(*errs):
-            is_ready = ready_if(to_whittle, *ready_args)
-        with IgnoreExceptions(*errs):
-            if not viable_if(to_whittle):
-                to_whittle = prev
-        i += 1
-    return to_whittle
+class WhittleUntil(BasicRange, BasicContextManager):
+
+    def __init__(self, to_whittle: Typ.M, ready_if: Typ.Ready,
+                 find_in: Iterable[Typ.I], *ready_args: Typ.R,
+                 **ready_kwargs: Any) -> None:
+        super().__init__(list(find_in))
+        self.args = ready_args
+        self.item_is_ready = ready_if
+        self.kwargs = ready_kwargs
+        self.to_whittle = to_whittle
+
+    def __call__(self, item: Any) -> None:
+        self.to_whittle = item
+
+    def is_still_whittling(self) -> bool:  # is_not_ready
+        return self.is_iterating and not self.item_is_ready(self.to_whittle)
