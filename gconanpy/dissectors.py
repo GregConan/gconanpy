@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-03
+Updated: 2025-04-08
 """
 # Import standard libraries
 import pdb
@@ -15,15 +15,15 @@ from typing import (Any, Callable, Hashable, Iterable, Iterator,
 # Import local custom libraries
 try:
     from debug import Debuggable
-    from metafunc import (get_item_of, has_method, IgnoreExceptions,
-                          KeepTryingUntilNoException, nameof)
+    from metafunc import has_method, IgnoreExceptions, \
+        KeepTryingUntilNoException, nameof, Trivial
     from seq import (are_all_equal, differentiate_sets,
                      get_key_set, stringify_list, uniqs_in)
     from typevars import CanIgnoreCertainErrors, DifferTypes as Typ
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
-    from gconanpy.metafunc import (get_item_of, has_method, IgnoreExceptions,
-                                   KeepTryingUntilNoException, nameof)
+    from gconanpy.metafunc import has_method, IgnoreExceptions, \
+        KeepTryingUntilNoException, nameof, Trivial
     from gconanpy.seq import (are_all_equal, differentiate_sets,
                               get_key_set, stringify_list, uniqs_in)
     from gconanpy.typevars import CanIgnoreCertainErrors, DifferTypes as Typ
@@ -88,7 +88,7 @@ class DifferenceBetween:
         return comparables
 
     def compare_elements_0_to(self, end_ix: int) -> list[Typ.Diff]:
-        return self.compare_all_in("element", get_item_of,
+        return self.compare_all_in("element", Trivial.get_item_of,
                                    [x for x in range(end_ix)])
 
     def compare_sets(self, on: str, get_comparisons: Typ.GetPartNames,
@@ -127,7 +127,8 @@ class DifferenceBetween:
                     diff_keys = differentiate_sets(keys)
                     return diff_keys
                 else:
-                    values = self.compare_all_in("value", get_item_of, keys)
+                    values = self.compare_all_in(
+                        "value", Trivial.get_item_of, keys)
                     if self.difference:
                         return values
 

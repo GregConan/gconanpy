@@ -19,10 +19,10 @@ from cryptography.fernet import Fernet
 # Import local custom libraries
 try:
     from debug import Debuggable
-    from metafunc import KeepTryingUntilNoException, nameof, noop
+    from metafunc import KeepTryingUntilNoException, nameof, Trivial
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
-    from gconanpy.metafunc import KeepTryingUntilNoException, nameof, noop
+    from gconanpy.metafunc import KeepTryingUntilNoException, nameof, Trivial
 
 
 class Explictionary(dict):
@@ -157,7 +157,7 @@ class LazyDict(Defaultionary):
         return default if self.will_getdefault(key, exclude_empties) \
             else self[key]
 
-    def lazyget(self, key: str, get_if_absent: Callable = noop,
+    def lazyget(self, key: str, get_if_absent: Callable = Trivial.noop,
                 getter_args: Iterable = list(),
                 getter_kwargs: Mapping = dict(),
                 exclude_empties: bool = False) -> Any:
@@ -177,7 +177,7 @@ class LazyDict(Defaultionary):
         return get_if_absent(*getter_args, **getter_kwargs) if \
             self.will_getdefault(key, exclude_empties) else self[key]
 
-    def lazysetdefault(self, key: str, get_if_absent: Callable = noop,
+    def lazysetdefault(self, key: str, get_if_absent: Callable = Trivial.noop,
                        getter_args: Iterable = list(),
                        getter_kwargs: Mapping = dict(),
                        exclude_empties: bool = False) -> Any:

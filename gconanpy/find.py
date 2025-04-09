@@ -12,12 +12,10 @@ from typing import Any, Callable, Iterable, Sequence
 
 # Import remote custom libraries
 try:
-    from metafunc import (BasicContextManager, IgnoreExceptions,
-                          is_not_none, noop)
+    from metafunc import IgnoreExceptions, Trivial
     from typevars import FinderTypes as Typ
 except ModuleNotFoundError:
-    from gconanpy.metafunc import (BasicContextManager, IgnoreExceptions,
-                                   is_not_none, noop)
+    from gconanpy.metafunc import IgnoreExceptions, Trivial
     from gconanpy.typevars import FinderTypes as Typ
 
 
@@ -77,7 +75,7 @@ def get_nested_attribute_from(an_obj: Any, *attribute_names: str) -> Any:
     :return: Any, the attribute of an attribute ... of an attribute of an_obj
     """
     attributes = list(attribute_names)  # TODO reversed(attribute_names) ?
-    while attributes and is_not_none(an_obj):
+    while attributes and an_obj is not None:
         an_obj = getattr(an_obj, attributes.pop(0), None)
     return an_obj
 
@@ -85,7 +83,7 @@ def get_nested_attribute_from(an_obj: Any, *attribute_names: str) -> Any:
 def modifind(find_in: Iterable[Typ.I],
              modify: Typ.Modify | None = None,
              modify_args: Iterable[Typ.X] = list(),
-             found_if: Typ.Ready = is_not_none,
+             found_if: Typ.Ready = Trivial.is_not_none,
              found_args: Iterable[Typ.R] = list(),
              default: Typ.D = None,
              errs: Iterable[BaseException] = list()) -> Typ.I | Typ.D:
@@ -103,9 +101,10 @@ def modifind(find_in: Iterable[Typ.I],
 
 
 def spliterate(parts: Iterable[str], ready_if:
-               Callable[[str | None], bool] = is_not_none, min_len: int = 1,
-               get_target: Callable[[str], Any] = noop, pop_ix:
-               int = -1, join_on: str = " ") -> tuple[str, Any]:
+               Callable[[str | None], bool] = Trivial.is_not_none,
+               min_len: int = 1, get_target:
+               Callable[[str], Any] = Trivial.noop,
+               pop_ix: int = -1, join_on: str = " ") -> tuple[str, Any]:
     """ _summary_
 
     :param parts: Iterable[str], _description_
@@ -126,7 +125,7 @@ def spliterate(parts: Iterable[str], ready_if:
     return rejoined, gotten
 
 
-class WhittleUntil(BasicRange, BasicContextManager):
+class WhittleUntil(BasicRange):
 
     def __init__(self, to_whittle: Typ.M, ready_if: Typ.Ready,
                  find_in: Iterable[Typ.I], *ready_args: Typ.R,
@@ -137,7 +136,20 @@ class WhittleUntil(BasicRange, BasicContextManager):
         self.kwargs = ready_kwargs
         self.to_whittle = to_whittle
 
-    def __call__(self, item: Any) -> None:
+    def __enter__(self):
+        """ Must be explicitly defined here (not only in a superclass) for \
+            VSCode to realize that WhittleUntil(...) returns an instance of \
+            the WhittleUntil class.
+
+        :return: WhittleUntil, self.
+        """
+        return self
+
+    def __exit__(self, exc_type: type[BaseException] | None = None,
+                 *_: Any) -> bool:
+        return exc_type is None
+
+    def __call__(self, item: Any) -> None:  # next_try
         self.to_whittle = item
 
     def is_still_whittling(self) -> bool:  # is_not_ready

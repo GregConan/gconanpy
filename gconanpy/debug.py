@@ -6,7 +6,7 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-03-28
+Updated: 2025-04-08
 """
 # Import standard libraries
 import datetime as dt
@@ -16,7 +16,7 @@ import os
 import pdb
 import sys
 import tracemalloc
-from typing import Any, Callable, Hashable, Iterable, Mapping
+from typing import Any, Callable, Mapping
 
 # Import third-party PyPI libraries
 import pandas as pd
@@ -24,10 +24,10 @@ from pympler.asizeof import asizeof
 
 # Import local custom libraries
 try:
-    from metafunc import noop
+    from metafunc import Trivial
     from seq import stringify_dt, stringify_list, uniqs_in
 except ModuleNotFoundError:
-    from gconanpy.metafunc import noop
+    from gconanpy.metafunc import Trivial
     from gconanpy.seq import stringify_dt, stringify_list, uniqs_in
 
 # Constants
@@ -157,7 +157,7 @@ class ShowTimeTaken:
     """Context manager to time and log the duration of any block of code."""
 
     # Explicitly defining __call__ as a no-op to prevent instantiation.
-    __call__ = noop
+    __call__ = Trivial.noop
 
     def __init__(self, doing_what: str, show: Callable = print) -> None:
         """
@@ -168,8 +168,8 @@ class ShowTimeTaken:
         self.show = show
 
     def __enter__(self):
-        """Log the moment that script execution enters the context manager \
-        and what it is about to do.
+        """ Log the moment that script execution enters the context manager \
+            and what it is about to do.
         """
         self.start = dt.datetime.now()
         self.show(f"Started {self.doing_what} at {self.start}")
@@ -177,8 +177,8 @@ class ShowTimeTaken:
 
     def __exit__(self, exc_type: type | None = None,
                  exc_val: BaseException | None = None, exc_tb=None):
-        """Log the moment that script execution exits the context manager \
-        and what it just finished doing.
+        """ Log the moment that script execution exits the context manager \
+            and what it just finished doing.
 
         :param exc_type: Exception type
         :param exc_val: Exception value
@@ -210,10 +210,10 @@ class SplitLogger(logging.getLoggerClass()):
 
     def __init__(self, verbosity: int, out: str | None = None,
                  err: str | None = None) -> None:
-        """
-        Make logger to log status updates, warnings, and other important info.
-        SplitLogger can log errors/warnings/problems to one stream/file and
-        log info/outputs/messages to a different stream/file.
+        """ Make logger to log status updates, warnings, & other useful info.
+            SplitLogger can log errors/warnings/problems to one stream/file \
+            and log info/outputs/messages to a different stream/file.
+
         :param verbosity: Int, the number of times that the user included the
                           --verbose flag when they started running the script.
         :param out: str, valid path to text file to write output logs into
@@ -234,8 +234,8 @@ class SplitLogger(logging.getLoggerClass()):
 
     @classmethod
     def from_cli_args(cls, cli_args: Mapping[str, Any]) -> "SplitLogger":
-        """
-        Get logger, and prepare it to log to a file if the user said to
+        """ Get logger, and prepare it to log to a file if the user said to
+
         :param cli_args: Mapping[str, Any] of command-line input arguments
         :return: SplitLogger
         """
@@ -248,8 +248,8 @@ class SplitLogger(logging.getLoggerClass()):
 
     def addSubLogger(self, sub_name: str, log_stream: TextIOWrapper,
                      log_file_path: str | None = None):
-        """
-        Make a child Logger to handle one kind of message (namely err or out)
+        """ Make a child Logger to handle 1 kind of message, namely err or out
+
         :param name: String naming the child logger, accessible as
                      self.getLogger(f"{self.NAME}.{sub_name}")
         :param log_stream: io.TextIOWrapper, namely sys.stdout or sys.stderr
@@ -264,8 +264,8 @@ class SplitLogger(logging.getLoggerClass()):
 
     @classmethod
     def logAtLevel(cls, level: int, msg: str) -> None:
-        """
-        Log a message, using the sub-logger specific to that message's level 
+        """ Log a message, using the sub-logger specific to the message level
+
         :param level: logging._levelToName key; level to log the message at
         :param msg: String, the message to log
         """

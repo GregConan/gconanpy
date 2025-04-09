@@ -7,8 +7,10 @@ Created: 2025-03-26
 Updated: 2025-04-08
 """
 # Import standard libraries
+from abc import ABC
 import pdb
-from typing import Any, Callable, Iterable
+from typing import (Any, Callable, Hashable, Iterable,
+                    Mapping, Sequence, TypeVar)
 
 
 def find_an_attr_in(attrs_of: Any, attr_names: Iterable[str], default:
@@ -28,15 +30,8 @@ def find_an_attr_in(attrs_of: Any, attr_names: Iterable[str], default:
     return found_attr
 
 
-def get_item_of(x, i): return x[i]
-
-
-def has_method(an_obj, method_name: str) -> bool:
+def has_method(an_obj: Any, method_name: str) -> bool:
     return callable(getattr(an_obj, method_name, None))
-
-
-# Mostly to use as default value of input parameters in class methods
-def is_not_none(x: Any) -> bool: return x is not None
 
 
 def nameof(an_obj: Any) -> str:
@@ -48,27 +43,42 @@ def nameof(an_obj: Any) -> str:
     return getattr(an_obj, "__name__", type(an_obj).__name__)
 
 
-def noop(*_args: Any, **_kwargs: Any) -> None:
-    """Do nothing. Convenient to use as a default callable function parameter.
+class Trivial(ABC):
+    """ Totally redundant/trivial methods to use as callable default \
+        values of method parameters in other classes. """
+    _K = TypeVar("_K", bound=Hashable)
+    _V = TypeVar("_V")
 
-    :return: None
-    """
-    pass  # or `...`
+    @staticmethod
+    def get_item_of(x: Sequence[_V] | Mapping[_K, _V], i: _K) -> _V:
+        """ `x.__getitem__(i)` """
+        return x[i]
+
+    @staticmethod
+    def is_not_none(x: Any) -> bool: return x is not None
+
+    @staticmethod
+    def noop(*_args: Any, **_kwargs: Any) -> None:
+        """ Do nothing. """
+        pass  # or `...`
 
 
 class SkipException(BaseException):
     ...
 
 
-class BasicContextManager:
-    def __enter__(self): return self
-    def __exit__(self, exc_type: type[BaseException] | None = None,
-                 *_: Any) -> bool: return exc_type is None
-
-
-class IgnoreExceptions(BasicContextManager):
+class IgnoreExceptions:
     def __init__(self, *catch: type[BaseException]) -> None:
         self.catch = catch
+
+    def __enter__(self):
+        """ Must be explicitly defined here (not only in a superclass) for \
+            VSCode to realize that IgnoreExceptions(...) returns an \
+            instance of the IgnoreExceptions class.
+
+        :return: IgnoreExceptions, self.
+        """
+        return self
 
     def __exit__(self, exc_type: type[BaseException] | None = None,
                  *_: Any) -> bool:
@@ -76,7 +86,7 @@ class IgnoreExceptions(BasicContextManager):
 
 
 class SkipOrNot(IgnoreExceptions):
-    def __init__(self, parent: "KeepTryingUntilNoException", *catch):
+    def __init__(self, parent: "KeepTryingUntilNoException", *catch) -> None:
         super().__init__(*catch)
         self.parent = parent
 
@@ -88,7 +98,7 @@ class Skip(SkipOrNot):
 
 class DontSkip(SkipOrNot):
     def __exit__(self, exc_type: type[BaseException] | None = None,
-                 exc_val: BaseException | None = None, _: Any = None):
+                 exc_val: BaseException | None = None, _: Any = None) -> bool:
         if exc_val is None:
             self.parent.is_done = True
         else:
@@ -96,8 +106,8 @@ class DontSkip(SkipOrNot):
         return super(DontSkip, self).__exit__(exc_type)
 
 
-class KeepTryingUntilNoException(BasicContextManager):
-    def __init__(self, *catch: type[BaseException]):
+class KeepTryingUntilNoException:
+    def __init__(self, *catch: type[BaseException]) -> None:
         self.catch = catch
         self.errors = list()
         self.is_done = False
@@ -106,7 +116,17 @@ class KeepTryingUntilNoException(BasicContextManager):
         skip_or_not = Skip if self.is_done else DontSkip
         return skip_or_not(self, *self.catch)
 
-    def __exit__(self, exc_type: type[BaseException] | None = None, *_: Any):
+    def __enter__(self):
+        """ Must be explicitly defined here (not only in a superclass) for \
+            VSCode to realize that KeepTryingUntilNoException(...) returns \
+            an instance of the KeepTryingUntilNoException class.
+
+        :return: KeepTryingUntilNoException, self.
+        """
+        return self
+
+    def __exit__(self, exc_type: type[BaseException] | None = None,
+                 *_: Any) -> bool:
         return exc_type is SkipException
 
 
