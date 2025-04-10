@@ -3,14 +3,14 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-03
-Updated: 2025-04-08
+Updated: 2025-04-09
 """
 # Import standard libraries
 import datetime as dt
 from typing import Any
 
 # Import local custom libraries
-from gconanpy.find import modifind, WhittleUntil
+from gconanpy.find import modifind, ReadyChecker
 from tests.testers import Tester
 
 # Import third-party PyPI libraries
@@ -48,17 +48,16 @@ class TestModifind(Tester):
         print(f"Validated {date_obj}")
 
 
-class TestWhittle(Tester):
+class TestReadyChecker(Tester):
     REMOVABLES = (", Extra.", "Extra", "A.B.C", "ABC", "The")
 
-    def test_whittle(self):
+    def test_ready_checker(self):
         full_name = "The Big Shortenable Thing Name ABC, Extra."
         for max_len, result in ((30, "Big Shortenable Thing Name"),
                                 (40, "The Big Shortenable Thing Name ABC")):
-            with WhittleUntil(to_whittle=full_name,
-                              ready_if=lambda x: len(x) < max_len,
-                              find_in=self.REMOVABLES) as whittle:
-                while whittle.is_still_whittling():
-                    whittle(str.replace(whittle.to_whittle, next(whittle),
-                                        " ").strip())
-            self.check_result(whittle.to_whittle, result)
+            with ReadyChecker(to_check=full_name, iter_over=self.REMOVABLES,
+                              ready_if=lambda x: len(x) < max_len) as check:
+                while check.is_not_ready():
+                    check(str.replace(check.to_check, next(check), " "
+                                      ).strip())
+            self.check_result(check.to_check, result)
