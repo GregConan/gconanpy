@@ -6,9 +6,10 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-08
+Updated: 2025-04-09
 """
 # Import standard libraries
+from collections.abc import Callable, Mapping
 import datetime as dt
 from io import TextIOWrapper
 import logging
@@ -16,7 +17,7 @@ import os
 import pdb
 import sys
 import tracemalloc
-from typing import Any, Callable, Mapping
+from typing import Any
 
 # Import third-party PyPI libraries
 import pandas as pd

@@ -4,13 +4,14 @@
 Tools to define, accept, and validate command-line input arguments.
 Greg Conan: gregmconan@gmail.com
 Created: 2024-09-23
-Updated: 2025-03-13
+Updated: 2025-04-09
 """
 # Import standard libraries
+from collections.abc import Callable
 import argparse
 import os
 import pdb
-from typing import Callable, Any
+from typing import Any
 
 # Import local custom libraries
 try:

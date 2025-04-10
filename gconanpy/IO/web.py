@@ -4,13 +4,14 @@
 Functions to import/export data from/to remote files/pages/apps on the Web.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-13
-Updated: 2025-03-25
+Updated: 2025-04-09
 """
 # Import standard libraries
+from collections.abc import Mapping
 import datetime as dt
 import pdb
 import requests
-from typing import Any, Callable, Hashable, Iterable, Mapping
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 import urllib.request
 

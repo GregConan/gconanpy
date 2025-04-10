@@ -3,14 +3,16 @@
 """
 Lower-level utility functions and classes primarily to manipulate Sequences.
 Overlaps significantly with:
-    audit-ABCC/src/utilities.py, \
-    abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
+    DCAN-Labs:audit-ABCC/src/utilities.py, \
+    DCAN-Labs:abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-04-07
+Updated: 2025-04-09
 """
 # Import standard libraries
 import builtins
+from collections.abc import (Callable, Generator, Hashable, Iterable,
+                             Mapping, Sequence)
 import datetime as dt
 import itertools
 import os
@@ -18,8 +20,7 @@ import pdb
 from pprint import pprint
 import re
 import sys
-from typing import (Any, Callable, Generator, Hashable, Iterable,
-                    Mapping, Sequence, TypeVar)
+from typing import Any, TypeVar
 
 # Import third-party PyPI libraries
 import numpy as np

@@ -3,11 +3,29 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-04-07
+Updated: 2025-04-09
 """
 # Import local custom libraries
-from gconanpy.maps import Invertionary
+from gconanpy.maps import DotDict, Invertionary
 from tests.testers import Tester
+
+
+class TestDotDict(Tester):
+    def test_1(self):
+        self.add_basics()
+        dd = DotDict(self.adict)
+        self.check_result(dd.a, 1)
+        for k, v in self.adict.items():
+            self.check_result(getattr(dd, k), v)
+
+    def test_2(self):
+        self.add_basics()
+        dd = DotDict(self.adict)
+        self.check_result(len(dd), 3)
+        del dd.b
+        self.check_result([v for v in dd.values()], [1, 3])
+        self.check_result(len(dd), 2)
+        self.check_result(dd.PROTECTEDS in dd, False)
 
 
 class TestInvertionary(Tester):

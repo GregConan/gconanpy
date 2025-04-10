@@ -4,13 +4,13 @@
 Functions/classes to manipulate, or be manipulated by, functions/classes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-04-08
+Updated: 2025-04-09
 """
 # Import standard libraries
 from abc import ABC
+from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence
 import pdb
-from typing import (Any, Callable, Hashable, Iterable,
-                    Mapping, Sequence, TypeVar)
+from typing import Any, TypeVar
 
 
 def find_an_attr_in(attrs_of: Any, attr_names: Iterable[str], default:

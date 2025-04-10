@@ -4,14 +4,14 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-07
+Updated: 2025-04-09
 """
 # Import standard libraries
+from collections.abc import Callable, Hashable, Iterable, Mapping
 from configparser import ConfigParser
 import pdb
 import sys
-from typing import (Any, Callable, Hashable, Iterable,
-                    Mapping, SupportsBytes, TypeVar)
+from typing import Any, SupportsBytes, TypeVar
 
 # Import third-party PyPI libraries
 from cryptography.fernet import Fernet
@@ -225,14 +225,16 @@ class DotDict(Defaultionary):
     # https://stackoverflow.com/questions/2352181#comment114004924_23689767
     __dir__ = dict.keys
 
+    # Name of set[str] of attributes, methods, and other keywords that should
+    # not be accessible/modifiable as keys/values/items
+    PROTECTEDS = "__protected_keywords__"
+
     def __init__(self, *args, **kwargs):
+        # First, add all (non-item) custom methods and attributes
         super().__init__(*args, **kwargs)
 
-        """ Ensure that method names cannot be overwritten/deleted by \
-            defining protected keywords after adding all custom methods, \
-            ensuring that custom dict attributes are added AS attributes \
-            instead of items (to utilize `is_ready_to` method). """
-        self.__protected_keywords__ = set(dir(__class__))
+        # Prevent overwriting method/attributes or treating them like items
+        dict.__setattr__(self, self.PROTECTEDS, set(dir(__class__)))
 
     def __delattr__(self, name: str) -> None:
         """ Implement `delattr(self, name)`.
@@ -240,7 +242,7 @@ class DotDict(Defaultionary):
 
         :param name: str naming the attribute of self to delete.
         """
-        if self.is_ready_to("delete", name):
+        if self._is_ready_to("delete", name):
             self.__delitem__(name)
         else:
             dict.__delattr__(self, name)
@@ -277,7 +279,7 @@ class DotDict(Defaultionary):
         :param name: str naming the attribute/key to map the value to
         :param value: Any, the value of the new attribute/item
         """
-        if self.is_ready_to("overwrite", name):
+        if self._is_ready_to("overwrite", name):
             self.__setitem__(name, value)
         else:
             dict.__setattr__(self, name, value)
@@ -288,7 +290,7 @@ class DotDict(Defaultionary):
         :param key: str naming the key to map the value to
         :param value: Any, the value of the new item
         """
-        if self.is_ready_to("overwrite", key):
+        if self._is_ready_to("overwrite", key):
             super().__setitem__(key, value)
         else:
             dict.__setitem__(self, key, value)
@@ -300,6 +302,30 @@ class DotDict(Defaultionary):
         """
         self.update(state)
         self.__dict__ = self
+
+    def _is_ready_to(self, alter: str, attribute_name: str) -> bool:
+        """ Check whether a given attribute of self is protected, if it's \
+            alterable, or if self is still being initialized.
+
+        :param alter: str, verb naming the alteration
+        :param attribute_name: str, name of the attribute of self to alter
+        :raises AttributeError: if the attribute is protected
+        :return: bool, True if the attribute is not protected; \
+                 False if self is still being initialized; else raise error
+        """
+        is_protected = False
+        try:
+            is_protected = attribute_name in \
+                dict.__getattribute__(self, "__protected_keywords__")
+        except AttributeError:  # Still initializing self => not ready yet
+            is_ready = False
+        if is_protected:  # Attribute is protected => can't alter; raise error
+            raise AttributeError(f"Cannot {alter} read-only "
+                                 f"'{nameof(self)}' object "
+                                 f"attribute '{attribute_name}'")
+        else:  # Attribute is not protected => it is ready to alter
+            is_ready = True
+        return is_ready
 
     def get_subset_from_lookups(self, to_look_up: Mapping[str, str],
                                 sep: str = ".", default: Any = None):
@@ -329,30 +355,6 @@ class DotDict(Defaultionary):
             if isinstance(v, replace) and not isinstance(v, self.__class__):
                 self[k] = self.__class__(v)
                 self[k].homogenize()
-
-    def is_ready_to(self, alter: str, attribute_name: str) -> bool:
-        """ Check whether a given attribute of self is protected, if it's\
-            alterable, or if self is still being initialized.
-
-        :param alter: str, verb naming the alteration
-        :param attribute_name: str, name of the attribute of self to alter
-        :raises AttributeError: if the attribute is protected
-        :return: bool, True if the attribute is not protected;\
-                 False if self is still being initialized; else raise err
-        """
-        is_protected = False
-        try:
-            assert attribute_name in \
-                dict.__getattribute__(self, "__protected_keywords__")
-            is_protected = True
-        except AttributeError:  # Still initializing self => not ready yet
-            return False
-        except AssertionError:  # Attribute is not protected => ready to alter
-            return True
-        if is_protected:  # Attribute is protected => can't alter; raise error
-            raise AttributeError(f"Cannot {alter} read-only "
-                                 f"'{nameof(self)}' object "
-                                 f"attribute '{attribute_name}'")
 
     def lookup(self, path: str, sep: str = ".", default: Any = None) -> Any:
         """ Get the value mapped to a key in nested structure. Adapted from \
@@ -537,6 +539,14 @@ class Cryptionary(Promptionary, Bytesifier):
         except TypeError as e:
             self.debug_or_raise(e, locals())
 
+    def __delitem__(self, key: str) -> None:
+        """ Delete self[key]. 
+
+        :param key: str, key to delete and to delete the value of.
+        """
+        self.encrypted.discard(key)
+        del self[key]
+
     def __getitem__(self, dict_key: Hashable) -> Any:
         """ `x.__getitem__(y)` <==> `x[y]` 
         Explicitly defined to automatically decrypt encrypted values.
@@ -565,11 +575,3 @@ class Cryptionary(Promptionary, Bytesifier):
             return super(Cryptionary, self).__setitem__(dict_key, dict_value)
         except AttributeError as err:
             self.debug_or_raise(err, locals())
-
-    def __delitem__(self, key: str) -> None:
-        """ Delete self[key]. 
-
-        :param key: str, key to delete and to delete the value of.
-        """
-        self.encrypted.discard(key)
-        del self[key]

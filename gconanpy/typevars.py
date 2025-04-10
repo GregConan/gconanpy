@@ -4,11 +4,12 @@
 Classes and metaclasses to define generic types in other classes
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-25
-Updated: 2025-04-02
+Updated: 2025-04-09
 """
 # Import standard libraries
 from abc import ABC
-from typing import Any, Callable, Hashable, Iterable, TypeVar
+from collections.abc import Callable, Hashable, Iterable
+from typing import Any, TypeVar
 
 # Import local custom libraries
 try:
