@@ -19,10 +19,12 @@ from cryptography.fernet import Fernet
 # Import local custom libraries
 try:
     from debug import Debuggable
-    from metafunc import KeepTryingUntilNoException, nameof, Trivial
+    from metafunc import KeepTryingUntilNoErrors, nameof
+    from trivial import noop
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
-    from gconanpy.metafunc import KeepTryingUntilNoException, nameof, Trivial
+    from gconanpy.metafunc import KeepTryingUntilNoErrors, nameof
+    from gconanpy.trivial import noop
 
 
 class Explictionary(dict):
@@ -157,7 +159,7 @@ class LazyDict(Defaultionary):
         return default if self.will_getdefault(key, exclude_empties) \
             else self[key]
 
-    def lazyget(self, key: str, get_if_absent: Callable = Trivial.noop,
+    def lazyget(self, key: str, get_if_absent: Callable = noop,
                 getter_args: Iterable = list(),
                 getter_kwargs: Mapping = dict(),
                 exclude_empties: bool = False) -> Any:
@@ -177,7 +179,7 @@ class LazyDict(Defaultionary):
         return get_if_absent(*getter_args, **getter_kwargs) if \
             self.will_getdefault(key, exclude_empties) else self[key]
 
-    def lazysetdefault(self, key: str, get_if_absent: Callable = Trivial.noop,
+    def lazysetdefault(self, key: str, get_if_absent: Callable = noop,
                        getter_args: Iterable = list(),
                        getter_kwargs: Mapping = dict(),
                        exclude_empties: bool = False) -> Any:
@@ -213,9 +215,9 @@ class LazyDict(Defaultionary):
 
 class DotDict(Defaultionary):
     """ dict with dot.notation item access. Compare `sklearn.utils.Bunch`.
-    DotDict can get/set items as attributes: `self.item is self['item']`.
-    Benefit: You can get/set items by using '.' or key names in brackets.
-    Keeps most core functionality of the Python dict type.
+        DotDict can get/set items as attributes: `self.item is self['item']`.
+        Benefit: You can get/set items by using '.' or key names in brackets.
+        Keeps most core functionality of the Python dict type.
 
     Adapted from answers to https://stackoverflow.com/questions/2352181 and\
     attrdict from https://stackoverflow.com/a/45354473 and dotdict from\
@@ -285,14 +287,16 @@ class DotDict(Defaultionary):
             dict.__setattr__(self, name, value)
 
     def __setitem__(self, key: str, value: Any) -> None:
-        """ Set self[key] to value.
+        """ Set self[key] to value. Explicitly defined to include \
+            `_is_ready_to` check preventing user from overwriting protected \
+            attributes/methods.
 
         :param key: str naming the key to map the value to
         :param value: Any, the value of the new item
         """
         if self._is_ready_to("overwrite", key):
             super().__setitem__(key, value)
-        else:
+        else:  # TODO Are these `__setitem__`s meaningfully different?
             dict.__setitem__(self, key, value)
 
     def __setstate__(self, state):
@@ -304,7 +308,7 @@ class DotDict(Defaultionary):
         self.__dict__ = self
 
     def _is_ready_to(self, alter: str, attribute_name: str) -> bool:
-        """ Check whether a given attribute of self is protected, if it's \
+        """ Check if a given attribute of self is protected, if it's \
             alterable, or if self is still being initialized.
 
         :param alter: str, verb naming the alteration
@@ -316,7 +320,7 @@ class DotDict(Defaultionary):
         is_protected = False
         try:
             is_protected = attribute_name in \
-                dict.__getattribute__(self, "__protected_keywords__")
+                dict.__getattribute__(self, self.PROTECTEDS)
         except AttributeError:  # Still initializing self => not ready yet
             is_ready = False
         if is_protected:  # Attribute is protected => can't alter; raise error
@@ -381,21 +385,17 @@ class DotDict(Defaultionary):
         return default if retrieved is self else retrieved
 
 
-class Configtionary(DotDict):  # TODO Add comments
-    def __init__(self, *args, **kwargs) -> None:
-        """ Initialize Configtionary from existing Mapping (*args) or from \
-            new Mapping (**kwargs). """
-        super().__init__(*args, **kwargs)
-        self.homogenize()
-
+class Configtionary(DotDict):  # TODO Just put the method in DotDict?
     @classmethod
     def from_configparser(cls, config: ConfigParser):
         """
         :param config: ConfigParser to convert into Configtionary
         :return: Configtionary with the key-value mapping structure of config
         """
-        return cls({section: {k: v for k, v in config.items(section)}
-                   for section in config.sections()})
+        self = cls({section: {k: v for k, v in config.items(section)}
+                    for section in config.sections()})
+        self.homogenize()
+        return self
 
 
 class LazyDotDict(DotDict, LazyDict):
@@ -499,7 +499,7 @@ class Bytesifier(Debuggable):
         defaults = Defaultionary(kwargs)
         defaults.setdefaults(**self.DEFAULTS)
         encoding = defaults.pop("encoding")
-        with KeepTryingUntilNoException(TypeError) as next_try:
+        with KeepTryingUntilNoErrors(TypeError) as next_try:
             with next_try():
                 bytesified = str.encode(an_obj, encoding=encoding)
             with next_try():

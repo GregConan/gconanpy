@@ -6,9 +6,10 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-09
+Updated: 2025-04-10
 """
 # Import standard libraries
+from abc import ABC
 from collections.abc import Callable, Mapping
 import datetime as dt
 from io import TextIOWrapper
@@ -25,10 +26,8 @@ from pympler.asizeof import asizeof
 
 # Import local custom libraries
 try:
-    from metafunc import Trivial
     from seq import stringify_dt, stringify_list, uniqs_in
 except ModuleNotFoundError:
-    from gconanpy.metafunc import Trivial
     from gconanpy.seq import stringify_dt, stringify_list, uniqs_in
 
 # Constants
@@ -154,11 +153,8 @@ def show_keys_in(a_dict: Mapping[str, Any],  # show: Callable = print,
         logger_name=logger_name)
 
 
-class ShowTimeTaken:
+class ShowTimeTaken(ABC):
     """Context manager to time and log the duration of any block of code."""
-
-    # Explicitly defining __call__ as a no-op to prevent instantiation.
-    __call__ = Trivial.noop
 
     def __init__(self, doing_what: str, show: Callable = print) -> None:
         """

@@ -4,13 +4,12 @@
 Functions/classes to manipulate, or be manipulated by, functions/classes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-04-09
+Updated: 2025-04-10
 """
 # Import standard libraries
-from abc import ABC
-from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Generator, Iterable
 import pdb
-from typing import Any, TypeVar
+from typing import Any
 
 
 def find_an_attr_in(attrs_of: Any, attr_names: Iterable[str], default:
@@ -34,6 +33,10 @@ def has_method(an_obj: Any, method_name: str) -> bool:
     return callable(getattr(an_obj, method_name, None))
 
 
+def name_public_attributes_of(target: Any) -> list[str]:
+    return [attr_name for attr_name, _ in public_attributes_of(target)]
+
+
 def nameof(an_obj: Any) -> str:
     """ Get the `__name__` of an object or of its type/class.
 
@@ -43,24 +46,26 @@ def nameof(an_obj: Any) -> str:
     return getattr(an_obj, "__name__", type(an_obj).__name__)
 
 
-class Trivial(ABC):
-    """ Totally redundant/trivial methods to use as callable default \
-        values of method parameters in other classes. """
-    _K = TypeVar("_K", bound=Hashable)
-    _V = TypeVar("_V")
+def public_attributes_of(target: Any
+                         ) -> Generator[tuple[str, Any], None, None]:
+    for attr_name in dir(target):
+        if not attr_name.startswith("_"):
+            yield attr_name, getattr(target, attr_name)
 
-    @staticmethod
-    def get_item_of(x: Sequence[_V] | Mapping[_K, _V], i: _K) -> _V:
-        """ `x.__getitem__(i)` """
-        return x[i]
 
-    @staticmethod
-    def is_not_none(x: Any) -> bool: return x is not None
-
-    @staticmethod
-    def noop(*_args: Any, **_kwargs: Any) -> None:
-        """ Do nothing. """
-        pass  # or `...`
+def wrap_with_params(call: Callable, *args: Any, **kwargs: Any) -> Callable:
+    """
+    Define values to pass into a previously-defined function ("call"), and
+    return that function object wrapped with its new preset/default values
+    :param call: Callable, function to add preset/default parameter values to
+    :return: Callable, "call" with preset/default values for the 'args' and
+             'kwargs' parameters, so it only accepts one positional parameter
+    """
+    def wrapped(*fn_args: Any, **fn_kwargs: Any) -> Any:
+        fn_kwargs.update(kwargs)
+        # print(f"Calling {call.__name__}(*{args}, *{fn_args}, **{fn_kwargs})")
+        return call(*args, *fn_args, **fn_kwargs)
+    return wrapped
 
 
 class SkipException(BaseException):
@@ -86,7 +91,7 @@ class IgnoreExceptions:
 
 
 class SkipOrNot(IgnoreExceptions):
-    def __init__(self, parent: "KeepTryingUntilNoException", *catch) -> None:
+    def __init__(self, parent: "KeepTryingUntilNoErrors", *catch) -> None:
         super().__init__(*catch)
         self.parent = parent
 
@@ -106,7 +111,7 @@ class DontSkip(SkipOrNot):
         return super(DontSkip, self).__exit__(exc_type)
 
 
-class KeepTryingUntilNoException:
+class KeepTryingUntilNoErrors:
     def __init__(self, *catch: type[BaseException]) -> None:
         self.catch = catch
         self.errors = list()
@@ -118,28 +123,13 @@ class KeepTryingUntilNoException:
 
     def __enter__(self):
         """ Must be explicitly defined here (not only in a superclass) for \
-            VSCode to realize that KeepTryingUntilNoException(...) returns \
-            an instance of the KeepTryingUntilNoException class.
+            VSCode to realize that KeepTryingUntilNoErrors(...) returns an \
+            instance of the KeepTryingUntilNoErrors class.
 
-        :return: KeepTryingUntilNoException, self.
+        :return: KeepTryingUntilNoErrors, self.
         """
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None = None,
                  *_: Any) -> bool:
         return exc_type is SkipException
-
-
-def wrap_with_params(call: Callable, *args: Any, **kwargs: Any) -> Callable:
-    """
-    Define values to pass into a previously-defined function ("call"), and
-    return that function object wrapped with its new preset/default values
-    :param call: Callable, function to add preset/default parameter values to
-    :return: Callable, "call" with preset/default values for the 'args' and
-             'kwargs' parameters, so it only accepts one positional parameter
-    """
-    def wrapped(*fn_args: Any, **fn_kwargs: Any) -> Any:
-        fn_kwargs.update(kwargs)
-        # print(f"Calling {call.__name__}(*{args}, *{fn_args}, **{fn_kwargs})")
-        return call(*args, *fn_args, **fn_kwargs)
-    return wrapped

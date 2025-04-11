@@ -4,18 +4,21 @@
 Functions that iterate and break once they find what they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-04-09
+Updated: 2025-04-10
 """
 # Import standard libraries
+from collections.abc import Callable, Iterable, Sequence
 import pdb
-from typing import Any, Callable, Iterable, Sequence
+from typing import Any
 
 # Import remote custom libraries
 try:
-    from metafunc import IgnoreExceptions, Trivial
+    from metafunc import IgnoreExceptions
+    from trivial import is_not_none, noop
     from typevars import FinderTypes as Typ
 except ModuleNotFoundError:
-    from gconanpy.metafunc import IgnoreExceptions, Trivial
+    from gconanpy.metafunc import IgnoreExceptions
+    from gconanpy.trivial import is_not_none, noop
     from gconanpy.typevars import FinderTypes as Typ
 
 
@@ -96,7 +99,7 @@ def get_nested_attribute_from(an_obj: Any, *attribute_names: str) -> Any:
 def modifind(find_in: Iterable[Typ.I],
              modify: Typ.Modify | None = None,
              modify_args: Iterable[Typ.X] = list(),
-             found_if: Typ.Ready = Trivial.is_not_none,
+             found_if: Typ.Ready = is_not_none,
              found_args: Iterable[Typ.R] = list(),
              default: Typ.D = None,
              errs: Iterable[BaseException] = list()) -> Typ.I | Typ.D:
@@ -111,33 +114,6 @@ def modifind(find_in: Iterable[Typ.I],
             is_found = found_if(modified, *found_args)
         i += 1
     return modified if is_found else default
-
-
-def spliterate(parts: Iterable[str], ready_if:
-               Callable[[str | None], bool] = Trivial.is_not_none,
-               min_len: int = 1, get_target:
-               Callable[[str], Any] = Trivial.noop,
-               pop_ix: int = -1, join_on: str = " ") -> tuple[str, Any]:
-    """ _summary_
-
-    :param parts: Iterable[str] to iteratively modify, check, and recombine
-    :param is_not_ready: Callable[[str], bool], function that returns False \
-        if join_on.join(parts) is ready to return and True if it still \
-        needs to be modified further; defaults to Whittler.is_none
-    :param pop_ix: int, index of item to remove from parts once per \
-        iteration; defaults to -1 (the last item)
-    :param join_on: str, delimiter to insert between parts; defaults to " "
-    :return: tuple[str, Any], the modified and recombined string built from \
-        parts and then something retrieved from within parts
-    """
-    gotten = get_target(parts[pop_ix])
-    rejoined = join_on.join(parts)
-    while not ready_if(rejoined) and len(parts) > min_len \
-            and gotten is None:
-        parts.pop(pop_ix)
-        gotten = get_target(parts[pop_ix])
-        rejoined = join_on.join(parts)
-    return rejoined, gotten
 
 
 class ReadyChecker(BasicRange):
@@ -197,3 +173,30 @@ class ReadyChecker(BasicRange):
         :return: bool, False if there is no more need to iterate; else False.
         """
         return self.is_iterating and not self.item_is_ready(self.to_check)
+
+
+def spliterate(parts: Iterable[str], ready_if:
+               Callable[[str | None], bool] = is_not_none,
+               min_len: int = 1, get_target:
+               Callable[[str], Any] = noop,
+               pop_ix: int = -1, join_on: str = " ") -> tuple[str, Any]:
+    """ _summary_
+
+    :param parts: Iterable[str] to iteratively modify, check, and recombine
+    :param is_not_ready: Callable[[str], bool], function that returns False \
+        if join_on.join(parts) is ready to return and True if it still \
+        needs to be modified further; defaults to Whittler.is_none
+    :param pop_ix: int, index of item to remove from parts once per \
+        iteration; defaults to -1 (the last item)
+    :param join_on: str, delimiter to insert between parts; defaults to " "
+    :return: tuple[str, Any], the modified and recombined string built from \
+        parts and then something retrieved from within parts
+    """
+    gotten = get_target(parts[pop_ix])
+    rejoined = join_on.join(parts)
+    while not ready_if(rejoined) and len(parts) > min_len \
+            and gotten is None:
+        parts.pop(pop_ix)
+        gotten = get_target(parts[pop_ix])
+        rejoined = join_on.join(parts)
+    return rejoined, gotten

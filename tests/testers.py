@@ -3,12 +3,13 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-04-01
+Updated: 2025-04-10
 """
 # Import standard libraries
 from abc import ABC
 import os
 import pdb
+from typing import Any
 
 # Import third-party PyPI libraries
 from bs4 import BeautifulSoup
@@ -45,7 +46,7 @@ class Tester(ABC):
             htmltxt = infile.read()
         return BeautifulSoup(htmltxt, features="html.parser")
 
-    def check_result(self, result, expected_result):
+    def check_result(self, result: Any, expected_result: Any) -> None:
         succeeded = result == expected_result
         msg = f"Result `{result}` {'=' if succeeded else '!'}= " \
             f"expected `{expected_result}`"

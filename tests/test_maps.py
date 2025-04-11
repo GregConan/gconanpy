@@ -27,6 +27,19 @@ class TestDotDict(Tester):
         self.check_result(len(dd), 2)
         self.check_result(dd.PROTECTEDS in dd, False)
 
+    def test_3(self):
+        self.add_basics()
+        dd = DotDict(self.adict)
+        dd.five = 5
+        self.check_result(dd["five"], 5)
+        dd["six"] = 6
+        self.check_result(dd.six, 6)
+        try:
+            dd["get"] = "NOT ALLOWED"
+            assert False
+        except AttributeError as err:
+            self.check_result(type(err), AttributeError)
+
 
 class TestInvertionary(Tester):
     def get_1s_dict(self) -> dict[str, int]:

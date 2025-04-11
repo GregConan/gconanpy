@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-09
+Updated: 2025-04-10
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable, Iterator
@@ -16,16 +16,18 @@ from typing import Any, SupportsFloat, TypeVar
 try:
     from debug import Debuggable
     from metafunc import has_method, IgnoreExceptions, \
-        KeepTryingUntilNoException, nameof, Trivial
+        KeepTryingUntilNoErrors, nameof
     from seq import (are_all_equal, differentiate_sets,
                      get_key_set, stringify_list, uniqs_in)
+    from trivial import get_item_of
     from typevars import CanIgnoreCertainErrors, DifferTypes as Typ
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
     from gconanpy.metafunc import has_method, IgnoreExceptions, \
-        KeepTryingUntilNoException, nameof, Trivial
+        KeepTryingUntilNoErrors, nameof
     from gconanpy.seq import (are_all_equal, differentiate_sets,
                               get_key_set, stringify_list, uniqs_in)
+    from gconanpy.trivial import get_item_of
     from gconanpy.typevars import CanIgnoreCertainErrors, DifferTypes as Typ
 
 
@@ -88,7 +90,7 @@ class DifferenceBetween:
         return comparables
 
     def compare_elements_0_to(self, end_ix: int) -> list[Typ.Diff]:
-        return self.compare_all_in("element", Trivial.get_item_of,
+        return self.compare_all_in("element", get_item_of,
                                    [x for x in range(end_ix)])
 
     def compare_sets(self, on: str, get_comparisons: Typ.GetPartNames,
@@ -128,7 +130,7 @@ class DifferenceBetween:
                     return diff_keys
                 else:
                     values = self.compare_all_in(
-                        "value", Trivial.get_item_of, keys)
+                        "value", get_item_of, keys)
                     if self.difference:
                         return values
 
@@ -170,7 +172,7 @@ class IteratorFactory(CanIgnoreCertainErrors):
 
     @classmethod
     def iterate(cls, an_obj: Iterable[_T] | _T) -> Iterator[_T]:
-        with KeepTryingUntilNoException(*cls.IGNORABLES) as next_try:
+        with KeepTryingUntilNoErrors(*cls.IGNORABLES) as next_try:
             with next_try():
                 iterator = iter(an_obj.values())
             with next_try():
