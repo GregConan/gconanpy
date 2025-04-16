@@ -314,18 +314,25 @@ class AttributesOf:
         """
         return attr_name.startswith("_")
 
-    def add_to(self, an_obj: _T, names_that: _SELECTOR,
+    def add_to(self, an_obj: _T, name_filters: Iterable[_SELECTOR] = list(),
+               value_filters: Iterable[_SELECTOR] = list(),
                exclude: bool = False) -> _T:
         """ Copy attributes and their values into `an_obj`.
 
         :param an_obj: Any, object to add/copy attributes into.
-        :param names_that: FrozenFunction[[Any], bool] to run on the name of \
-            every attribute of this object, to check whether to add/copy it.
-        :param exclude: bool, False to INclude all attributes for which the \
-            names_that function returns True; else False to EXclude them.
+        :param name_filters: Iterable[FrozenFunction[[Any], bool]] of \
+            Callables to run on the NAME of every attribute of this object, \
+            to check whether the returned generator function should include \
+            that attribute or skip it
+        :param value_filters: Iterable[FrozenFunction[[Any], bool]] of \
+            Callables to run on the VALUE of every attribute of this object, \
+            to check whether the returned generator function should include \
+            that attribute or skip it
+        :param exclude: bool, False to INclude all attributes for which all \
+            of the filter functions return True; else False to EXclude them.
         :return: Any, an_obj with the specified attributes of this object.
         """
-        for attr_name in self.select(names_that, exclude):
+        for attr_name in self.select(name_filters, value_filters, exclude):
             setattr(an_obj, attr_name, getattr(self.what, attr_name))
         return an_obj
 
@@ -372,7 +379,7 @@ class AttributesOf:
         :return: list[str], names of all methods (callable attributes) of \
             this object.
         """
-        return [a for a, _ in self.methods()]
+        return [meth_name for meth_name, _ in self.methods()]
 
     def nested(self, *attribute_names: str) -> Any:
         """ `AttributesOf(an_obj).nested("first", "second", "third")` will \
@@ -396,6 +403,8 @@ class AttributesOf:
             and value of each private attribute.
         """
         return self.select([self._attr_is_private])
+
+    # NOTE: No need for `private_names`, because that's literally just `dir`
 
     def public(self) -> Generator[tuple[str, Any], None, None]:
         """ Iterate over this object's public attributes.
