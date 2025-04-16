@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-15
+Updated: 2025-04-16
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable, Mapping
@@ -139,8 +139,8 @@ class LazyDict(Defaultionary):
     an existing key. Benefit: The `default=` code does not need to be valid \
     (yet) if self already has the key. If you pass a function to a "lazy" \
     method, then that function only needs to work if a value is missing.
-    Keeps most core functionality of the Python dict type.
-    Extended LazyButHonestDict from https://stackoverflow.com/q/17532929 """
+    Keeps most core functionality of the Python `dict` type.
+    Extended `LazyButHonestDict` from https://stackoverflow.com/q/17532929 """
 
     def get(self, key: str, default: Any = None,
             exclude_empties: bool = False) -> Any:
@@ -156,7 +156,7 @@ class LazyDict(Defaultionary):
         :return: Any, (decrypted) value mapped to key in this Cryptionary if \
             any, else default
         """
-        return default if self.will_getdefault(key, exclude_empties) \
+        return default if self._will_getdefault(key, exclude_empties) \
             else self[key]
 
     def lazyget(self, key: str, get_if_absent: Callable = noop,
@@ -177,7 +177,7 @@ class LazyDict(Defaultionary):
             None in self; else (by default) False to return mapped value
         """
         return get_if_absent(*getter_args, **getter_kwargs) if \
-            self.will_getdefault(key, exclude_empties) else self[key]
+            self._will_getdefault(key, exclude_empties) else self[key]
 
     def lazysetdefault(self, key: str, get_if_absent: Callable = noop,
                        getter_args: Iterable = list(),
@@ -197,12 +197,12 @@ class LazyDict(Defaultionary):
             self with get_if_absent(*getter_args, **getter_kwargs) and \
             return that; else (by default) False to return the mapped value
         """
-        if self.will_getdefault(key, exclude_empties):
+        if self._will_getdefault(key, exclude_empties):
             self[key] = get_if_absent(*getter_args, **getter_kwargs)
         return self[key]
 
-    def will_getdefault(self, key: Any, exclude_empties: bool = False
-                        ) -> bool:
+    def _will_getdefault(self, key: Any, exclude_empties: bool = False
+                         ) -> bool:
         """
         :param key: Any
         :param exclude_empties: bool, what to return if key is None.
@@ -219,8 +219,8 @@ class DotDict(Defaultionary):
         Benefit: You can get/set items by using '.' or key names in brackets.
         Keeps most core functionality of the Python dict type.
 
-    Adapted from answers to https://stackoverflow.com/questions/2352181 and\
-    attrdict from https://stackoverflow.com/a/45354473 and dotdict from\
+    Adapted from answers to https://stackoverflow.com/questions/2352181 and \
+    `attrdict` from https://stackoverflow.com/a/45354473 and `dotdict` from \
     https://github.com/dmtlvn/dotdict/blob/main/dotdict/dotdict.py
     """
     # Enable tab-completion of dotdict items. From
@@ -244,7 +244,7 @@ class DotDict(Defaultionary):
 
         :param name: str naming the item in self to delete.
         """
-        self._raise_if_cannot("delete", name, AttributeError)
+        self._if_protected_prevent("delete", name, AttributeError)
         return self.__delitem__(name)
 
     def __getattr__(self, name: str) -> Any:
@@ -276,25 +276,25 @@ class DotDict(Defaultionary):
     def __setattr__(self, name: str, value: Any) -> None:
         """ Implement `setattr(self, name, value)`. Same as \
             `self[name] = value`. Explicitly defined to include \
-            `_raise_if_cannot` check preventing user from overwriting \
+            `_if_protected_prevent` check preventing user from overwriting \
             protected attributes/methods.
 
         :param name: str naming the attribute/key to map the value to
         :param value: Any, the value of the new attribute/item
         """
-        self._raise_if_cannot("overwrite", name, AttributeError)
+        self._if_protected_prevent("overwrite", name, AttributeError)
         return self.__setitem__(name, value)
 
     def __setitem__(self, key: str, value: Any) -> None:
         """ Set self[key] to value. Explicitly defined to include \
-            `_raise_if_cannot` check preventing user from overwriting \
+            `_if_protected_prevent` check preventing user from overwriting \
             protected attributes/methods.
 
         :param key: str naming the key to map the value to
         :param value: Any, the value of the new item
         """
-        self._raise_if_cannot("overwrite", key, KeyError)
-        return super().__setitem__(key, value)
+        self._if_protected_prevent("overwrite", key, KeyError)
+        return super(DotDict, self).__setitem__(key, value)
 
     def __setstate__(self, state: Mapping) -> None:
         """ Required for pickling. From https://stackoverflow.com/a/36968114
@@ -304,8 +304,8 @@ class DotDict(Defaultionary):
         self.update(state)
         self.__dict__ = self
 
-    def _raise_if_cannot(self, alter: str, attr_name: str, err_type:
-                         type[BaseException] = AttributeError) -> bool:
+    def _if_protected_prevent(self, alter: str, attr_name: str, err_type:
+                              type[BaseException] = AttributeError) -> bool:
         """ Check if an attribute of self is protected or if it's alterable
 
         :param alter: str, verb naming the alteration

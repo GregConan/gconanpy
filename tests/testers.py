@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-04-15
+Updated: 2025-04-16
 """
 # Import standard libraries
 from abc import ABC
@@ -50,9 +50,9 @@ class Tester(ABC):
             result = cls.obj_has_but_cannot(an_obj, method, names, err_type)
         return result
 
-    def check_result(self, result: Any, expected_result: Any) -> None:
-        succeeded = result == expected_result
-        msg = f"Result `{result}` {'=' if succeeded else '!'}= " \
+    def check_result(self, actual_result: Any, expected_result: Any) -> None:
+        succeeded = actual_result == expected_result
+        msg = f"Result `{actual_result}` {'=' if succeeded else '!'}= " \
             f"expected `{expected_result}`"
         print(msg)
         assert succeeded

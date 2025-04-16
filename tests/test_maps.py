@@ -13,7 +13,7 @@ from gconanpy.maps import DotDict, Invertionary, LazyDotDict
 from tests.testers import Tester
 
 
-class TestDotDict(Tester):
+class TestDotDicts(Tester):
     TEST_CLASSES = (DotDict, LazyDotDict)
 
     def get_dot_dicts(self) -> Generator[type, None, None]:
@@ -68,7 +68,7 @@ class TestDotDict(Tester):
                     super().__init__(*args, **kwargs)
 
                 def __getattr__(self, name):
-                    return f"sub{ddclass.__getattr__(self, name)}"
+                    return f"sub{super().__getattr__(name)}"
 
             ddsc = DotDictSubClass(self.adict)
             self.check_result({x: getattr(ddsc, x) for x in dir(ddsc)},

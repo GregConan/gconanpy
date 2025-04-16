@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-04-15
+Updated: 2025-04-16
 """
 # Import standard libraries
 from abc import ABC
@@ -21,33 +21,6 @@ ESSENTIALS = {f"__{attr}__" for attr in
               ("class", "class_getitem", "delattr", "getattribute",  # "doc",
                "hash", "init", "init_subclass", "new", "reduce",
                "reduce_ex", "setattr", "subclasshook")}
-
-
-def find_an_attr_in(attrs_of: Any, attr_names: Iterable[str], default:
-                    Any = None, method_names: set[str] = set()) -> Any:
-    """
-    :param attrs_of: Any, object to find an attribute of.
-    :param attr_names: Iterable[str] of attributes to check `attrs_of` for.
-    :param default: Any, what to return if `attrs_of` does not have any of \
-        the attributes named in `attr_names`.
-    :param method_names: set[str], the methods named in `attr_names` to call \
-        before returning them.
-    :return: Any, an attribute of `attrs_of` (if found) executed with no \
-        parameters (if in `method_names`), or `default` if not found.
-    """
-    found_attr = default
-    ix = 0
-    while ix + 1 < len(attr_names) and not hasattr(attrs_of,
-                                                   attr_names[ix]):
-        ix += 1
-    try:
-        name = attr_names[ix]
-        found_attr = getattr(attrs_of, name, default)
-        if name in method_names:
-            found_attr = found_attr()
-    except (AttributeError, IndexError, TypeError):
-        pass
-    return found_attr
 
 
 def has_method(an_obj: Any, method_name: str) -> bool:
@@ -81,39 +54,21 @@ def negate(a_func: Callable[..., bool]) -> Callable[..., bool]:
     return negated_function
 
 
-def to_class(name: str, an_obj: Any, **kwargs):  # TODO Remove
-    return type(name, (type(an_obj), ), kwargs)
-
-
-def wrap_with_params(call: Callable, *args: Any, **kwargs: Any) -> Callable:
-    # TODO Replace this (in cli.py) with FrozenFunction
-    """
-    Define values to pass into a previously-defined function ("call"), and
-    return that function object wrapped with its new preset/default values
-    :param call: Callable, function to add preset/default parameter values to
-    :return: Callable, "call" with preset/default values for the 'args' and
-             'kwargs' parameters, so it only accepts one positional parameter
-    """
-    def wrapped(*fn_args: Any, **fn_kwargs: Any) -> Any:
-        fn_kwargs.update(kwargs)
-        # print(f"Calling {call.__name__}(*{args}, *{fn_args}, **{fn_kwargs})")
-        return call(*args, *fn_args, **fn_kwargs)
-    return wrapped
-
-
 class BoolableMeta(type):  # https://realpython.com/python-interface/
     """ A metaclass that will be used for Boolable class creation.
     """
-    def __instancecheck__(cls, instance):
+    def __instancecheck__(cls, instance: Any) -> bool:
         try:
             bool(instance)
             return True
         except (TypeError, ValueError):
             return False
 
-    def __subclasscheck__(cls, subclass):
+    def __subclasscheck__(cls, subclass: type) -> bool:
         methods = ("__bool__", "__len__")
-        return find_an_attr_in(subclass, methods, None, set(methods))
+        return bool(AttributesOf(subclass).first_of(methods, None,
+                                                    set(methods)))
+        # return find_an_attr_in(subclass, methods, None, set(methods))
 
 
 class Boolable(metaclass=BoolableMeta):
@@ -124,10 +79,10 @@ class Boolable(metaclass=BoolableMeta):
 class SupportsGetItemMeta(type):  # https://realpython.com/python-interface/
     """ A metaclass that will be used for SupportsGetItem class creation.
     """
-    def __instancecheck__(cls, instance):
+    def __instancecheck__(cls, instance: Any) -> bool:
         return has_method(instance, "__getitem__")
 
-    def __subclasscheck__(cls, subclass):
+    def __subclasscheck__(cls, subclass: type) -> bool:
         return has_method(subclass, "__getitem__")
 
 
@@ -352,7 +307,7 @@ class AttributesOf:
         """ 
         :param what: Any, the object to select/iterate/copy attributes of
         """
-        self.names = dir(what)
+        self.names = set(dir(what))
         self.what = what
 
     def _attr_is_private(self, attr_name: str) -> bool:
@@ -377,6 +332,44 @@ class AttributesOf:
         for attr_name in self.select(filter_on, exclude):
             setattr(an_obj, attr_name, getattr(self.what, attr_name))
         return an_obj
+
+    def first_of(self, attr_names: Iterable[str], default: Any = None,
+                 method_names: set[str] = set()) -> Any:
+        """
+        :param attr_names: Iterable[str], attributes to check this object for.
+        :param default: Any, what to return if this object does not have any of \
+            the attributes named in `attr_names`.
+        :param method_names: set[str], the methods named in `attr_names` to call \
+            before returning them.
+        :return: Any, `default` if this object has no attribute named in \
+            `attr_names`; else the found attribute, executed with no \
+            parameters (if in `method_names`)
+        """
+        found_attr = default
+        attrs = self.names.intersection(set(attr_names))
+        match len(attrs):
+            case 0:
+                pass  # found_attr = default
+            case 1:
+                found_attr = getattr(self.what, attrs.pop())
+            case _:
+                iter_names = iter(list(attr_names))
+                name = next(iter_names, None)
+                while found_attr is default and name is not None:
+                    if name in self.names:
+                        found_attr = getattr(self.what, name)
+                    name = next(iter_names, None)
+        if name in method_names and callable(found_attr):
+            found_attr = found_attr()
+        return found_attr
+
+    def methods(self) -> Generator[tuple[str, Any], None, None]:
+        """ Iterate over this object's methods (callable attributes).
+
+        :yield: Generator[tuple[str, Any], None, None] that returns the name \
+            and value of each method of this object.
+        """
+        return self.select(FrozenFunction(callable))
 
     def nested(self, *attribute_names: str) -> Any:
         """ `AttributesOf(an_obj).nested("first", "second", "third")` will \

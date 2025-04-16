@@ -4,10 +4,10 @@
 Functions to import/export data from/to remote files/pages/apps on the Web.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-13
-Updated: 2025-04-10
+Updated: 2025-04-16
 """
 # Import standard libraries
-from collections.abc import Mapping
+from collections.abc import Hashable, Mapping
 import datetime as dt
 import pdb
 import requests
@@ -36,39 +36,28 @@ def download_GET(path_URL: str, headers: Mapping[str, Any]) -> Any:
               f"{response.status_code} Error: {response.reason}")
 
 
-def extract_params_from_url(a_url: str) -> dict[str, Any]:
-    return parse_qs(urlparse(a_url).query)
-
-
-def read_webpage_at(a_URL: str) -> Any:  # urllib.request._UrlopenRet:
+def read_webpage_at(a_URL: str) -> Any:  # -> urllib.request._UrlopenRet:
     return urllib.request.urlopen(a_URL).read()
 
 
 class URL:
-    """ `urllib.parse.ParseResult` with extra methods """
+    """ `urllib.parse.ParseResult` wrapper with extra methods """
 
     def __init__(self, a_URL: str):
+        """
+        :param a_URL: str, a valid web URL
+        """
         self.urlstr = a_URL
         self.parsed = urlparse(a_URL)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.urlstr
 
-    def get_params(self) -> str:
+    def get_params(self) -> dict[Hashable, list]:
         return parse_qs(self.parsed.query)
 
     def without_params(self) -> str:
         """
-        :param a_url: str, a valid web URL
-        :return: str, a_url but without any parameters
+        :return: str, URL but without any parameters
         """
         return f"{self.parsed.scheme}://{''.join(self.parsed[1:3])}"
-
-
-def without_parameters(a_url: str) -> str:
-    """
-    :param a_url: str, a valid web URL
-    :return: str, a_url but without any parameters
-    """
-    parsed = urlparse(a_url)
-    return f"{parsed.scheme}://{''.join(parsed[1:3])}"

@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-10
+Updated: 2025-04-16
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable, Iterator
@@ -36,7 +36,7 @@ class DifferenceBetween:
     names: list[str]
 
     def __init__(self, *args: Typ.ToCompare, **kwargs: Typ.ToCompare):
-        """ Identify difference(s) between any Python objects or values.
+        """ Identify difference(s) between any Python objects/values.
 
         :param args: Iterable[Any] of objects to compare.
         :param kwargs: Mapping[str, Any] of names to objects to compare.
@@ -67,7 +67,7 @@ class DifferenceBetween:
         diffs = list()
         get_comparison = iter(comparisons)
         next_name = next(get_comparison, None)
-        while next_name is not None and not self.difference:
+        while not self.difference and next_name is not None:
             diffs = self.compare_by(f"{on} {next_name}", lambda y:
                                     get_subcomparator(y, next_name))
             next_name = next(get_comparison, None)
@@ -233,7 +233,7 @@ class SimpleShredder:
                     self._collect(v)
             except self.SHRED_ERRORS:
 
-                # ...elements if it's not
+                # ...elements if it's not a Mapping
                 for element in an_obj:
                     self._collect(element)
 
@@ -267,13 +267,14 @@ class Shredder(SimpleShredder, Debuggable):
             with IgnoreExceptions(*self.SHRED_ERRORS):
                 self._shred_iterable(an_obj.__dict__)
 
-            try:  # If it's a Mapping, then shred or save each of its values
+            # Shred or save each of an_obj's...
+            try:  # ...values if it's a Mapping
                 for k, v in an_obj.items():
                     if k not in self.exclude_keys:
                         self._collect(v)
             except self.SHRED_ERRORS:
 
-                # If it's not a Mapping, then shred or save each element
+                # ...elements if it's not a Mapping
                 for element in an_obj:
                     self._collect(element)
 
@@ -289,12 +290,69 @@ class Shredder(SimpleShredder, Debuggable):
             self.debug_or_raise(err, locals())
 
 
-class Corer(Shredder, CanIgnoreCertainErrors):
-    Comparer = Callable[[Any], SupportsFloat]
+class Comparer(CanIgnoreCertainErrors):
+    Comparable = TypeVar("Comparable")
+    Comparee = TypeVar("Comparee")
+    Comparison = Callable[[Comparable, Comparable], bool]
+    ToNumber = Callable[[Comparable], SupportsFloat]
+    ToComparable = Callable[[Comparee], Comparable]
 
-    def core(self, to_core: Iterable, default: Any = None,
-             compare_their: Comparer = len,
-             make_comparable: Callable = str) -> Any:
+    @classmethod
+    def comparison(cls, smallest: bool = False, earliest: bool = False
+                   ) -> Comparison:
+        """ Get function that compares two `SupportsFloat` objects.
+
+        smallest & earliest => `x.__lt__(y)` (Less Than),
+        biggest & latest => `x.__ge__(y)` (Greater than or Equal to), etc.
+
+        :param smallest: bool,_description_, defaults to False
+        :param earliest: bool,_description_, defaults to False
+        :return: Comparison, function that takes 2 `SupportsFloat` objects, \
+            calls an inequality method of the first's on the second, and \
+            returns the (boolean) result.
+        """
+        method = f'__{"l" if smallest else "g"}{"t" if earliest else "e"}__'
+        return lambda x, y: getattr(x, method)(y)
+
+    @classmethod
+    def compare(cls, items: Iterable[Comparee], compare_their: ToNumber = len,
+                make_comparable: ToComparable = str, default: Comparee = "0",
+                smallest: bool = False, earliest: bool = False) -> Comparee:
+        """ Get the biggest (or smallest) item in `items`. 
+
+        :param items: Iterable[Any], things to compare.
+        :param compare_their: Callable[[Any], SupportsFloat], comparison \
+            function, defaults to `len`
+        :param make_comparable: Callable[[Any], Any], comparison \
+            function, defaults to `str`
+        :param default: Any, starting item to compare other items against
+        :return: Any, item with the largest value returned by calling \
+            `compare_their(make_comparable(`item`))`.
+        """
+        compare = cls.comparison(smallest, earliest)
+        biggest = default
+        max_size = compare_their(biggest)
+        for item in items:
+            try:
+                item_size = compare_their(item)
+            except cls.IGNORABLES:
+                try:
+                    item_size = compare_their(make_comparable(item))
+                except cls.IGNORABLES:
+                    item_size = 1.0
+            if compare(item_size, max_size):  # item_size >= max_size:
+                biggest = item
+                max_size = item_size
+        return biggest
+
+
+class Corer(Shredder, Comparer):
+
+    def core(self, to_core: Iterable[Comparer.Comparee],
+             default: Comparer.Comparee = None,
+             compare_their: Comparer.ToNumber = len,
+             make_comparable: Comparer.ToComparable = str
+             ) -> Comparer.Comparee:
         """ Extract the biggest (longest) datum from a nested data structure.
 
         :param to_core: Iterable, especially a nested container data structure
@@ -308,23 +366,8 @@ class Corer(Shredder, CanIgnoreCertainErrors):
                 case 1:
                     biggest = parts.pop()
                 case _:
-
-                    # TODO Extract the block below into standalone comparison function?
-                    biggest = "0"
-                    max_size = compare_their(biggest)
-                    for part in parts:
-                        try:
-                            part_size = compare_their(part)
-                        except self.IGNORABLES:
-                            try:
-                                part_size = compare_their(
-                                    make_comparable(part))
-                            except self.IGNORABLES:
-                                part_size = 1.0
-                        if part_size >= max_size:
-                            biggest = part
-                            max_size = part_size
-
+                    biggest = self.compare(parts, compare_their,
+                                           make_comparable)
             return biggest
         except self.IGNORABLES as err:
             self.debug_or_raise(err, locals())
@@ -366,7 +409,8 @@ class Xray(list):
 
         if not list_its:
             list_its = what_elements_are
-        self.what_elements_are = f"{nameof(an_obj)} {list_its if list_its else what_elements_are}"
+        self.what_elements_are = nameof(an_obj) + \
+            f" {list_its if list_its else what_elements_are}"
 
         try:
             gotten = uniqs_in(gotten)

@@ -15,9 +15,9 @@ from typing import Any
 
 # Import local custom libraries
 try:
-    from metafunc import wrap_with_params
+    from metafunc import FrozenFunction
 except ModuleNotFoundError:
-    from gconanpy.metafunc import wrap_with_params
+    from gconanpy.metafunc import FrozenFunction
 
 
 # NOTE: Functions and classes below are in alphabetical order.
@@ -82,9 +82,9 @@ class ArgParser(argparse.ArgumentParser):
 
 class Valid:
     # TODO Do this in a more standard way
-    dir_made: Callable = wrap_with_params(os.makedirs, exist_ok=True)
-    readable: Callable = wrap_with_params(os.access, mode=os.R_OK)
-    writable: Callable = wrap_with_params(os.access, mode=os.W_OK)
+    dir_made = FrozenFunction(os.makedirs, exist_ok=True)
+    readable = FrozenFunction(os.access, mode=os.R_OK)
+    writable = FrozenFunction(os.access, mode=os.W_OK)
 
     @staticmethod
     def _validate(to_validate: Any, *conditions: Callable,
