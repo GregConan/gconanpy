@@ -7,9 +7,12 @@ Updated: 2025-04-15
 """
 # Import standard libraries
 from collections.abc import Generator
+from dataclasses import dataclass
 
 # Import local custom libraries
+from gconanpy.debug import Debuggable
 from gconanpy.maps import DotDict, Invertionary, LazyDotDict
+from gconanpy.metafunc import CanIgnoreCertainErrors
 from tests.testers import Tester
 
 
@@ -49,12 +52,14 @@ class TestDotDicts(Tester):
             assert not isinstance(dd["testdict"], type(dd))
             dd.homogenize()
             assert isinstance(dd["testdict"], type(dd))
+            assert isinstance(dd.testdict, type(dd))
 
     def test_5(self):
         self.add_basics()
         ldd = LazyDotDict(self.adict)
 
         protected_attrs = getattr(ldd, ldd.PROTECTEDS)
+        print(ldd.PROTECTEDS)
         assert self.cannot_alter(ldd, *protected_attrs)
 
         lazy_attrs = {"lazyget", "lazysetdefault"}
@@ -73,6 +78,28 @@ class TestDotDicts(Tester):
             ddsc = DotDictSubClass(self.adict)
             self.check_result({x: getattr(ddsc, x) for x in dir(ddsc)},
                               dict(a="sub1", b="sub2", c="sub3"))
+
+    def test_7(tester):
+        tester.add_basics()
+        for ddclass in tester.TEST_CLASSES:
+            @dataclass
+            class DDSubClass(ddclass, Debuggable, CanIgnoreCertainErrors):
+                # Input parameters without default values
+                name: str
+
+                # Attributes and input parameters with default values
+                description: str = "Description"
+                amount: int = 12
+
+            class DDSubSubClass(DDSubClass):
+                def __init__(self, **kwargs):
+                    LazyDotDict.__init__(self)
+                    self.update(kwargs)
+                    self.setdefault("amount", 5)
+                    self.description = "something else"
+
+            ddssc = DDSubSubClass(name="something")
+            print(ddssc)
 
 
 class TestInvertionary(Tester):

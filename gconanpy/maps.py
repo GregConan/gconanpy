@@ -19,11 +19,11 @@ from cryptography.fernet import Fernet
 # Import local custom libraries
 try:
     from debug import Debuggable
-    from metafunc import KeepTryingUntilNoErrors, nameof
+    from metafunc import AttributesOf, KeepTryingUntilNoErrors, nameof
     from trivial import noop
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
-    from gconanpy.metafunc import KeepTryingUntilNoErrors, nameof
+    from gconanpy.metafunc import AttributesOf, KeepTryingUntilNoErrors, nameof
     from gconanpy.trivial import noop
 
 
@@ -236,7 +236,9 @@ class DotDict(Defaultionary):
         super().__init__(*args, **kwargs)
 
         # Prevent overwriting method/attributes or treating them like items
-        dict.__setattr__(self, self.PROTECTEDS, set(dir(self.__class__)))
+        dict.__setattr__(self, self.PROTECTEDS,  # set(dir(self.__class__)))
+                         set(AttributesOf(self.__class__).method_names()
+                             ).union({self.PROTECTEDS}))
 
     def __delattr__(self, name: str) -> None:
         """ Implement `delattr(self, name)`. Same as `del self[name]`. 
@@ -318,6 +320,8 @@ class DotDict(Defaultionary):
             raise err_type(f"Cannot {alter} read-only "
                            f"'{nameof(self)}' object "
                            f"attribute '{attr_name}'")
+        else:
+            return
 
     @classmethod
     def fromConfigParser(cls, config: ConfigParser):

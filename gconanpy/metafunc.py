@@ -318,18 +318,18 @@ class AttributesOf:
         """
         return attr_name.startswith("_")
 
-    def add_to(self, an_obj: _T, filter_on: _SELECTOR,
+    def add_to(self, an_obj: _T, names_that: _SELECTOR,
                exclude: bool = False) -> _T:
         """ Copy attributes and their values into `an_obj`.
 
         :param an_obj: Any, object to add/copy attributes into.
-        :param filter_on: FrozenFunction[[Any], bool] to run on the name of \
+        :param names_that: FrozenFunction[[Any], bool] to run on the name of \
             every attribute of this object, to check whether to add/copy it.
         :param exclude: bool, False to INclude all attributes for which the \
-            filter_on function returns True; else False to EXclude them.
+            names_that function returns True; else False to EXclude them.
         :return: Any, an_obj with the specified attributes of this object.
         """
-        for attr_name in self.select(filter_on, exclude):
+        for attr_name in self.select(names_that, exclude):
             setattr(an_obj, attr_name, getattr(self.what, attr_name))
         return an_obj
 
@@ -369,7 +369,10 @@ class AttributesOf:
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each method of this object.
         """
-        return self.select(FrozenFunction(callable))
+        return self.select(value_filters=[FrozenFunction(callable)])
+
+    def method_names(self) -> list[str]:
+        return [a for a, _ in self.methods()]
 
     def nested(self, *attribute_names: str) -> Any:
         """ `AttributesOf(an_obj).nested("first", "second", "third")` will \
@@ -392,7 +395,7 @@ class AttributesOf:
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each private attribute.
         """
-        return self.select(self._attr_is_private)
+        return self.select([self._attr_is_private])
 
     def public(self) -> Generator[tuple[str, Any], None, None]:
         """ Iterate over this object's public attributes.
@@ -400,7 +403,7 @@ class AttributesOf:
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each public attribute.
         """
-        return self.select(self._attr_is_private, exclude=True)
+        return self.select([self._attr_is_private], exclude=True)
 
     def public_names(self) -> list[str]:
         """
@@ -408,20 +411,29 @@ class AttributesOf:
         """
         return [attr_name for attr_name, _ in self.public()]
 
-    def select(self, filter_on: _SELECTOR, exclude: bool = False
-               ) -> Generator[tuple[str, Any], None, None]:
+    def select(self, name_filters: Iterable[_SELECTOR] = list(),
+               value_filters: Iterable[_SELECTOR] = list(), exclude:
+               bool = False) -> Generator[tuple[str, Any], None, None]:
         """ Iterate over some of this object's attributes. 
 
-        :param filter_on: FrozenFunction[[Any], bool] to run on the name of \
-            every attribute of this object, to check whether the returned \
-            generator function should include that attribute or skip it
-        :param exclude: bool, False to INclude all attributes for which the \
-            filter_on function returns True; else False to EXclude them.
+        :param name_filters: Iterable[FrozenFunction[[Any], bool]] of \
+            Callables to run on the NAME of every attribute of this object, \
+            to check whether the returned generator function should include \
+            that attribute or skip it
+        :param value_filters: Iterable[FrozenFunction[[Any], bool]] of \
+            Callables to run on the VALUE of every attribute of this object, \
+            to check whether the returned generator function should include \
+            that attribute or skip it
+        :param exclude: bool, False to INclude all attributes for which all \
+            of the filter functions return True; else False to EXclude them.
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each selected attribute.
         """
-        if exclude:
-            filter_on = negate(filter_on)
-        for attr_name in self.names:
-            if filter_on(attr_name):
-                yield attr_name, getattr(self.what, attr_name)
+        def is_filtered(name: str, value: Any) -> bool:
+            return all([nf(name) for nf in name_filters]) and \
+                all([vf(value) for vf in value_filters])
+
+        for name in self.names:
+            attr = getattr(self.what, name)
+            if is_filtered(name, attr) is not exclude:
+                yield name, attr
