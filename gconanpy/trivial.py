@@ -1,32 +1,18 @@
 
 """
-Totally redundant/trivial methods to use as callable default \
+Totally redundant/trivial functions to use as callable default \
 values of optional parameters in other classes' methods.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-10
-Updated: 2025-04-10
+Updated: 2025-04-14
 """
 # Import standard libraries
 from typing import Any, Literal
 
 try:
-    from metafunc import has_method
+    from metafunc import SupportsGetItem
 except ModuleNotFoundError:
-    from gconanpy.metafunc import has_method
-
-
-class SupportsGetItemMeta(type):  # https://realpython.com/python-interface/
-    """ A metaclass that will be used for SupportsGetItem class creation.
-    """
-    def __instancecheck__(cls, instance):
-        return has_method(instance, "__getitem__")
-
-    def __subclasscheck__(cls, subclass):
-        return has_method(subclass, "__getitem__")
-
-
-class SupportsGetItem(metaclass=SupportsGetItemMeta):
-    ...
+    from gconanpy.metafunc import SupportsGetItem
 
 
 def always_false(*_: Any, **_kwargs: Any) -> Literal[False]:

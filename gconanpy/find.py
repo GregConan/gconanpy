@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 """
-Functions that iterate and break once they find what they're looking for.
+Classes and functions that iterate and break once they find what they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-04-10
+Updated: 2025-04-15
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Sequence
@@ -13,13 +13,13 @@ from typing import Any
 
 # Import remote custom libraries
 try:
-    from metafunc import IgnoreExceptions
+    from metafunc import FinderTypes as Typ, \
+        KeepSkippingExceptions, IgnoreExceptions
     from trivial import is_not_none, noop
-    from typevars import FinderTypes as Typ
 except ModuleNotFoundError:
-    from gconanpy.metafunc import IgnoreExceptions
+    from gconanpy.metafunc import FinderTypes as Typ, \
+        KeepSkippingExceptions, IgnoreExceptions
     from gconanpy.trivial import is_not_none, noop
-    from gconanpy.typevars import FinderTypes as Typ
 
 
 class BasicRange(Iterable):
@@ -79,41 +79,33 @@ class BasicRange(Iterable):
         return self.not_yet_at(self.ix, self.end)
 
 
-def get_nested_attribute_from(an_obj: Any, *attribute_names: str) -> Any:
-    # TODO Integrate this into DotDict.lookup method?
-    """
-    get_nested_attribute_from(an_obj, "first", "second", "third") will return
-    an_obj.first.second.third if it exists, and None if it doesn't.
-    :param an_obj: Any
-    :param attribute_names: Iterable[str] of attribute names. The first names
-                            an attribute of an_obj; the second names an
-                            attribute of that first attribute; and etc. 
-    :return: Any, the attribute of an attribute ... of an attribute of an_obj
-    """
-    attributes = list(attribute_names)  # TODO reversed(attribute_names) ?
-    while attributes and an_obj is not None:
-        an_obj = getattr(an_obj, attributes.pop(0), None)
-    return an_obj
+class ErrIterChecker(BasicRange, IgnoreExceptions, KeepSkippingExceptions):
+    def __init__(self, iter_over: Iterable[Typ.I], is_done: bool = False,
+                 *catch: type[BaseException]):
+        BasicRange.__init__(self, list(iter_over))
+        KeepSkippingExceptions.__init__(self, catch, is_done)
 
+    def __enter__(self):
+        """ Method called when entering the active block of a context manager.
 
-def modifind(find_in: Iterable[Typ.I],
-             modify: Typ.Modify | None = None,
-             modify_args: Iterable[Typ.X] = list(),
-             found_if: Typ.Ready = is_not_none,
-             found_args: Iterable[Typ.R] = list(),
-             default: Typ.D = None,
-             errs: Iterable[BaseException] = list()) -> Typ.I | Typ.D:
-    i = 0
-    is_found = False
-    iter_over = list(find_in)
-    while not is_found and i < len(iter_over):
-        with IgnoreExceptions(*errs):
-            modified = modify(iter_over[i], *modify_args
-                              ) if modify else iter_over[i]
-        with IgnoreExceptions(*errs):
-            is_found = found_if(modified, *found_args)
-        i += 1
-    return modified if is_found else default
+        Must be explicitly defined here (not only in a superclass) for \
+        VSCode to realize that ErrIterChecker(...) returns an instance of \
+        the ErrIterChecker class after importing gconanpy via poetry.
+
+        :return: ErrIterChecker, self.
+        """
+        return self
+
+    def __exit__(self, exc_type: type[BaseException] | None = None,
+                 exc_val: BaseException | None = None, _: Any = None) -> bool:
+        self.errors.append(exc_val)
+        return super().__exit__(exc_type)  # , exc_val, _)
+
+    def is_not_ready(self) -> bool:
+        """ 
+        :return: bool, False if there is no more need to iterate; else False.
+        """
+        return self.is_iterating and not self.is_done
 
 
 class ReadyChecker(BasicRange):
@@ -140,6 +132,13 @@ class ReadyChecker(BasicRange):
         self.kwargs = ready_kwargs
         self.to_check = to_check
 
+    def __call__(self, item: Any) -> None:  # next_try
+        """ Save a thing to iteratively modify and check the readiness of.
+
+        :param item: Any, object to check the readiness of.
+        """
+        self.to_check = item
+
     def __enter__(self):
         """ Method called when entering the active block of a context manager.
 
@@ -161,18 +160,31 @@ class ReadyChecker(BasicRange):
         """
         return exc_type is None
 
-    def __call__(self, item: Any) -> None:  # next_try
-        """ Save a thing to iteratively modify and check the readiness of.
-
-        :param item: Any, object to check the readiness of.
-        """
-        self.to_check = item
-
     def is_not_ready(self) -> bool:
         """ 
         :return: bool, False if there is no more need to iterate; else False.
         """
         return self.is_iterating and not self.item_is_ready(self.to_check)
+
+
+def modifind(find_in: Iterable[Typ.I],
+             modify: Typ.Modify | None = None,
+             modify_args: Iterable[Typ.X] = list(),
+             found_if: Typ.Ready = is_not_none,
+             found_args: Iterable[Typ.R] = list(),
+             default: Typ.D = None,
+             errs: Iterable[BaseException] = list()) -> Typ.I | Typ.D:
+    i = 0
+    is_found = False
+    iter_over = list(find_in)
+    while not is_found and i < len(iter_over):
+        with IgnoreExceptions(*errs):
+            modified = modify(iter_over[i], *modify_args
+                              ) if modify else iter_over[i]
+        with IgnoreExceptions(*errs):
+            is_found = found_if(modified, *found_args)
+        i += 1
+    return modified if is_found else default
 
 
 def spliterate(parts: Iterable[str], ready_if:

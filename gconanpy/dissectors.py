@@ -15,20 +15,18 @@ from typing import Any, SupportsFloat, TypeVar
 # Import local custom libraries
 try:
     from debug import Debuggable
-    from metafunc import has_method, IgnoreExceptions, \
-        KeepTryingUntilNoErrors, nameof
+    from metafunc import CanIgnoreCertainErrors, DifferTypes as Typ, \
+        has_method, IgnoreExceptions, KeepTryingUntilNoErrors, nameof
     from seq import (are_all_equal, differentiate_sets,
                      get_key_set, stringify_list, uniqs_in)
     from trivial import get_item_of
-    from typevars import CanIgnoreCertainErrors, DifferTypes as Typ
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
-    from gconanpy.metafunc import has_method, IgnoreExceptions, \
-        KeepTryingUntilNoErrors, nameof
+    from gconanpy.metafunc import CanIgnoreCertainErrors, DifferTypes as Typ, \
+        has_method, IgnoreExceptions, KeepTryingUntilNoErrors, nameof
     from gconanpy.seq import (are_all_equal, differentiate_sets,
                               get_key_set, stringify_list, uniqs_in)
     from gconanpy.trivial import get_item_of
-    from gconanpy.typevars import CanIgnoreCertainErrors, DifferTypes as Typ
 
 
 class DifferenceBetween:

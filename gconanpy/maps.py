@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-09
+Updated: 2025-04-15
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable, Mapping
@@ -236,22 +236,20 @@ class DotDict(Defaultionary):
         super().__init__(*args, **kwargs)
 
         # Prevent overwriting method/attributes or treating them like items
-        dict.__setattr__(self, self.PROTECTEDS, set(dir(__class__)))
+        dict.__setattr__(self, self.PROTECTEDS, set(dir(self.__class__)))
 
     def __delattr__(self, name: str) -> None:
-        """ Implement `delattr(self, name)`.
-            Deletes item (key-value pair) or attribute.
+        """ Implement `delattr(self, name)`. Same as `del self[name]`. 
+            Deletes item (key-value pair) instead of attribute.
 
-        :param name: str naming the attribute of self to delete.
+        :param name: str naming the item in self to delete.
         """
-        if self._is_ready_to("delete", name):
-            self.__delitem__(name)
-        else:
-            dict.__delattr__(self, name)
+        self._raise_if_cannot("delete", name, AttributeError)
+        return self.__delitem__(name)
 
     def __getattr__(self, name: str) -> Any:
         """ `__getattr__(self, name) == getattr(self, name) == self.<name>`
-            If name is not protected, then `self.name == self["name"]`
+            If name is not protected, then `self.name is self["name"]`
 
         Effectively the same as `__getattr__ = dict.__getitem__` except that \
         `hasattr(self, <not in dict>)` works; it does not raise a `KeyError`.
@@ -276,30 +274,29 @@ class DotDict(Defaultionary):
         return self
 
     def __setattr__(self, name: str, value: Any) -> None:
-        """ Implement `setattr(self, name, value)` and/or `self[name] = value`
+        """ Implement `setattr(self, name, value)`. Same as \
+            `self[name] = value`. Explicitly defined to include \
+            `_raise_if_cannot` check preventing user from overwriting \
+            protected attributes/methods.
 
         :param name: str naming the attribute/key to map the value to
         :param value: Any, the value of the new attribute/item
         """
-        if self._is_ready_to("overwrite", name):
-            self.__setitem__(name, value)
-        else:
-            dict.__setattr__(self, name, value)
+        self._raise_if_cannot("overwrite", name, AttributeError)
+        return self.__setitem__(name, value)
 
     def __setitem__(self, key: str, value: Any) -> None:
         """ Set self[key] to value. Explicitly defined to include \
-            `_is_ready_to` check preventing user from overwriting protected \
-            attributes/methods.
+            `_raise_if_cannot` check preventing user from overwriting \
+            protected attributes/methods.
 
         :param key: str naming the key to map the value to
         :param value: Any, the value of the new item
         """
-        if self._is_ready_to("overwrite", key):
-            super().__setitem__(key, value)
-        else:  # TODO Are these `__setitem__`s meaningfully different?
-            dict.__setitem__(self, key, value)
+        self._raise_if_cannot("overwrite", key, KeyError)
+        return super().__setitem__(key, value)
 
-    def __setstate__(self, state):
+    def __setstate__(self, state: Mapping) -> None:
         """ Required for pickling. From https://stackoverflow.com/a/36968114
 
         :param state: _type_, _description_
@@ -307,29 +304,31 @@ class DotDict(Defaultionary):
         self.update(state)
         self.__dict__ = self
 
-    def _is_ready_to(self, alter: str, attribute_name: str) -> bool:
-        """ Check if a given attribute of self is protected, if it's \
-            alterable, or if self is still being initialized.
+    def _raise_if_cannot(self, alter: str, attr_name: str, err_type:
+                         type[BaseException] = AttributeError) -> bool:
+        """ Check if an attribute of self is protected or if it's alterable
 
         :param alter: str, verb naming the alteration
         :param attribute_name: str, name of the attribute of self to alter
         :raises AttributeError: if the attribute is protected
         :return: bool, True if the attribute is not protected; \
-                 False if self is still being initialized; else raise error
+                 else raise error
         """
-        is_protected = False
-        try:
-            is_protected = attribute_name in \
-                dict.__getattribute__(self, self.PROTECTEDS)
-        except AttributeError:  # Still initializing self => not ready yet
-            is_ready = False
-        if is_protected:  # Attribute is protected => can't alter; raise error
-            raise AttributeError(f"Cannot {alter} read-only "
-                                 f"'{nameof(self)}' object "
-                                 f"attribute '{attribute_name}'")
-        else:  # Attribute is not protected => it is ready to alter
-            is_ready = True
-        return is_ready
+        if attr_name in getattr(self, self.PROTECTEDS, set()):
+            raise err_type(f"Cannot {alter} read-only "
+                           f"'{nameof(self)}' object "
+                           f"attribute '{attr_name}'")
+
+    @classmethod
+    def fromConfigParser(cls, config: ConfigParser):
+        """
+        :param config: ConfigParser to convert into DotDict
+        :return: DotDict with the key-value mapping structure of config
+        """
+        self = cls({section: {k: v for k, v in config.items(section)}
+                    for section in config.sections()})
+        self.homogenize()
+        return self
 
     def get_subset_from_lookups(self, to_look_up: Mapping[str, str],
                                 sep: str = ".", default: Any = None):
@@ -385,19 +384,6 @@ class DotDict(Defaultionary):
         return default if retrieved is self else retrieved
 
 
-class Configtionary(DotDict):  # TODO Just put the method in DotDict?
-    @classmethod
-    def from_configparser(cls, config: ConfigParser):
-        """
-        :param config: ConfigParser to convert into Configtionary
-        :return: Configtionary with the key-value mapping structure of config
-        """
-        self = cls({section: {k: v for k, v in config.items(section)}
-                    for section in config.sections()})
-        self.homogenize()
-        return self
-
-
 class LazyDotDict(DotDict, LazyDict):
     """ LazyDict with dot.notation item access. It can get/set items...
 
@@ -414,7 +400,6 @@ class LazyDotDict(DotDict, LazyDict):
     combined with LazyButHonestDict from https://stackoverflow.com/q/17532929
 
     Keeps most core functionality of the Python dict type. """
-    ...
 
 
 class Promptionary(LazyDict, Debuggable):
@@ -495,10 +480,15 @@ class Bytesifier(Debuggable):
         :raises AttributeError: if an_obj has no 'to_bytes' or 'encode' method
         :return: bytes, an_obj converted to bytes
         """
-        errs = None
-        defaults = Defaultionary(kwargs)
-        defaults.setdefaults(**self.DEFAULTS)
+        # Get default values for encoder methods' input options
+        defaults = self.DEFAULTS.copy()
+        defaults.update(kwargs)
         encoding = defaults.pop("encoding")
+
+        # Define outside context manager to preserve afterwards
+        bytesified = None
+        errs = None
+
         with KeepTryingUntilNoErrors(TypeError) as next_try:
             with next_try():
                 bytesified = str.encode(an_obj, encoding=encoding)
@@ -509,10 +499,10 @@ class Bytesifier(Debuggable):
                 bytesified = an_obj
             with next_try():
                 errs = next_try.errors
-        try:
-            return bytesified
-        except NameError:
+        if bytesified is None:
             self.debug_or_raise(errs[-1], locals())
+        else:
+            return bytesified
 
 
 class Cryptionary(Promptionary, Bytesifier):

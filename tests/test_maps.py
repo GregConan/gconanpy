@@ -3,42 +3,76 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-04-09
+Updated: 2025-04-15
 """
+# Import standard libraries
+from collections.abc import Generator
+
 # Import local custom libraries
-from gconanpy.maps import DotDict, Invertionary
+from gconanpy.maps import DotDict, Invertionary, LazyDotDict
 from tests.testers import Tester
 
 
 class TestDotDict(Tester):
-    def test_1(self):
+    TEST_CLASSES = (DotDict, LazyDotDict)
+
+    def get_dot_dicts(self) -> Generator[type, None, None]:
         self.add_basics()
-        dd = DotDict(self.adict)
-        self.check_result(dd.a, 1)
-        for k, v in self.adict.items():
-            self.check_result(getattr(dd, k), v)
+        for ddclass in self.TEST_CLASSES:
+            yield ddclass(self.adict)
+
+    def test_1(self):
+        for dd in self.get_dot_dicts():
+            self.check_result(dd.a, 1)
+            for k, v in self.adict.items():
+                self.check_result(getattr(dd, k), v)
 
     def test_2(self):
-        self.add_basics()
-        dd = DotDict(self.adict)
-        self.check_result(len(dd), 3)
-        del dd.b
-        self.check_result([v for v in dd.values()], [1, 3])
-        self.check_result(len(dd), 2)
-        self.check_result(dd.PROTECTEDS in dd, False)
+        for dd in self.get_dot_dicts():
+            self.check_result(len(dd), 3)
+            del dd.b
+            self.check_result([v for v in dd.values()], [1, 3])
+            self.check_result(len(dd), 2)
+            self.check_result(dd.PROTECTEDS in dd, False)
 
     def test_3(self):
+        for dd in self.get_dot_dicts():
+            dd.five = 5
+            self.check_result(dd["five"], 5)
+            dd["six"] = 6
+            self.check_result(dd.six, 6)
+            assert self.cannot_alter(dd, "get")
+
+    def test_4(self):
+        for dd in self.get_dot_dicts():
+            dd.testdict = dict(a=dd)
+            assert not isinstance(dd["testdict"], type(dd))
+            dd.homogenize()
+            assert isinstance(dd["testdict"], type(dd))
+
+    def test_5(self):
         self.add_basics()
-        dd = DotDict(self.adict)
-        dd.five = 5
-        self.check_result(dd["five"], 5)
-        dd["six"] = 6
-        self.check_result(dd.six, 6)
-        try:
-            dd["get"] = "NOT ALLOWED"
-            assert False
-        except AttributeError as err:
-            self.check_result(type(err), AttributeError)
+        ldd = LazyDotDict(self.adict)
+
+        protected_attrs = getattr(ldd, ldd.PROTECTEDS)
+        assert self.cannot_alter(ldd, *protected_attrs)
+
+        lazy_attrs = {"lazyget", "lazysetdefault"}
+        assert lazy_attrs.issubset(protected_attrs)
+
+    def test_6(self):
+        self.add_basics()
+        for ddclass in self.TEST_CLASSES:
+            class DotDictSubClass(ddclass):
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, **kwargs)
+
+                def __getattr__(self, name):
+                    return f"sub{ddclass.__getattr__(self, name)}"
+
+            ddsc = DotDictSubClass(self.adict)
+            self.check_result({x: getattr(ddsc, x) for x in dir(ddsc)},
+                              dict(a="sub1", b="sub2", c="sub3"))
 
 
 class TestInvertionary(Tester):

@@ -3,10 +3,11 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-04-10
+Updated: 2025-04-15
 """
 # Import standard libraries
 from abc import ABC
+from collections.abc import Hashable, Iterable
 import os
 import pdb
 from typing import Any
@@ -15,10 +16,13 @@ from typing import Any
 from bs4 import BeautifulSoup
 
 # Import local custom libraries
+from gconanpy.find import ErrIterChecker
 from gconanpy.maps import Cryptionary, DotDict
+from gconanpy.metafunc import has_method
 
 
 class Tester(ABC):
+    ERR_OF = {"__setitem__": KeyError, "__setattr__": AttributeError}
 
     def add_basics(self):
         self.adict = dict(a=1, b=2, c=3)
@@ -39,12 +43,12 @@ class Tester(ABC):
             exclude_empties=True)
         return cli_args
 
-    def get_soup(self):
-        fpath = os.path.join(os.path.dirname(__file__),
-                             'sample-email-body-structure.html')
-        with open(fpath) as infile:
-            htmltxt = infile.read()
-        return BeautifulSoup(htmltxt, features="html.parser")
+    @classmethod
+    def cannot_alter(cls, an_obj, *names: Hashable) -> bool:
+        result = True
+        for method, err_type in cls.ERR_OF.items():
+            result = cls.obj_has_but_cannot(an_obj, method, names, err_type)
+        return result
 
     def check_result(self, result: Any, expected_result: Any) -> None:
         succeeded = result == expected_result
@@ -52,3 +56,22 @@ class Tester(ABC):
             f"expected `{expected_result}`"
         print(msg)
         assert succeeded
+
+    def get_soup(self):
+        fpath = os.path.join(os.path.dirname(__file__),
+                             'sample-email-body-structure.html')
+        with open(fpath) as infile:
+            htmltxt = infile.read()
+        return BeautifulSoup(htmltxt, features="html.parser")
+
+    @staticmethod
+    def obj_has_but_cannot(an_obj: Any, method: str,
+                           attr_names: Iterable[Hashable],
+                           *catch: type[BaseException]) -> bool:
+        result = has_method(an_obj, method)
+        with ErrIterChecker(attr_names, not result, *catch) as check:
+            while check.is_not_ready():
+                getattr(an_obj, method)(next(check), "NOT ALLOWED")
+                result = False
+                check.is_done = True
+        return result
