@@ -245,8 +245,7 @@ class FrozenFunction(Callable):
         return self.inner(*args, **kwargs)
 
     def __init__(self, call: _Caller, pre: Iterable[_Pre] = list(),
-                 post: Iterable[_Post] = list(),
-                 annotate: bool = False, **kwargs: _Kw) -> None:
+                 post: Iterable[_Post] = list(), **kwargs: _Kw) -> None:
         """ "Freeze" a function with some parameters already defined to \
             call that function with those parameters later.
 
@@ -272,9 +271,6 @@ class FrozenFunction(Callable):
         kwargstrs = [f"{k}={v}" for k, v in kwargs.items()]
         argstr = ", ".join([*pre, "*args", *post, *kwargstrs])
         self.name = f"{nameof(self)}[{nameof(call)}({argstr}, **kwargs)]"
-        if annotate:
-            inner = AttributesOf(call).add_to(inner, ESSENTIALS.__contains__,
-                                              exclude=True)
 
         self.inner = inner
 
@@ -372,6 +368,10 @@ class AttributesOf:
         return self.select(value_filters=[FrozenFunction(callable)])
 
     def method_names(self) -> list[str]:
+        """
+        :return: list[str], names of all methods (callable attributes) of \
+            this object.
+        """
         return [a for a, _ in self.methods()]
 
     def nested(self, *attribute_names: str) -> Any:
