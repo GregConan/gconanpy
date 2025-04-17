@@ -4,7 +4,7 @@
 Classes and functions that iterate and break once they find what they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-04-15
+Updated: 2025-04-16
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Sequence
@@ -13,12 +13,12 @@ from typing import Any
 
 # Import remote custom libraries
 try:
-    from metafunc import FinderTypes as Typ, \
-        KeepSkippingExceptions, IgnoreExceptions
+    from metafunc import FinderTypes as Typ, KeepSkippingExceptions, \
+        IgnoreExceptions
     from trivial import is_not_none, noop
 except ModuleNotFoundError:
-    from gconanpy.metafunc import FinderTypes as Typ, \
-        KeepSkippingExceptions, IgnoreExceptions
+    from gconanpy.metafunc import FinderTypes as Typ, KeepSkippingExceptions, \
+        IgnoreExceptions
     from gconanpy.trivial import is_not_none, noop
 
 
@@ -195,9 +195,9 @@ def spliterate(parts: Iterable[str], ready_if:
     """ _summary_
 
     :param parts: Iterable[str] to iteratively modify, check, and recombine
-    :param is_not_ready: Callable[[str], bool], function that returns False \
-        if join_on.join(parts) is ready to return and True if it still \
-        needs to be modified further; defaults to Whittler.is_none
+    :param ready_if: Callable[[str], bool], function that returns True \
+        if join_on.join(parts) is ready to return and False if it still \
+        needs to be modified further; defaults to is_not_none
     :param pop_ix: int, index of item to remove from parts once per \
         iteration; defaults to -1 (the last item)
     :param join_on: str, delimiter to insert between parts; defaults to " "

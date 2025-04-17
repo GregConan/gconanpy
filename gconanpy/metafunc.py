@@ -16,7 +16,12 @@ import pdb
 from typing import Any, TypeVar  # Generic, ParamSpec,
 
 
-# Constants: Names of methods not to overwrite when wrapping an object
+# Constants
+
+# Purely "internal" errors only involving local data; ignorable in some cases
+DATA_ERRORS = (AttributeError, IndexError, KeyError, TypeError, ValueError)
+
+# Names of methods not to overwrite when wrapping an object
 ESSENTIALS = {f"__{attr}__" for attr in
               ("class", "class_getitem", "delattr", "getattribute",  # "doc",
                "hash", "init", "init_subclass", "new", "reduce",
@@ -40,18 +45,6 @@ def nameof(an_obj: Any) -> str:
     :return: str naming an_obj, usually its type/class name.
     """
     return getattr(an_obj, "__name__", type(an_obj).__name__)
-
-
-def negate(a_func: Callable[..., bool]) -> Callable[..., bool]:
-    """ Invert a boolean function by wrapping it.
-
-    :param a_func: Callable[..., bool]
-    :return: Callable[..., bool] returning the exact opposite of `a_func`: \
-        `negate(a_func)` returns True if `a_func` returns False, & vice versa.
-    """
-    def negated_function(*args, **kwargs) -> bool:
-        return not a_func(*args, **kwargs)
-    return negated_function
 
 
 class BoolableMeta(type):  # https://realpython.com/python-interface/
@@ -120,33 +113,22 @@ class FinderTypes(ABC):
     input arguments need to be the same type/class as which other(s).
 
     :param D: Any, default value to return if nothing was found
-    :param F: Any, `found_if(..., *args: F)` function extra arguments
-    :param M: Any, `modify(thing: S, ...) -> M` function output
+    :param I: Any, element in iter_over Iterable[I]
+    :param M: Any, `modify(thing: I, ...) -> M` function output
     :param R: Any, `ready_if(..., *args: R)` function extra arguments
-    :param S: Any, element in iter_over Sequence[S]
-    :param T: Any, input argument to "whittle down"
     :param X: Any, `modify(..., *args: X)` function extra arguments
-    :param W: Any, `whittle(thing: W, ...)` function argument (?)
-    :param Found: Callable[[S, tuple[F, ...]], bool], found_if function
-    :param Modify: Callable[[S, tuple[X, ...]], M], modify function
+    :param Modify: Callable[[I, tuple[X, ...]], M], modify function
+    :param Ready: Callable[[M, tuple[R, ...]], bool], ready_if function
     :param Viable: Callable[[M], bool], is_viable function
     """
     D = TypeVar("D")
-    F = TypeVar("F")
     I = TypeVar("I")
     M = TypeVar("M")
     R = TypeVar("R")
-    T = TypeVar("T")
     X = TypeVar("X")
-    Errors = (AttributeError, IndexError, KeyError, TypeError, ValueError)
     Modify = TypeVar("Modify", bound=Callable[[I, tuple[X, ...]], M])
     Ready = TypeVar("Ready", bound=Callable[[M, tuple[R, ...]], Boolable])
     Viable = TypeVar("Viable", bound=Callable[[M], bool])
-    Whittler = TypeVar("Whittler", bound=Callable[[T, I, tuple[X, ...]], T])
-
-
-class CanIgnoreCertainErrors:
-    IGNORABLES = (AttributeError, IndexError, KeyError, TypeError, ValueError)
 
 
 class SkipException(BaseException):
@@ -403,8 +385,6 @@ class AttributesOf:
             and value of each private attribute.
         """
         return self.select([self._attr_is_private])
-
-    # NOTE: No need for `private_names`, because that's literally just `dir`
 
     def public(self) -> Generator[tuple[str, Any], None, None]:
         """ Iterate over this object's public attributes.

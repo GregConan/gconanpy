@@ -10,9 +10,7 @@ from collections.abc import Generator
 from dataclasses import dataclass
 
 # Import local custom libraries
-from gconanpy.debug import Debuggable
 from gconanpy.maps import DotDict, Invertionary, LazyDotDict
-from gconanpy.metafunc import CanIgnoreCertainErrors
 from tests.testers import Tester
 
 
@@ -83,7 +81,7 @@ class TestDotDicts(Tester):
         tester.add_basics()
         for ddclass in tester.TEST_CLASSES:
             @dataclass
-            class DDSubClass(ddclass, Debuggable, CanIgnoreCertainErrors):
+            class DDSubClass(ddclass):
                 # Input parameters without default values
                 name: str
 

@@ -15,14 +15,14 @@ from typing import Any, SupportsFloat, TypeVar
 # Import local custom libraries
 try:
     from debug import Debuggable
-    from metafunc import CanIgnoreCertainErrors, DifferTypes as Typ, \
+    from metafunc import DATA_ERRORS, DifferTypes as Typ, \
         has_method, IgnoreExceptions, KeepTryingUntilNoErrors, nameof
     from seq import (are_all_equal, differentiate_sets,
                      get_key_set, stringify_list, uniqs_in)
     from trivial import get_item_of
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
-    from gconanpy.metafunc import CanIgnoreCertainErrors, DifferTypes as Typ, \
+    from gconanpy.metafunc import DATA_ERRORS, DifferTypes as Typ, \
         has_method, IgnoreExceptions, KeepTryingUntilNoErrors, nameof
     from gconanpy.seq import (are_all_equal, differentiate_sets,
                               get_key_set, stringify_list, uniqs_in)
@@ -161,7 +161,7 @@ class DifferenceBetween:
         return result
 
 
-class IteratorFactory(CanIgnoreCertainErrors):
+class IteratorFactory:
     _T = TypeVar("_T")
 
     @classmethod
@@ -170,7 +170,7 @@ class IteratorFactory(CanIgnoreCertainErrors):
 
     @classmethod
     def iterate(cls, an_obj: Iterable[_T] | _T) -> Iterator[_T]:
-        with KeepTryingUntilNoErrors(*cls.IGNORABLES) as next_try:
+        with KeepTryingUntilNoErrors(*DATA_ERRORS) as next_try:
             with next_try():
                 iterator = iter(an_obj.values())
             with next_try():
@@ -186,7 +186,7 @@ class Peeler(IteratorFactory):
     def can_peel(cls, an_obj: Any) -> bool:
         try:
             is_peelable = len(an_obj) == 1 and not has_method(an_obj, "strip")
-        except cls.IGNORABLES:
+        except DATA_ERRORS:
             is_peelable = False
         return is_peelable
 
@@ -290,7 +290,7 @@ class Shredder(SimpleShredder, Debuggable):
             self.debug_or_raise(err, locals())
 
 
-class Comparer(CanIgnoreCertainErrors):
+class Comparer:
     Comparable = TypeVar("Comparable")
     Comparee = TypeVar("Comparee")
     Comparison = Callable[[Comparable, Comparable], bool]
@@ -335,10 +335,10 @@ class Comparer(CanIgnoreCertainErrors):
         for item in items:
             try:
                 item_size = compare_their(item)
-            except cls.IGNORABLES:
+            except DATA_ERRORS:
                 try:
                     item_size = compare_their(make_comparable(item))
-                except cls.IGNORABLES:
+                except DATA_ERRORS:
                     item_size = 1.0
             if compare(item_size, max_size):  # item_size >= max_size:
                 biggest = item
@@ -369,7 +369,7 @@ class Corer(Shredder, Comparer):
                     biggest = self.compare(parts, compare_their,
                                            make_comparable)
             return biggest
-        except self.IGNORABLES as err:
+        except DATA_ERRORS as err:
             self.debug_or_raise(err, locals())
 
 
