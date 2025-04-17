@@ -88,6 +88,7 @@ class TestDotDicts(Tester):
                 # Attributes and input parameters with default values
                 description: str = "Description"
                 amount: int = 12
+                age: int = 21
 
             class DDSubSubClass(DDSubClass):
                 def __init__(self, **kwargs):
@@ -97,7 +98,7 @@ class TestDotDicts(Tester):
                     self.description = "something else"
 
             ddssc = DDSubSubClass(name="something")
-            print(ddssc)
+            print(ddssc["age"])
 
 
 class TestInvertionary(Tester):

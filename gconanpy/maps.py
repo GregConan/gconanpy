@@ -227,6 +227,10 @@ class DotDict(Defaultionary):
     # https://stackoverflow.com/questions/2352181#comment114004924_23689767
     __dir__ = dict.keys
 
+    _GET_AS_KEY: dict[bool, tuple[Callable, type[BaseException]]] = {
+        True: (dict.__getitem__, KeyError),
+        False: (dict.__getattribute__, AttributeError)}
+
     # Name of set[str] of attributes, methods, and other keywords that should
     # not be accessible/modifiable as keys/values/items
     PROTECTEDS = "__protected_keywords__"
@@ -249,6 +253,36 @@ class DotDict(Defaultionary):
         self._if_protected_prevent("delete", name, AttributeError)
         return self.__delitem__(name)
 
+    def __get(self, name: Hashable, as_key: bool = False) -> Any:
+        """ Return a value or attribute of self.
+
+        Between attrs and keys: first try to get it as the one indicated, \
+        and if that fails, then try to get it as the other.
+
+        :param name: Hashable, key mapped by self to value to return; OR \
+            name of attribute of self to return
+        :param as_attr: bool, True to try to fetch name as an attribute \
+            first, and then as a key, and raise AttributeError if not found; \
+            False to fetch as a key first and raise KeyError if not found
+        :raises err: AttributeError | KeyError
+        :return: Any
+        """
+        # First, try to get an attribute (if as_attr, else a mapped value)
+        first_get, first_err_type = self._GET_AS_KEY[as_key]
+        try:
+            return first_get(self, name)
+        except first_err_type as err:
+
+            # Next, try to get a mapped value (if as_attr, else an attribute)
+            second_get, second_err_type = self._GET_AS_KEY[not as_key]
+            try:
+                return second_get(self, name)
+
+            # If nothing is found, then raise an appropriate error (e.g. to
+            # allow hasattr, which handles AttributeError but not KeyError)
+            except second_err_type:
+                raise err from None  # Only show 1 exception in the traceback
+
     def __getattr__(self, name: str) -> Any:
         """ `__getattr__(self, name) == getattr(self, name) == self.<name>`
             If name is not protected, then `self.name is self["name"]`
@@ -260,16 +294,10 @@ class DotDict(Defaultionary):
         :raises AttributeError: if name is not an item or attribute of self.
         :return: Any, `getattr(self, name)` and/or `self[name]`
         """
-        try:  # First, try to get an attribute (e.g. a method) of this object
-            return dict.__getattribute__(self, name)
-        except AttributeError as err:
+        return self.__get(name, as_key=False)
 
-            try:  # Next, get a value mapped to the key, if any
-                return dict.__getitem__(self, name)
-
-            # If neither exists, then raise AttributeError
-            except KeyError:  # Don't raise KeyError; it breaks hasattr
-                raise err from None  # Only show 1 exception in the traceback
+    def __getitem__(self, key):
+        return self.__get(key, as_key=True)
 
     def __getstate__(self):
         """Required for pickling. From https://stackoverflow.com/a/36968114"""
