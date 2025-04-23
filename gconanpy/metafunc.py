@@ -9,7 +9,7 @@ Updated: 2025-04-23
 # Import standard libraries
 from abc import ABC
 from collections.abc import Callable, Generator, Hashable, Iterable
-from typing import Any, TypeVar
+from typing import Any, Literal, TypeVar
 
 
 # Constants
@@ -212,15 +212,15 @@ class FrozenFunction(Callable):
     """ Function wrapper that also stores some of its input parameters. """
 
     # Type variables for inner/wrapped/"frozen" function parameters/args
-    _Pre = TypeVar("_Pre")  # Positional args to inject BEFORE _Inner args
-    _Inner = TypeVar("_Inner")  # Positional args passed when executing
-    _Post = TypeVar("_Post")  # Positional args to inject AFTER _Inner args
-    _Kw = TypeVar("_Kw")  # Keyword args
-    _Ret = TypeVar("_Ret")  # "Frozen" function's return value
-    _Caller = Callable[[tuple[_Pre, ...], tuple[_Inner, ...],
-                        tuple[_Post, ...]], _Ret]  # "Frozen" function itself
+    Pre = TypeVar("Pre")  # Positional args to inject BEFORE Inner args
+    Inner = TypeVar("Inner")  # Positional args passed when executing
+    Post = TypeVar("Post")  # Positional args to inject AFTER Inner args
+    Kw = TypeVar("Kw")  # Keyword args
+    Ret = TypeVar("Ret")  # "Frozen" function's return value
+    Caller = Callable[[tuple[Pre, ...], tuple[Inner, ...],
+                       tuple[Post, ...]], Ret]  # "Frozen" function itself
 
-    def __call__(self, *args: _Inner, **kwargs: _Kw) -> _Ret:
+    def __call__(self, *args: Inner, **kwargs: Kw) -> Ret:
         """ Call/execute/unwrap/"thaw" the wrapped/"frozen" function.
 
         :return: Any, the output of calling the wrapped/"frozen" function \
@@ -228,8 +228,8 @@ class FrozenFunction(Callable):
         """
         return self.inner(*args, **kwargs)
 
-    def __init__(self, call: _Caller, pre: Iterable[_Pre] = list(),
-                 post: Iterable[_Post] = list(), **kwargs: _Kw) -> None:
+    def __init__(self, call: Caller, pre: Iterable[Pre] = list(),
+                 post: Iterable[Post] = list(), **kwargs: Kw) -> None:
         """ "Freeze" a function with some parameters already defined to \
             call that function with those parameters later.
 
@@ -274,13 +274,64 @@ class FrozenFunction(Callable):
         return self.name
 
 
+class FilterAttributes:
+    _SELECTOR = Callable[[Any], bool]
+    _SELECTORS = list[_SELECTOR]
+    _WHICH = Literal["names"] | Literal["values"]
+
+    FilterFunction = Callable[[str, Any], bool]
+    selectors: dict[_WHICH, _SELECTORS]
+
+    def __init__(self, if_names: _SELECTORS = list(),
+                 if_values: _SELECTORS = list()) -> None:
+        """ _summary_ 
+
+        :param if_names: list[Callable[[Any], bool]] of \
+            Callables to run on the NAME of every attribute of this object, \
+            to check whether the returned generator function should include \
+            that attribute or skip it
+        :param if_values: list[Callable[[Any], bool]] of \
+            Callables to run on the VALUE of every attribute of this object, \
+            to check whether the returned generator function should include \
+            that attribute or skip it
+        """
+        self.selectors = dict(names=if_names, values=if_values)
+
+    def add(self, which: _WHICH, func: FrozenFunction.Caller,
+            pre: Iterable[FrozenFunction.Pre] = list(),
+            post: Iterable[FrozenFunction.Post] = list(),
+            **kwargs: FrozenFunction.Kw) -> None:
+        self.selectors[which].append(FrozenFunction(func, pre, post,
+                                                    **kwargs))
+
+    def build(self) -> FilterFunction:
+        """
+        :return: Callable[[str, Any], bool] that returns True if the `str` \
+            argument passes all of the name filters and the `Any` \
+            argument passes all of the value filters, else False
+        """
+        @staticmethod
+        def is_filtered(name: str, value: Any) -> bool:
+            passed = True
+            for filterable, filters in ((name, self.selectors["names"]),
+                                        (value, self.selectors["values"])):
+                filterator = iter(filters)
+                next_filter = next(filterator, None)
+                while passed and next_filter is not None:
+                    passed = passed and next_filter(filterable)
+                    next_filter = next(filterator, None)
+            return passed
+        return is_filtered
+
+
 class AttributesOf:
     """ Select/iterate/copy the attributes of any object. """
     _T = TypeVar("_T")  # Type of object to copy attributes to
 
     # Filters to choose which attributes to copy or iterate over
-    _SELECTORS = Iterable[FrozenFunction[[Any], bool]]
-    METHOD_FILTERS: _SELECTORS = [FrozenFunction(callable)]
+    addFilter = FilterAttributes
+    METHOD_FILTERS: FilterAttributes.FilterFunction = \
+        FilterAttributes(if_values=[callable]).build()
 
     def __init__(self, what: Any) -> None:
         """ 
@@ -297,25 +348,19 @@ class AttributesOf:
         """
         return attr_name.startswith("_")
 
-    def add_to(self, an_obj: _T, name_filters: _SELECTORS = list(),
-               value_filters: _SELECTORS = list(),
+    def add_to(self, an_obj: _T, filter_if: FilterAttributes.FilterFunction,
                exclude: bool = False) -> _T:
         """ Copy attributes and their values into `an_obj`.
 
         :param an_obj: Any, object to add/copy attributes into.
-        :param name_filters: Iterable[FrozenFunction[[Any], bool]] of \
-            Callables to run on the NAME of every attribute of this object, \
-            to check whether the returned generator function should include \
-            that attribute or skip it
-        :param value_filters: Iterable[FrozenFunction[[Any], bool]] of \
-            Callables to run on the VALUE of every attribute of this object, \
-            to check whether the returned generator function should include \
-            that attribute or skip it
+        :param filter_if: Callable[[str, Any], bool] that returns True if \
+            the `str` argument passes all of the name filters and \
+            the `Any` argument passes all of the value filters, else False
         :param exclude: bool, False to INclude all attributes for which all \
             of the filter functions return True; else False to EXclude them.
         :return: Any, an_obj with the specified attributes of this object.
         """
-        for attr_name in self.select(name_filters, value_filters, exclude):
+        for attr_name in self.select(filter_if, exclude):
             setattr(an_obj, attr_name, getattr(self.what, attr_name))
         return an_obj
 
@@ -355,7 +400,7 @@ class AttributesOf:
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each method of this object.
         """
-        return self.select(value_filters=self.METHOD_FILTERS)
+        return self.select(filter_if=self.METHOD_FILTERS)
 
     def method_names(self) -> list[str]:
         """
@@ -401,54 +446,20 @@ class AttributesOf:
         """
         return [attr_name for attr_name, _ in self.public()]
 
-    def make_filter(self, name_filters: _SELECTORS = list(),
-                    value_filters: _SELECTORS = list()
-                    ) -> Callable[[str, Any], bool]:
-        """
-        :param name_filters: Iterable[FrozenFunction[[Any], bool]] of \
-            Callables to run on the NAME of every attribute of this object, \
-            to check whether the returned generator function should include \
-            that attribute or skip it
-        :param value_filters: Iterable[FrozenFunction[[Any], bool]] of \
-            Callables to run on the VALUE of every attribute of this object, \
-            to check whether the returned generator function should include \
-            that attribute or skip it
-        :return: Callable[[str, Any], bool] that returns True if the `str` \
-            argument passes all of the `name_filters` and the `Any` \
-            argument passes all of the `value_filters`, else False
-        """
-        def is_filtered(name: str, value: Any) -> bool:
-            passed = True
-            for filterable, filters in ((name, name_filters),
-                                        (value, value_filters)):
-                filterator = iter(filters)
-                next_filter = next(filterator, None)
-                while passed and next_filter is not None:
-                    passed = passed and next_filter(filterable)
-                    next_filter = next(filterator, None)
-            return passed
-        return is_filtered
-
-    def select(self, name_filters: _SELECTORS = list(),
-               value_filters: _SELECTORS = list(), exclude: bool = False
-               ) -> Generator[tuple[str, Any], None, None]:
+    def select(self, filter_if: FilterAttributes.FilterFunction,
+               exclude: bool = False) -> Generator[tuple[str, Any],
+                                                   None, None]:
         """ Iterate over some of this object's attributes. 
 
-        :param name_filters: Iterable[FrozenFunction[[Any], bool]] of \
-            Callables to run on the NAME of every attribute of this object, \
-            to check whether the returned generator function should include \
-            that attribute or skip it
-        :param value_filters: Iterable[FrozenFunction[[Any], bool]] of \
-            Callables to run on the VALUE of every attribute of this object, \
-            to check whether the returned generator function should include \
-            that attribute or skip it
+        :param filter_if: Callable[[str, Any], bool] that returns True if \
+            the `str` argument passes all of the name filters and \
+            the `Any` argument passes all of the value filters, else False
         :param exclude: bool, False to INclude all attributes for which all \
             of the filter functions return True; else False to EXclude them.
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each selected attribute.
         """
-        is_filtered = self.make_filter(name_filters, value_filters)
         for name in self.names:
             attr = getattr(self.what, name)
-            if is_filtered(name, attr) is not exclude:
+            if filter_if(name, attr) is not exclude:
                 yield name, attr
