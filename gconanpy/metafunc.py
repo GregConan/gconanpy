@@ -401,6 +401,34 @@ class AttributesOf:
         """
         return [attr_name for attr_name, _ in self.public()]
 
+    def make_filter(self, name_filters: _SELECTORS = list(),
+                    value_filters: _SELECTORS = list()
+                    ) -> Callable[[str, Any], bool]:
+        """
+        :param name_filters: Iterable[FrozenFunction[[Any], bool]] of \
+            Callables to run on the NAME of every attribute of this object, \
+            to check whether the returned generator function should include \
+            that attribute or skip it
+        :param value_filters: Iterable[FrozenFunction[[Any], bool]] of \
+            Callables to run on the VALUE of every attribute of this object, \
+            to check whether the returned generator function should include \
+            that attribute or skip it
+        :return: Callable[[str, Any], bool] that returns True if the `str` \
+            argument passes all of the `name_filters` and the `Any` \
+            argument passes all of the `value_filters`, else False
+        """
+        def is_filtered(name: str, value: Any) -> bool:
+            passed = True
+            for filterable, filters in ((name, name_filters),
+                                        (value, value_filters)):
+                filterator = iter(filters)
+                next_filter = next(filterator, None)
+                while passed and next_filter is not None:
+                    passed = passed and next_filter(filterable)
+                    next_filter = next(filterator, None)
+            return passed
+        return is_filtered
+
     def select(self, name_filters: _SELECTORS = list(),
                value_filters: _SELECTORS = list(), exclude: bool = False
                ) -> Generator[tuple[str, Any], None, None]:
@@ -419,10 +447,7 @@ class AttributesOf:
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each selected attribute.
         """
-        def is_filtered(name: str, value: Any) -> bool:
-            return all([nf(name) for nf in name_filters]) and \
-                all([vf(value) for vf in value_filters])
-
+        is_filtered = self.make_filter(name_filters, value_filters)
         for name in self.names:
             attr = getattr(self.what, name)
             if is_filtered(name, attr) is not exclude:
