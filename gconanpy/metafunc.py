@@ -4,16 +4,12 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-04-16
+Updated: 2025-04-22
 """
 # Import standard libraries
 from abc import ABC
 from collections.abc import Callable, Generator, Hashable, Iterable
-# import datetime as dt
-# import inspect
-# from makefun import create_function, create_wrapper, with_signature, wraps
-import pdb
-from typing import Any, TypeVar  # Generic, ParamSpec,
+from typing import Any, TypeVar
 
 
 # Constants
@@ -214,7 +210,7 @@ class FrozenFunction(Callable):
     _Inner = TypeVar("_Inner")  # Positional args passed when executing
     _Post = TypeVar("_Post")  # Positional args to inject after _Inner args
     _Kw = TypeVar("_Kw")  # Keyword args
-    _Ret = TypeVar("_Ret")  # "Frozen" function return value
+    _Ret = TypeVar("_Ret")  # "Frozen" function's return value
     _Caller = Callable[[tuple[_Pre, ...], tuple[_Inner, ...],
                         tuple[_Post, ...]], _Ret]  # "Frozen" function itself
 
@@ -237,8 +233,6 @@ class FrozenFunction(Callable):
             `call` function's other positional input parameters.
         :param post: Iterable of positional arguments to inject AFTER the \
             `call` function's other positional input parameters.
-        :param annotate: bool, True to preserve all public attributes of the \
-            `call` function by copying them to the inner/wrapped/"frozen" one.
         :param kwargs: Mapping[str, Any] of keyword arguments to call the \
             wrapped/"frozen" `call` function with.
         """
@@ -278,8 +272,8 @@ class AttributesOf:
     """ Select/iterate/copy the attributes of any object. """
     _T = TypeVar("_T")  # Type of object to copy attributes to
 
-    # Filter to choose which attributes to copy or iterate over
-    _SELECTOR = FrozenFunction[[Any], bool]
+    # Filters to choose which attributes to copy or iterate over
+    _SELECTORS = Iterable[FrozenFunction[[Any], bool]]
 
     def __init__(self, what: Any) -> None:
         """ 
@@ -296,8 +290,8 @@ class AttributesOf:
         """
         return attr_name.startswith("_")
 
-    def add_to(self, an_obj: _T, name_filters: Iterable[_SELECTOR] = list(),
-               value_filters: Iterable[_SELECTOR] = list(),
+    def add_to(self, an_obj: _T, name_filters: _SELECTORS = list(),
+               value_filters: _SELECTORS = list(),
                exclude: bool = False) -> _T:
         """ Copy attributes and their values into `an_obj`.
 
@@ -348,7 +342,7 @@ class AttributesOf:
             found_attr = found_attr()
         return found_attr
 
-    def methods(self) -> Generator[tuple[str, Any], None, None]:
+    def methods(self) -> Generator[tuple[str, Callable], None, None]:
         """ Iterate over this object's methods (callable attributes).
 
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
@@ -400,9 +394,9 @@ class AttributesOf:
         """
         return [attr_name for attr_name, _ in self.public()]
 
-    def select(self, name_filters: Iterable[_SELECTOR] = list(),
-               value_filters: Iterable[_SELECTOR] = list(), exclude:
-               bool = False) -> Generator[tuple[str, Any], None, None]:
+    def select(self, name_filters: _SELECTORS = list(),
+               value_filters: _SELECTORS = list(), exclude: bool = False
+               ) -> Generator[tuple[str, Any], None, None]:
         """ Iterate over some of this object's attributes. 
 
         :param name_filters: Iterable[FrozenFunction[[Any], bool]] of \

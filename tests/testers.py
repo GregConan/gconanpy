@@ -40,7 +40,7 @@ class Tester(ABC):
                             "bytes_nums": self.bytes_nums})
         cli_args.creds = Cryptionary.from_subset_of(
             cli_args, "address", "debugging", "password",
-            exclude_empties=True)
+            exclude={None})
         return cli_args
 
     @classmethod

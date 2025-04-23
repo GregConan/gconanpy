@@ -17,6 +17,7 @@ import logging
 import os
 import pdb
 import sys
+import traceback
 import tracemalloc
 from typing import Any
 
@@ -138,6 +139,11 @@ def log(content: str, level: int = logging.INFO,
                   defined by logging module's 0 (ignore) to 50 (urgent) scale
     """
     logging.getLogger(logger_name).log(msg=content, level=level)
+
+
+def print_tb_of(err: BaseException) -> None:
+    traceback.print_tb(err.__traceback__)
+    print(err, file=sys.stderr)
 
 
 def show_keys_in(a_dict: Mapping[str, Any],  # show: Callable = print,

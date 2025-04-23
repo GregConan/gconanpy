@@ -4,11 +4,12 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-16
+Updated: 2025-04-22
 """
 # Import standard libraries
-from collections.abc import Callable, Hashable, Iterable, Mapping
+from collections.abc import Callable, Container, Hashable, Iterable, Mapping
 from configparser import ConfigParser
+import dataclasses
 import pdb
 import sys
 from typing import Any, SupportsBytes, TypeVar
@@ -18,11 +19,11 @@ from cryptography.fernet import Fernet
 
 # Import local custom libraries
 try:
-    from debug import Debuggable
+    from debug import Debuggable, print_tb_of
     from metafunc import AttributesOf, KeepTryingUntilNoErrors, nameof
     from trivial import noop
 except ModuleNotFoundError:
-    from gconanpy.debug import Debuggable
+    from gconanpy.debug import Debuggable, print_tb_of
     from gconanpy.metafunc import AttributesOf, KeepTryingUntilNoErrors, nameof
     from gconanpy.trivial import noop
 
@@ -48,7 +49,8 @@ class Invertionary(Explictionary):
     _T = TypeVar("_T")
     CollisionHandler = Callable[[list[_T]], Iterable[_T]]
 
-    def invert(self, keep_collisions_in: CollisionHandler | None = None) -> None:
+    def invert(self, keep_collisions_in: CollisionHandler | None = None
+               ) -> None:
         """ Swap keys and values. `{1: 2, 3: 4}.invert()` -> `{2: 1, 4: 3}`.
 
         When 2+ keys are mapped to the same value, then that value will be \
@@ -82,55 +84,100 @@ class Invertionary(Explictionary):
                 # If 2+ former values (now keys) collide, then map them to a
                 # keep_collisions_in container holding all of the former keys
                 else:
-                    if value in collided:
-                        new_value = [*inverted[value], key]
-                    else:
-                        new_value = [inverted[value], key]
-                        collided.add(value)
+                    new_value = [*inverted[value], key] if value in collided \
+                        else [inverted[value], key]
+                    collided.add(value)
                     inverted[value] = keep_collisions_in(new_value)
 
             # Remove all old k-v pairs and replace them with new v-k pairs
-            self.clear()
+            # self.clear()
             self.update(inverted)
 
 
 class Defaultionary(Invertionary):
 
+    def _will_getdefault(self, key: Any, exclude: Container = set()
+                         ) -> bool:
+        """
+        :param key: Any
+        :param exclude: Container of values to overlook/ignore such that if \
+            `self` maps `key` to one of those values, then this function \
+            will return True as if `key is not in self`.
+        :return: bool, True if `key` is not mapped to a value in `self` or \
+            is mapped to something in `exclude`
+        """
+        return key not in self or self[key] in exclude
+
     @classmethod
     def from_subset_of(cls, a_map: Mapping, *keys_to_keep: Hashable,
-                       exclude_empties: bool = False):
-        # No return type hint so VSCode can infer making subclass instances
+                       exclude: Container = set()):
+        # No return type hint so VSCode can infer subclass instances' types
         """ Construct an instance of this class by picking a subset of \
             key-value pairs to keep.
 
         :param a_map: Mapping to build an Defaultionary from a subset of.
-        :param keys_to_keep: Iterable[Hashable] of a_map keys to copy into \
-            the returned Defaultionary with their values.
-        :param exclude_empties: bool, True to exclude keys mapped to None in \
-            a_map from the returned Defaultionary, otherwise (by default) \
-            False to include them.
-        :return: Defaultionary mapping keys_to_keep to their a_map values.
+        :param keys_to_keep: Iterable[Hashable] of `a_map` keys to copy into \
+            the returned Defaultionary with their values, unless the key is \
+            mapped to a value in `exclude`.
+        :param exclude: Container of values not to include in the returned \
+            Defaultionary even if they are mapped to a key in `keys_to_keep`.
+        :return: Defaultionary mapping `keys_to_keep` to their `a_map` values.
         """
-        return cls({k: a_map[k] for k in keys_to_keep if a_map[k] is not None}
-                   if exclude_empties else {k: a_map[k] for k in keys_to_keep})
+        return cls({key: a_map[key] for key in keys_to_keep
+                    if a_map[key] not in exclude})
 
-    def setdefaults(self, exclude_empties: bool = False, **kwargs: Any) -> None:
+    def get(self, key: str, default: Any = None, exclude: Container = set()
+            ) -> Any:
+        """ Return the value mapped to `key` in `self`, if any; else return \
+            `default`. Defined to add `exclude` option to `dict.get`.
+
+        :param key: str, key mapped to the value to return
+        :param default: Any, object to return `if self.will_getdefault`, \
+            i.e. `if key not in self or self[key] in exclude`
+        :param exclude: Container of values to overlook/ignore such that if \
+            `self` maps `key` to one of those values, then this function \
+            will return `default` as if `key is not in self`.
+        :return: Any, value mapped to `key` in `self` if any, else `default`
+        """
+        return default if self._will_getdefault(key, exclude) else self[key]
+
+    def setdefaults(self, exclude: Container = set(), **kwargs: Any) -> None:
         """ Fill any missing values in self from kwargs.
             dict.update prefers to overwrite old values with new ones.
             setdefaults is basically dict.update that prefers to keep old values.
 
-        :param exclude_empties: bool, False to exclude keys mapped to None \
+        :param exclude: Container, False to exclude keys mapped to None \
             in a_map from the returned Defaultionary, otherwise (by default) \
             False to include them.
         :param kwargs: Mapping[str, Any] of values to add to self if needed
         """
-        if exclude_empties:
+        if exclude:
+            # example_exclude = next(iter(exclude))
             for key, value in kwargs.items():
-                if self.get(key, None) is None:
+                if self.get(key, None, exclude) is None:
                     self[key] = value
         else:
             for key, value in kwargs.items():
                 self.setdefault(key, value)
+
+    def update(self, a_map: Mapping | Iterable[tuple[Hashable, Any]
+                                               ] | None = None,
+               copy: bool = False, **kwargs: Any):
+        # No return type hint so VSCode can infer subclass instances' types
+        """ Add or overwrite items in this Mapping from other Mappings.
+
+        :param a_map: Mapping | Iterable[tuple[Hashable, Any] ] | None, \
+            `m` in `dict.update` method; defaults to None
+        :param copy: bool, True to return a copy of `self` including all \
+            items in `a_map` and in `kwargs`; else False to return None
+        :return: Defaultionary updated with all values from `a_map` and \
+            `kwargs` if `copy=True`; else None
+        """
+        updated = self.copy() if copy else self
+        run_update = super(Defaultionary, updated).update
+        run_update(**kwargs) if a_map is None else run_update(a_map, **kwargs)
+        if copy:
+            return updated
 
 
 class LazyDict(Defaultionary):
@@ -142,27 +189,10 @@ class LazyDict(Defaultionary):
     Keeps most core functionality of the Python `dict` type.
     Extended `LazyButHonestDict` from https://stackoverflow.com/q/17532929 """
 
-    def get(self, key: str, default: Any = None,
-            exclude_empties: bool = False) -> Any:
-        """ Return the value mapped to key in this LazyDict, if any; else \
-            return default. Explicitly defined to add exclude_empties option \
-            to `dict.get`.
-
-        :param key: str, key mapped to the value to return
-        :param default: Any, object to return if key is not in the Cryptionary
-        :param exclude_empties: bool, True to return default if key is \
-            mapped to None in self; else (by default) False to return \
-            mapped value instead
-        :return: Any, (decrypted) value mapped to key in this Cryptionary if \
-            any, else default
-        """
-        return default if self._will_getdefault(key, exclude_empties) \
-            else self[key]
-
     def lazyget(self, key: str, get_if_absent: Callable = noop,
                 getter_args: Iterable = list(),
                 getter_kwargs: Mapping = dict(),
-                exclude_empties: bool = False) -> Any:
+                exclude: Container = set()) -> Any:
         """ Return the value for key if key is in the dictionary, else \
         return the result of calling the `get_if_absent` parameter with args \
         & kwargs. Adapted from LazyButHonestDict.lazyget from \
@@ -172,17 +202,17 @@ class LazyDict(Defaultionary):
         :param get_if_absent: function that returns the default value
         :param getter_args: Iterable[Any] of get_if_absent arguments
         :param getter_kwargs: Mapping[Any] of get_if_absent keyword arguments
-        :param exclude_empties: bool, True to return \
-            get_if_absent(*getter_args, **getter_kwargs) if key is mapped to \
-            None in self; else (by default) False to return mapped value
+        :param exclude: set of possible values which (if they are mapped to \
+            `key` in `self`) will not be returned; instead returning \
+            `get_if_absent(*getter_args, **getter_kwargs)`
         """
         return get_if_absent(*getter_args, **getter_kwargs) if \
-            self._will_getdefault(key, exclude_empties) else self[key]
+            self._will_getdefault(key, exclude) else self[key]
 
     def lazysetdefault(self, key: str, get_if_absent: Callable = noop,
                        getter_args: Iterable = list(),
                        getter_kwargs: Mapping = dict(),
-                       exclude_empties: bool = False) -> Any:
+                       exclude: Container = set()) -> Any:
         """ Return the value for key if key is in the dictionary; else add \
         that key to the dictionary, set its value to the result of calling \
         the `get_if_absent` parameter with args & kwargs, then return that \
@@ -193,24 +223,13 @@ class LazyDict(Defaultionary):
         :param get_if_absent: Callable, function to set & return default value
         :param getter_args: Iterable[Any] of get_if_absent arguments
         :param getter_kwargs: Mapping[Any] of get_if_absent keyword arguments
-        :param exclude_empties: bool, True to replace None mapped to key in \
-            self with get_if_absent(*getter_args, **getter_kwargs) and \
-            return that; else (by default) False to return the mapped value
+        :param exclude: Container of possible values to replace with \
+            `get_if_absent(*getter_args, **getter_kwargs)` and return if \
+            they are mapped to `key` in `self`
         """
-        if self._will_getdefault(key, exclude_empties):
+        if self._will_getdefault(key, exclude):
             self[key] = get_if_absent(*getter_args, **getter_kwargs)
         return self[key]
-
-    def _will_getdefault(self, key: Any, exclude_empties: bool = False
-                         ) -> bool:
-        """
-        :param key: Any
-        :param exclude_empties: bool, what to return if key is None.
-        :return: bool, True if key is "empty" (not mapped to a value in \
-            self, or mapped to None if exclude_empties)
-        """
-        return ((self.get(key, None) is None) if exclude_empties else
-                (key not in self))
 
 
 class DotDict(Defaultionary):
@@ -223,13 +242,6 @@ class DotDict(Defaultionary):
     `attrdict` from https://stackoverflow.com/a/45354473 and `dotdict` from \
     https://github.com/dmtlvn/dotdict/blob/main/dotdict/dotdict.py
     """
-    # Enable tab-completion of dotdict items. From
-    # https://stackoverflow.com/questions/2352181#comment114004924_23689767
-    __dir__ = dict.keys
-
-    _GET_AS_KEY: dict[bool, tuple[Callable, type[BaseException]]] = {
-        True: (dict.__getitem__, KeyError),
-        False: (dict.__getattribute__, AttributeError)}
 
     # Name of set[str] of attributes, methods, and other keywords that should
     # not be accessible/modifiable as keys/values/items
@@ -250,38 +262,10 @@ class DotDict(Defaultionary):
 
         :param name: str naming the item in self to delete.
         """
-        self._if_protected_prevent("delete", name, AttributeError)
-        return self.__delitem__(name)
-
-    def __get(self, name: Hashable, as_key: bool = False) -> Any:
-        """ Return a value or attribute of self.
-
-        Between attrs and keys: first try to get it as the one indicated, \
-        and if that fails, then try to get it as the other.
-
-        :param name: Hashable, key mapped by self to value to return; OR \
-            name of attribute of self to return
-        :param as_attr: bool, True to try to fetch name as an attribute \
-            first, and then as a key, and raise AttributeError if not found; \
-            False to fetch as a key first and raise KeyError if not found
-        :raises err: AttributeError | KeyError
-        :return: Any
-        """
-        # First, try to get an attribute (if as_attr, else a mapped value)
-        first_get, first_err_type = self._GET_AS_KEY[as_key]
-        try:
-            return first_get(self, name)
-        except first_err_type as err:
-
-            # Next, try to get a mapped value (if as_attr, else an attribute)
-            second_get, second_err_type = self._GET_AS_KEY[not as_key]
-            try:
-                return second_get(self, name)
-
-            # If nothing is found, then raise an appropriate error (e.g. to
-            # allow hasattr, which handles AttributeError but not KeyError)
-            except second_err_type:
-                raise err from None  # Only show 1 exception in the traceback
+        _delattr = self.__delitem__ \
+            if self._is_ready_to("delete", name, AttributeError) \
+            else super(DotDict, self).__delattr__
+        return _delattr(name)
 
     def __getattr__(self, name: str) -> Any:
         """ `__getattr__(self, name) == getattr(self, name) == self.<name>`
@@ -294,10 +278,16 @@ class DotDict(Defaultionary):
         :raises AttributeError: if name is not an item or attribute of self.
         :return: Any, `getattr(self, name)` and/or `self[name]`
         """
-        return self.__get(name, as_key=False)
+        try:  # First, try to get an attribute (e.g. a method) of this object
+            return dict.__getattribute__(self, name)
+        except AttributeError as err:
 
-    def __getitem__(self, key):
-        return self.__get(key, as_key=True)
+            try:  # Next, get a value mapped to the key, if any
+                return dict.__getitem__(self, name)
+
+            # If neither exists, then raise AttributeError
+            except KeyError:  # Don't raise KeyError; it breaks hasattr
+                raise err from None  # Only show 1 exception in the traceback
 
     def __getstate__(self):
         """Required for pickling. From https://stackoverflow.com/a/36968114"""
@@ -306,24 +296,26 @@ class DotDict(Defaultionary):
     def __setattr__(self, name: str, value: Any) -> None:
         """ Implement `setattr(self, name, value)`. Same as \
             `self[name] = value`. Explicitly defined to include \
-            `_if_protected_prevent` check preventing user from overwriting \
+            `_is_ready_to` check preventing user from overwriting \
             protected attributes/methods.
 
         :param name: str naming the attribute/key to map the value to
         :param value: Any, the value of the new attribute/item
         """
-        self._if_protected_prevent("overwrite", name, AttributeError)
-        return self.__setitem__(name, value)
+        _setattr = self.__setitem__ \
+            if self._is_ready_to("overwrite", name, AttributeError) \
+            else super(DotDict, self).__setattr__
+        return _setattr(name, value)
 
     def __setitem__(self, key: str, value: Any) -> None:
         """ Set self[key] to value. Explicitly defined to include \
-            `_if_protected_prevent` check preventing user from overwriting \
+            `_is_ready_to` check preventing user from overwriting \
             protected attributes/methods.
 
         :param key: str naming the key to map the value to
         :param value: Any, the value of the new item
         """
-        self._if_protected_prevent("overwrite", key, KeyError)
+        self._is_ready_to("overwrite", key, KeyError)
         return super(DotDict, self).__setitem__(key, value)
 
     def __setstate__(self, state: Mapping) -> None:
@@ -334,8 +326,8 @@ class DotDict(Defaultionary):
         self.update(state)
         self.__dict__ = self
 
-    def _if_protected_prevent(self, alter: str, attr_name: str, err_type:
-                              type[BaseException] = AttributeError) -> bool:
+    def _is_ready_to(self, alter: str, attr_name: str, err_type:
+                     type[BaseException] = AttributeError) -> bool:
         """ Check if an attribute of self is protected or if it's alterable
 
         :param alter: str, verb naming the alteration
@@ -344,12 +336,15 @@ class DotDict(Defaultionary):
         :return: bool, True if the attribute is not protected; \
                  else raise error
         """
-        if attr_name in getattr(self, self.PROTECTEDS, set()):
-            raise err_type(f"Cannot {alter} read-only "
-                           f"'{nameof(self)}' object "
-                           f"attribute '{attr_name}'")
-        else:
-            return
+        is_ready = False
+        if hasattr(self, self.PROTECTEDS):
+            if attr_name in getattr(self, self.PROTECTEDS):
+                raise err_type(f"Cannot {alter} read-only "
+                               f"'{nameof(self)}' object "
+                               f"attribute '{attr_name}'")
+            else:
+                is_ready = True
+        return is_ready
 
     @classmethod
     def fromConfigParser(cls, config: ConfigParser):
@@ -451,7 +446,7 @@ class Promptionary(LazyDict, Debuggable):
 
     def get_or_prompt_for(self, key: str, prompt: str,
                           prompt_fn: Callable = input,
-                          exclude_empties: bool = False) -> Any:
+                          exclude: Container = set()) -> Any:
         """ Return the value mapped to key in self if one already exists; \
             else prompt the user to interactively provide it and return that.
 
@@ -460,18 +455,18 @@ class Promptionary(LazyDict, Debuggable):
         :param prompt_fn: Callable, function to interactively prompt the \
                           user to provide the value, such as `input` or \
                           `getpass.getpass`
-        :param exclude_empties: bool, True to return `prompt_fn(prompt)` if \
+        :param exclude: Container, True to return `prompt_fn(prompt)` if \
             key is mapped to None in self; else (by default) False to return \
             the mapped value instead
         :return: Any, the value mapped to key if one exists, else the value \
                  that the user interactively provided
         """
         return self.lazyget(key, prompt_fn, [prompt],
-                            exclude_empties=exclude_empties)
+                            exclude=exclude)
 
     def setdefault_or_prompt_for(self, key: str, prompt: str,
                                  prompt_fn: Callable = input,
-                                 exclude_empties: bool = False) -> Any:
+                                 exclude: Container = set()) -> Any:
         """ Return the value mapped to key in self if one already exists; \
             otherwise prompt the user to interactively provide it, store the \
             provided value by mapping it to key, and return that value.
@@ -481,14 +476,14 @@ class Promptionary(LazyDict, Debuggable):
         :param prompt_fn: Callable, function to interactively prompt the \
                           user to provide the value, such as `input` or \
                           `getpass.getpass`
-        :param exclude_empties: bool, True to replace None mapped to key in \
+        :param exclude: Container, True to replace None mapped to key in \
             self with prompt_fn(prompt) and return that; else (by default) \
             False to return the mapped value instead
         :return: Any, the value mapped to key if one exists, else the value \
                  that the user interactively provided
         """
         return self.lazysetdefault(key, prompt_fn, [prompt],
-                                   exclude_empties=exclude_empties)
+                                   exclude=exclude)
 
 
 class Bytesifier(Debuggable):
@@ -517,7 +512,7 @@ class Bytesifier(Debuggable):
         defaults.update(kwargs)
         encoding = defaults.pop("encoding")
 
-        # Define outside context manager to preserve afterwards
+        # Define these outside the context manager to preserve them afterwards
         bytesified = None
         errs = None
 
