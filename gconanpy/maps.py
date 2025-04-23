@@ -4,13 +4,11 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-22
+Updated: 2025-04-23
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Hashable, Iterable, Mapping
 from configparser import ConfigParser
-import dataclasses
-import pdb
 import sys
 from typing import Any, SupportsBytes, TypeVar
 
@@ -152,9 +150,9 @@ class Defaultionary(Invertionary):
         :param kwargs: Mapping[str, Any] of values to add to self if needed
         """
         if exclude:
-            # example_exclude = next(iter(exclude))
+            example_exclude = next(iter(exclude))
             for key, value in kwargs.items():
-                if self.get(key, None, exclude) is None:
+                if self.get(key, example_exclude, exclude) is example_exclude:
                     self[key] = value
         else:
             for key, value in kwargs.items():

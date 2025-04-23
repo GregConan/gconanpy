@@ -3,38 +3,27 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2025-04-22
+Updated: 2025-04-23
 """
 # Import standard libraries
-from collections.abc import Callable, Iterable, Mapping
-import functools
+from collections.abc import Callable, Iterable
 import inspect
-import pdb
 import re
-from typing import Any, TypeVar
+from typing import Any
 
 # Import third-party PyPI libraries
 from makefun import create_function, with_signature
 
 # Import local custom libraries
 try:
-    from metafunc import AttributesOf, nameof
-    from seq import ToString
+    from metafunc import add_attributes_to, AttributesOf, nameof
+    from seq import combine_maps, ToString
 except ModuleNotFoundError:
-    from gconanpy.metafunc import AttributesOf, nameof
-    from gconanpy.seq import ToString
+    from gconanpy.metafunc import add_attributes_to, AttributesOf, nameof
+    from gconanpy.seq import combine_maps, ToString
 
 
-M = TypeVar("M", bound=Mapping)
-T = TypeVar("T")
-ObjType = TypeVar("ObjType", bound=type)
 Wrapper = Callable[[Callable], Callable]
-
-
-def add_attributes_to(an_obj: T, **attributes: Any) -> T:
-    for attr_name, attr_value in attributes.items():
-        setattr(an_obj, attr_name, attr_value)
-    return an_obj
 
 
 def all_annotations_of(a_class: type) -> dict[str, type]:
@@ -72,19 +61,7 @@ def append_default(a_func: Callable) -> Callable:
     return wrapper
 
 
-def build(obj_class: ObjType = object, obj_args: Iterable = list(),
-          obj_kwargs: Mapping[str, Any] = dict(), **attributes: Any
-          ) -> ObjType:
-    return add_attributes_to(obj_class(*obj_args, **obj_kwargs),
-                             **attributes)
-
-
-def combine_maps(maps: Iterable[M]) -> M:
-    return functools.reduce(lambda x, y: x.update(y) or x, maps)
-
-
-def extend(a_class: type, name: str, **wrappers: Wrapper
-           ) -> type:
+def extend(a_class: type, name: str, **wrappers: Wrapper) -> type:
     return type(name, tuple(), {  # TODO Allow for adding wholly new methods
         meth_name: wrappers[meth_name](meth) if meth_name in wrappers
         else meth for meth_name, meth in AttributesOf(a_class).methods()})
@@ -94,28 +71,16 @@ def extend1(a_class: type, name: str, wrapper: Wrapper, *methods: str) -> type:
     return extend(a_class, name, **{m: wrapper for m in methods})
 
 
-RegexSearcher = extend1(re.Match, "RegexSearcher", append_default,
-                        "groups", "groupdict")
+def initialize(self: Any, *args: Any, **kwargs: Any) -> None:
+    """ Generic __init__ function for `weak_dataclass` to specify by adding \
+        a method signature.
 
-
-def init_wrapper(self, *args, **kwargs) -> None:
+    :param self: Any, object with a `__slots__: tuple[str, ...]` attribute \
+        naming the `__init__` input arguments.
+    """
     for i in range(len(args)):
         kwargs[self.__slots__[i]] = args[i]
     add_attributes_to(self, **kwargs)
-
-
-def repr_wrapper(self) -> str:
-    attrs = {x: ToString.from_object(getattr(self, x), max_len=100)
-             for x in self.__slots__}
-    attrs_str = ToString.from_mapping(attrs, quote=None, join_on="=",
-                                      enclose_in=("(", ")"))
-    return nameof(self) + attrs_str
-
-
-def eq_wrapper(self, other) -> bool:
-    return self.__slots__ == other.__slots__ and \
-        all([getattr(self, x) == getattr(other, x)
-             for x in self.__slots__])
 
 
 def params_for(a_class: type, *args: inspect.Parameter
@@ -139,19 +104,32 @@ def params_for(a_class: type, *args: inspect.Parameter
     return [*params, *withdefaults]
 
 
-def weak_dataclass(a_class: type, *args: inspect.Parameter,
-                   **kwargs) -> type:
+RegexSearcher = extend1(re.Match, "RegexSearcher", append_default,
+                        "groups", "groupdict")
+
+
+class WeakDataclassBase:
+
+    def __repr__(self) -> str:
+        attrs = {x: ToString.from_object(getattr(self, x), max_len=100)
+                 for x in self.__slots__}
+        attrs_str = ToString.from_mapping(attrs, quote=None, join_on="=",
+                                          enclose_in=("(", ")"))
+        return nameof(self) + attrs_str
+
+    def __eq__(self, other) -> bool:
+        return self.__slots__ == other.__slots__ and \
+            all([getattr(self, x) == getattr(other, x)
+                for x in self.__slots__])
+
+
+def weak_dataclass(a_class: type, *args: inspect.Parameter) -> type:
     all_params = params_for(a_class, *args)
     new_sig = inspect.Signature(all_params, return_annotation=None)
-    a_class.__slots__ = tuple([p.name for p in all_params[1:]])
-
-    # TODO Move *_wrapper into WeakDataclassBase and extend() it
-    a_class.__init__ = create_function(new_sig, init_wrapper,
-                                       func_name="__init__",
-                                       qualname="__init__", **kwargs)
-    a_class.__repr__ = create_function("__repr__(self) -> str:",
-                                       repr_wrapper, func_name="__repr__")
-    a_class.__eq__ = create_function("__eq__(self, other) -> bool",
-                                     eq_wrapper, func_name="__eq__")
-
-    return a_class
+    WeakDataclass = type(nameof(a_class), (a_class, WeakDataclassBase),
+                         dict())
+    WeakDataclass.__slots__ = tuple([p.name for p in all_params[1:]])
+    WeakDataclass.__init__ = create_function(new_sig, initialize,
+                                             func_name="__init__",
+                                             qualname="__init__")
+    return WeakDataclass

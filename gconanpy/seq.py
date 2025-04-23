@@ -7,13 +7,14 @@ Overlaps significantly with:
     DCAN-Labs:abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-04-09
+Updated: 2025-04-23
 """
 # Import standard libraries
 import builtins
 from collections.abc import (Callable, Generator, Hashable, Iterable,
                              Mapping, Sequence)
 import datetime as dt
+from functools import reduce
 import itertools
 import os
 import pdb
@@ -28,8 +29,9 @@ import pandas as pd
 import pathvalidate
 import regex
 
-# Constant: TypeVar for differentiate_sets & insert_into functions
-T = TypeVar("T")
+# Constant: TypeVars for...
+T = TypeVar("T")  # ...differentiate_sets & insert_into functions
+M = TypeVar("M", bound=Mapping)  # combine_maps function
 
 # NOTE All functions/classes below are in alphabetical order.
 
@@ -72,6 +74,10 @@ def as_HTTPS_URL(*parts: str, **url_params: Any) -> str:
         str_params = [f"{k}={v}" for k, v in url_params.items()]
         url += "?" + "&".join(str_params)
     return url
+
+
+def combine_maps(maps: Iterable[M]) -> M:
+    return reduce(lambda x, y: x.update(y) or x, maps)
 
 
 def count_uniqs_in_cols(a_df: pd.DataFrame) -> dict[str, int]:
@@ -169,8 +175,7 @@ def parentheticals_in(txt: str) -> Generator[regex.Match[str], None, None]:
     :param txt: str, _description_
     :yield: Generator[regex.Match, None, None], _description_
     """
-    paren_iter = regex.finditer(r"\((?:[^)(]*(?R)?)*+\)", txt)
-    for parenthetical in paren_iter:
+    for parenthetical in regex.finditer(r"\((?:[^)(]*(?R)?)*+\)", txt):
         yield parenthetical
 
 
@@ -301,7 +306,7 @@ class ToString(str):
     def from_iterable(cls, an_obj: Iterable, quote: str | None = "'",
                       sep: str = ",", quote_numbers: bool = False,
                       enclose_in: tuple[str, str] | None = ("[", "]"),
-                      max_len: int | None = None):
+                      max_len: int | None = None, lastly: str = "and "):
         """
 
         :param a_list: list[Any]
@@ -319,9 +324,9 @@ class ToString(str):
                                                 quote_numbers, max_len)
             if len(an_obj) > 2:
                 except_end = (sep + ' ').join(list_with_str_els[:-1])
-                result = f"{except_end}{sep} and {list_with_str_els[-1]}"
+                result = f"{except_end}{sep} {lastly}{list_with_str_els[-1]}"
             else:
-                result = " and ".join(list_with_str_els)
+                result = f" {lastly}".join(list_with_str_els)
             if enclose_in:
                 result = f"{enclose_in[0]}{result}{enclose_in[1]}"
         return cls(result)
@@ -358,7 +363,8 @@ class ToString(str):
     def from_mapping(cls, a_map: Mapping, quote: str | None = "'",
                      quote_numbers: bool = False, join_on: str = ":",
                      enclose_in: tuple[str, str] | None = ("{", "}"),
-                     sep: str = ",", max_len: int | None = None):
+                     sep: str = ",", max_len: int | None = None,
+                     lastly: str = "and "):
         join_on = cls(join_on)
         quotate = cls.get_quotator(quote, quote_numbers)
         mappings = list()
@@ -366,7 +372,8 @@ class ToString(str):
             v = quotate(v) if max_len is None else \
                 cls.from_object(v).truncate(max_len, quotate)
             mappings.append(join_on.join(quotate(k), v))
-        return cls.from_iterable(mappings, None, sep, enclose_in=enclose_in)
+        return cls.from_iterable(mappings, None, sep, enclose_in=enclose_in,
+                                 lastly=lastly)
 
     @classmethod
     def get_quotator(cls, quote: str | None = "'", quote_numbers:

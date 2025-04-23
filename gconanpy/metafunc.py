@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-04-22
+Updated: 2025-04-23
 """
 # Import standard libraries
 from abc import ABC
@@ -13,6 +13,7 @@ from typing import Any, TypeVar
 
 
 # Constants
+T = TypeVar("T")
 
 # Purely "internal" errors only involving local data; ignorable in some cases
 DATA_ERRORS = (AttributeError, IndexError, KeyError, TypeError, ValueError)
@@ -22,6 +23,16 @@ ESSENTIALS = {f"__{attr}__" for attr in
               ("class", "class_getitem", "delattr", "getattribute",  # "doc",
                "hash", "init", "init_subclass", "new", "reduce",
                "reduce_ex", "setattr", "subclasshook")}
+
+
+def add_attributes_to(an_obj: T, **attributes: Any) -> T:
+    """
+    :param an_obj: Any, object to add attributes to
+    :return: Any, `an_obj` now with `attributes` added
+    """
+    for attr_name, attr_value in attributes.items():
+        setattr(an_obj, attr_name, attr_value)
+    return an_obj
 
 
 def has_method(an_obj: Any, method_name: str) -> bool:
@@ -62,7 +73,6 @@ class BoolableMeta(type):  # https://realpython.com/python-interface/
 
 class Boolable(metaclass=BoolableMeta):
     """ Any object that you can call `bool()` on is a `Boolable`. """
-    ...
 
 
 class SupportsGetItemMeta(type):  # https://realpython.com/python-interface/
@@ -77,7 +87,6 @@ class SupportsGetItemMeta(type):  # https://realpython.com/python-interface/
 
 class SupportsGetItem(metaclass=SupportsGetItemMeta):
     """ Any object with a `__getitem__` method is a `SupportsGetItem`. """
-    ...
 
 
 class DifferTypes(ABC):
@@ -91,16 +100,13 @@ class DifferTypes(ABC):
     :param GetComparator: Callable[[ToCompare], Diff], _description_
     :param GetPartNames: Callable[[ToCompare], Iterable[PartName]], _description_
     :param GetSubcomparator: Callable[[ToCompare, PartName], Diff], _description_
-    :return: _type_, _description_
     """
     Diff = TypeVar("Diff")
     ToCompare = TypeVar("ToCompare")
-    PartName = TypeVar("ToSubCompare", bound=Hashable)
-    GetComparator = TypeVar("Comparator", bound=Callable[[ToCompare], Diff])
-    GetPartNames = TypeVar("GetPartNames",
-                           bound=Callable[[ToCompare], Iterable[PartName]])
-    GetSubcomparator = TypeVar("Subcomparator",
-                               bound=Callable[[ToCompare, PartName], Diff])
+    PartName = TypeVar("PartName", bound=Hashable)
+    GetComparator = Callable[[ToCompare], Diff]
+    GetPartNames = Callable[[ToCompare], Iterable[PartName]]
+    GetSubcomparator = Callable[[ToCompare, PartName], Diff]
 
 
 class FinderTypes(ABC):
@@ -122,13 +128,13 @@ class FinderTypes(ABC):
     M = TypeVar("M")
     R = TypeVar("R")
     X = TypeVar("X")
-    Modify = TypeVar("Modify", bound=Callable[[I, tuple[X, ...]], M])
-    Ready = TypeVar("Ready", bound=Callable[[M, tuple[R, ...]], Boolable])
-    Viable = TypeVar("Viable", bound=Callable[[M], bool])
+    Modify = Callable[[I, tuple[X, ...]], M]
+    Ready = Callable[[M, tuple[R, ...]], Boolable]
+    Viable = Callable[[M], bool]
 
 
 class SkipException(BaseException):
-    ...
+    """ Exception raised by ErrCatcher subclasses to skip a block of code. """
 
 
 class ErrCatcher:
@@ -206,9 +212,9 @@ class FrozenFunction(Callable):
     """ Function wrapper that also stores some of its input parameters. """
 
     # Type variables for inner/wrapped/"frozen" function parameters/args
-    _Pre = TypeVar("_Pre")  # Positional args to inject before _Inner args
+    _Pre = TypeVar("_Pre")  # Positional args to inject BEFORE _Inner args
     _Inner = TypeVar("_Inner")  # Positional args passed when executing
-    _Post = TypeVar("_Post")  # Positional args to inject after _Inner args
+    _Post = TypeVar("_Post")  # Positional args to inject AFTER _Inner args
     _Kw = TypeVar("_Kw")  # Keyword args
     _Ret = TypeVar("_Ret")  # "Frozen" function's return value
     _Caller = Callable[[tuple[_Pre, ...], tuple[_Inner, ...],
@@ -274,6 +280,7 @@ class AttributesOf:
 
     # Filters to choose which attributes to copy or iterate over
     _SELECTORS = Iterable[FrozenFunction[[Any], bool]]
+    METHOD_FILTERS: _SELECTORS = [FrozenFunction(callable)]
 
     def __init__(self, what: Any) -> None:
         """ 
@@ -348,7 +355,7 @@ class AttributesOf:
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each method of this object.
         """
-        return self.select(value_filters=[FrozenFunction(callable)])
+        return self.select(value_filters=self.METHOD_FILTERS)
 
     def method_names(self) -> list[str]:
         """

@@ -4,7 +4,7 @@ Totally redundant/trivial functions to use as callable default \
 values of optional parameters in other classes' methods.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-10
-Updated: 2025-04-14
+Updated: 2025-04-23
 """
 # Import standard libraries
 from typing import Any, Literal
@@ -23,6 +23,20 @@ def always_false(*_: Any, **_kwargs: Any) -> Literal[False]:
 def always_true(*_: Any, **_kwargs: Any) -> Literal[True]:
     """ :return: True """
     return True
+
+
+def call_method_of(an_obj: Any, method_name: str,
+                   *args: Any, **kwargs: Any) -> Any:
+    """ `an_obj.<method_name>(*args, **kwargs)`
+
+    :param an_obj: Any, object with a method to call
+    :param method_name: str naming the method of `an_obj` to call
+    :param args: Iterable, positional arguments to call method with
+    :param kwargs: Mapping[str, Any], keyword arguments to call method with
+    :return: Any, the output of calling the method of `an_obj` with the \
+        specified `args` and `kwargs`
+    """
+    return getattr(an_obj, method_name)(*args, **kwargs)
 
 
 def get_item_of(maplike: SupportsGetItem, key: Any) -> Any:

@@ -3,16 +3,14 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-04-22
+Updated: 2025-04-23
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Mapping
-import dataclasses
 from typing import Any
 
 # Import local custom libraries
 from gconanpy.maps import Defaultionary, DotDict, Invertionary, LazyDotDict
-from gconanpy.metafunc import AttributesOf
 from tests.testers import Tester
 
 
