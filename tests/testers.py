@@ -39,8 +39,8 @@ class Tester(ABC):
                             "a list": [*self.alist, DotDict],
                             "bytes_nums": self.bytes_nums})
         cli_args.creds = Cryptionary.from_subset_of(
-            cli_args, "address", "debugging", "password",
-            exclude={None})
+            cli_args, keys={"address", "debugging", "password"},
+            include_keys=True, values={None}, include_values=False)
         return cli_args
 
     @classmethod

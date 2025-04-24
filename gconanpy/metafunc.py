@@ -11,12 +11,12 @@ from abc import ABC
 from collections.abc import Callable, Generator, Hashable, Iterable
 from typing import Any, Literal, TypeVar
 
-
 # Constants
 T = TypeVar("T")
 
 # Purely "internal" errors only involving local data; ignorable in some cases
 DATA_ERRORS = (AttributeError, IndexError, KeyError, TypeError, ValueError)
+# TODO Does this include SysExit and pdb exit? It shouldn't!
 
 # Names of methods not to overwrite when wrapping an object
 ESSENTIALS = {f"__{attr}__" for attr in
@@ -79,6 +79,7 @@ class SupportsGetItemMeta(type):  # https://realpython.com/python-interface/
     """ A metaclass that will be used for SupportsGetItem class creation.
     """
     def __instancecheck__(cls, instance: Any) -> bool:
+        # TODO try: instance[0]; KeyError: return True; AttributeError: False?
         return has_method(instance, "__getitem__")
 
     def __subclasscheck__(cls, subclass: type) -> bool:
@@ -144,14 +145,12 @@ class ErrCatcher:
 
 class IgnoreExceptions(ErrCatcher):
     def __enter__(self):
-        """ Must be explicitly defined here (not only in a superclass) for \
-            VSCode to realize that IgnoreExceptions(...) returns an \
-            instance of the IgnoreExceptions class.
-
+        """ 
         :return: IgnoreExceptions, self.
         """
         return self
 
+    # TODO Does this stop SysExit and pdb exit from propagating? It shouldn't!
     def __exit__(self, exc_type: type[BaseException] | None = None,
                  *_: Any) -> bool:
         return (not self.catch) or (exc_type in self.catch)

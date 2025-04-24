@@ -17,13 +17,13 @@ from cryptography.fernet import Fernet
 
 # Import local custom libraries
 try:
-    from debug import Debuggable, print_tb_of
+    from debug import Debuggable
     from metafunc import AttributesOf, KeepTryingUntilNoErrors, nameof
-    from trivial import noop
+    from trivial import always_none
 except ModuleNotFoundError:
-    from gconanpy.debug import Debuggable, print_tb_of
+    from gconanpy.debug import Debuggable
     from gconanpy.metafunc import AttributesOf, KeepTryingUntilNoErrors, nameof
-    from gconanpy.trivial import noop
+    from gconanpy.trivial import always_none
 
 
 class Explictionary(dict):
@@ -92,7 +92,7 @@ class Invertionary(Explictionary):
             self.update(inverted)
 
 
-class Defaultionary(Invertionary):
+class Defaultionary(Invertionary):  # TODO Add exclude to __init__ ?
 
     def _will_getdefault(self, key: Any, exclude: Container = set()
                          ) -> bool:
@@ -107,22 +107,28 @@ class Defaultionary(Invertionary):
         return key not in self or self[key] in exclude
 
     @classmethod
-    def from_subset_of(cls, a_map: Mapping, *keys_to_keep: Hashable,
-                       exclude: Container = set()):
+    def from_subset_of(cls, a_map: Mapping, keys: Container[Hashable] = set(),
+                       values: Container = set(), include_keys: bool = False,
+                       include_values: bool = False):
         # No return type hint so VSCode can infer subclass instances' types
         """ Construct an instance of this class by picking a subset of \
             key-value pairs to keep.
 
         :param a_map: Mapping to build an Defaultionary from a subset of.
-        :param keys_to_keep: Iterable[Hashable] of `a_map` keys to copy into \
-            the returned Defaultionary with their values, unless the key is \
-            mapped to a value in `exclude`.
-        :param exclude: Container of values not to include in the returned \
-            Defaultionary even if they are mapped to a key in `keys_to_keep`.
-        :return: Defaultionary mapping `keys_to_keep` to their `a_map` values.
+        :param keys: Container[Hashable] of `a_map` keys.
+        :param values: Container of `a_map` values.
+        :param include_keys: bool, True to return an `a_map` subset with \
+            ONLY the provided `keys`; else False to return `a_map` WITHOUT \
+            the provided `keys`.
+        :param include_values: bool, True to return an `a_map` subset with \
+            ONLY the provided `values`; else False to return `a_map` WITHOUT \
+            the provided `values`.
+        :return: Defaultionary, `a_map` subset including only the specified \
+            keys and values.
         """
-        return cls({key: a_map[key] for key in keys_to_keep
-                    if a_map[key] not in exclude})
+        return cls({k: v for k, v in a_map.items()
+                    if (k in keys) is include_keys and
+                    (v in values) is include_values})
 
     def get(self, key: str, default: Any = None, exclude: Container = set()
             ) -> Any:
@@ -139,14 +145,15 @@ class Defaultionary(Invertionary):
         """
         return default if self._will_getdefault(key, exclude) else self[key]
 
-    def setdefaults(self, exclude: Container = set(), **kwargs: Any) -> None:
+    def setdefaults(self, exclude: Iterable = set(), **kwargs: Any) -> None:
         """ Fill any missing values in self from kwargs.
             dict.update prefers to overwrite old values with new ones.
             setdefaults is basically dict.update that prefers to keep old values.
 
-        :param exclude: Container, False to exclude keys mapped to None \
-            in a_map from the returned Defaultionary, otherwise (by default) \
-            False to include them.
+        :param exclude: Iterable, values to overlook/ignore such that if \
+            `self` maps `key` to one of those values, then this function \
+            will try to overwrite that value with a value mapped to the \
+            same key in `kwargs`, as if `key is not in self`.
         :param kwargs: Mapping[str, Any] of values to add to self if needed
         """
         if exclude:
@@ -187,7 +194,7 @@ class LazyDict(Defaultionary):
     Keeps most core functionality of the Python `dict` type.
     Extended `LazyButHonestDict` from https://stackoverflow.com/q/17532929 """
 
-    def lazyget(self, key: str, get_if_absent: Callable = noop,
+    def lazyget(self, key: str, get_if_absent: Callable = always_none,
                 getter_args: Iterable = list(),
                 getter_kwargs: Mapping = dict(),
                 exclude: Container = set()) -> Any:
@@ -207,7 +214,7 @@ class LazyDict(Defaultionary):
         return get_if_absent(*getter_args, **getter_kwargs) if \
             self._will_getdefault(key, exclude) else self[key]
 
-    def lazysetdefault(self, key: str, get_if_absent: Callable = noop,
+    def lazysetdefault(self, key: str, get_if_absent: Callable = always_none,
                        getter_args: Iterable = list(),
                        getter_kwargs: Mapping = dict(),
                        exclude: Container = set()) -> Any:
@@ -255,7 +262,7 @@ class DotDict(Defaultionary):
                              ).union({self.PROTECTEDS}))
 
     def __delattr__(self, name: str) -> None:
-        """ Implement `delattr(self, name)`. Same as `del self[name]`. 
+        """ Implement `delattr(self, name)`. Same as `del self[name]`.
             Deletes item (key-value pair) instead of attribute.
 
         :param name: str naming the item in self to delete.
@@ -431,7 +438,8 @@ class Promptionary(LazyDict, Debuggable):
     """ LazyDict able to interactively prompt the user to fill missing values.
     """
 
-    def __init__(self, *args, debugging: bool = False, **kwargs: Any) -> None:
+    def __init__(self, from_map: Mapping, debugging: bool = False,
+                 **kwargs: Any) -> None:
         """ Initialize Promptionary from existing Mapping (*args) or from \
             new Mapping (**kwargs).
 
@@ -440,7 +448,7 @@ class Promptionary(LazyDict, Debuggable):
         """
         # This class can pause and debug when an exception occurs
         self.debugging = debugging
-        super().__init__(*args, **kwargs)
+        super().__init__(from_map, **kwargs)
 
     def get_or_prompt_for(self, key: str, prompt: str,
                           prompt_fn: Callable = input,
@@ -543,8 +551,8 @@ class Cryptionary(Promptionary, Bytesifier):
             self.encrypted = set()
             self.cryptor = Fernet(Fernet.generate_key())
 
-            # This class can pause and debug when an exception occurs
-            super().__init__(debugging=debugging)
+            super(Cryptionary, self).__init__(
+                from_map=from_map, debugging=debugging, **kwargs)
 
             # Encrypt every value in the input mapping(s)/dict(s)
             for prev_mapping in from_map, kwargs:
@@ -555,7 +563,7 @@ class Cryptionary(Promptionary, Bytesifier):
             self.debug_or_raise(e, locals())
 
     def __delitem__(self, key: str) -> None:
-        """ Delete self[key]. 
+        """ Delete self[key].
 
         :param key: str, key to delete and to delete the value of.
         """
@@ -563,7 +571,7 @@ class Cryptionary(Promptionary, Bytesifier):
         del self[key]
 
     def __getitem__(self, dict_key: Hashable) -> Any:
-        """ `x.__getitem__(y)` <==> `x[y]` 
+        """ `x.__getitem__(y)` <==> `x[y]`
         Explicitly defined to automatically decrypt encrypted values.
 
         :param dict_key: Hashable, key mapped to the value to retrieve

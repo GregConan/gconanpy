@@ -6,7 +6,7 @@ Created: 2025-04-07
 Updated: 2025-04-23
 """
 # Import standard libraries
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Generator, Mapping
 from typing import Any
 
 # Import local custom libraries

@@ -15,11 +15,11 @@ from typing import Any
 try:
     from metafunc import FinderTypes as Typ, KeepSkippingExceptions, \
         IgnoreExceptions
-    from trivial import is_not_none, noop
+    from trivial import is_not_none, always_none
 except ModuleNotFoundError:
     from gconanpy.metafunc import FinderTypes as Typ, KeepSkippingExceptions, \
         IgnoreExceptions
-    from gconanpy.trivial import is_not_none, noop
+    from gconanpy.trivial import is_not_none, always_none
 
 
 class BasicRange(Iterable):
@@ -190,7 +190,7 @@ def modifind(find_in: Iterable[Typ.I],
 def spliterate(parts: Iterable[str], ready_if:
                Callable[[str | None], bool] = is_not_none,
                min_len: int = 1, get_target:
-               Callable[[str], Any] = noop,
+               Callable[[str], Any] = always_none,
                pop_ix: int = -1, join_on: str = " ") -> tuple[str, Any]:
     """ _summary_
 

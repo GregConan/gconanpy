@@ -7,7 +7,7 @@ Created: 2025-04-10
 Updated: 2025-04-23
 """
 # Import standard libraries
-from typing import Any, Literal
+from typing import Any, Literal, TypeVar
 
 try:
     from metafunc import SupportsGetItem
@@ -15,9 +15,19 @@ except ModuleNotFoundError:
     from gconanpy.metafunc import SupportsGetItem
 
 
+T = TypeVar("T")  # For return_self/noop
+
+
 def always_false(*_: Any, **_kwargs: Any) -> Literal[False]:
     """ :return: False """
     return False
+
+
+def always_none(*_: Any, **_kwargs: Any) -> None:
+    """ Do nothing. Always return None.
+
+    :return: None """
+    # pass  # or `...`
 
 
 def always_true(*_: Any, **_kwargs: Any) -> Literal[True]:
@@ -53,8 +63,6 @@ def is_not_none(x: Any) -> bool:
     return x is not None
 
 
-def noop(*_: Any, **_kwargs: Any) -> None:
-    """ Do nothing. Always return None.
-
-    :return: None """
-    pass  # or `...`
+def return_self(self: T) -> T:
+    """ :return: self """
+    return self
