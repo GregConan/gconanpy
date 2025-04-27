@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-23
+Updated: 2025-04-26
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Hashable, Iterable, Mapping
@@ -18,11 +18,14 @@ from cryptography.fernet import Fernet
 # Import local custom libraries
 try:
     from debug import Debuggable
+    from extend import MapSubset
     from metafunc import AttributesOf, KeepTryingUntilNoErrors, nameof
     from trivial import always_none
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
-    from gconanpy.metafunc import AttributesOf, KeepTryingUntilNoErrors, nameof
+    from gconanpy.extend import MapSubset
+    from gconanpy.metafunc import AttributesOf, KeepTryingUntilNoErrors, \
+        nameof
     from gconanpy.trivial import always_none
 
 
@@ -87,12 +90,11 @@ class Invertionary(Explictionary):
                     collided.add(value)
                     inverted[value] = keep_collisions_in(new_value)
 
-            # Remove all old k-v pairs and replace them with new v-k pairs
-            # self.clear()
+            # Replace all old key-value pairs with new value-key pairs
             self.update(inverted)
 
 
-class Defaultionary(Invertionary):  # TODO Add exclude to __init__ ?
+class Defaultionary(Invertionary):
 
     def _will_getdefault(self, key: Any, exclude: Container = set()
                          ) -> bool:
@@ -106,7 +108,7 @@ class Defaultionary(Invertionary):  # TODO Add exclude to __init__ ?
         """
         return key not in self or self[key] in exclude
 
-    @classmethod
+    @classmethod  # TODO Does the MapSubset class make this method redundant?
     def from_subset_of(cls, a_map: Mapping, keys: Container[Hashable] = set(),
                        values: Container = set(), include_keys: bool = False,
                        include_values: bool = False):
@@ -126,9 +128,8 @@ class Defaultionary(Invertionary):  # TODO Add exclude to __init__ ?
         :return: Defaultionary, `a_map` subset including only the specified \
             keys and values.
         """
-        return cls({k: v for k, v in a_map.items()
-                    if (k in keys) is include_keys and
-                    (v in values) is include_values})
+        return MapSubset(keys=keys, values=values, include_keys=include_keys,
+                         include_values=include_values).of(a_map, cls)
 
     def get(self, key: str, default: Any = None, exclude: Container = set()
             ) -> Any:
@@ -440,11 +441,14 @@ class Promptionary(LazyDict, Debuggable):
 
     def __init__(self, from_map: Mapping, debugging: bool = False,
                  **kwargs: Any) -> None:
-        """ Initialize Promptionary from existing Mapping (*args) or from \
+        """ Initialize Promptionary from existing Mapping (from_map) or from \
             new Mapping (**kwargs).
 
+        :param from_map: Mapping to convert into Promptionary.
         :param debugging: bool, True to pause and interact on error, else \
             False to raise errors/exceptions; defaults to False.
+        :param kwargs: Mapping[str, Any] of key-value pairs to add to this \
+            Promptionary.
         """
         # This class can pause and debug when an exception occurs
         self.debugging = debugging

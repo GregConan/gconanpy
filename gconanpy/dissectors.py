@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-16
+Updated: 2025-04-25
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable, Iterator
@@ -15,27 +15,38 @@ from typing import Any, SupportsFloat, TypeVar
 # Import local custom libraries
 try:
     from debug import Debuggable
-    from metafunc import DATA_ERRORS, DifferTypes as Typ, \
-        has_method, IgnoreExceptions, KeepTryingUntilNoErrors, nameof
+    from extend import MapSubset
+    from metafunc import DATA_ERRORS, has_method, \
+        IgnoreExceptions, KeepTryingUntilNoErrors, nameof
     from seq import (are_all_equal, differentiate_sets,
-                     get_key_set, stringify_list, uniqs_in)
-    from trivial import get_item_of
+                     get_key_set, stringify, uniqs_in)
+    from trivial import always_true, get_item_of
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
-    from gconanpy.metafunc import DATA_ERRORS, DifferTypes as Typ, \
-        has_method, IgnoreExceptions, KeepTryingUntilNoErrors, nameof
+    from gconanpy.extend import MapSubset
+    from gconanpy.metafunc import DATA_ERRORS, has_method, \
+        IgnoreExceptions, KeepTryingUntilNoErrors, nameof
     from gconanpy.seq import (are_all_equal, differentiate_sets,
-                              get_key_set, stringify_list, uniqs_in)
-    from gconanpy.trivial import get_item_of
+                              get_key_set, stringify, uniqs_in)
+    from gconanpy.trivial import always_true, get_item_of
 
 
 class DifferenceBetween:
-    comparables: list[Typ.ToCompare]
+    # Types
+    Diff = TypeVar("Diff")
+    ToCompare = TypeVar("ToCompare")
+    PartName = TypeVar("PartName", bound=Hashable)
+    GetComparator = Callable[[ToCompare], Diff]
+    GetPartNames = Callable[[ToCompare], Iterable[PartName]]
+    GetSubcomparator = Callable[[ToCompare, PartName], Diff]
+
+    # Instance variables
+    comparables: list[ToCompare]
     difference: str | None
     diffs: list[str | None]
     names: list[str]
 
-    def __init__(self, *args: Typ.ToCompare, **kwargs: Typ.ToCompare):
+    def __init__(self, *args: ToCompare, **kwargs: ToCompare):
         """ Identify difference(s) between any Python objects/values.
 
         :param args: Iterable[Any] of objects to compare.
@@ -62,8 +73,8 @@ class DifferenceBetween:
         self.is_different = not are_all_equal(self.comparables)
         self.diffs = self.find_difference() if self.is_different else None
 
-    def compare_all_in(self, on: str, get_subcomparator: Typ.GetSubcomparator,
-                       comparisons: Iterable[Typ.PartName]) -> list[Typ.Diff]:
+    def compare_all_in(self, on: str, get_subcomparator: GetSubcomparator,
+                       comparisons: Iterable[PartName]) -> list[Diff]:
         diffs = list()
         get_comparison = iter(comparisons)
         next_name = next(get_comparison, None)
@@ -73,8 +84,8 @@ class DifferenceBetween:
             next_name = next(get_comparison, None)
         return diffs
 
-    def compare_by(self, on: str, get_comparator: Typ.GetComparator
-                   ) -> list[Typ.Diff]:
+    def compare_by(self, on: str, get_comparator: GetComparator
+                   ) -> list[Diff]:
         """ _summary_
 
         :param on: str, name of the possible difference to find
@@ -87,13 +98,13 @@ class DifferenceBetween:
             self.difference = on
         return comparables
 
-    def compare_elements_0_to(self, end_ix: int) -> list[Typ.Diff]:
+    def compare_elements_0_to(self, end_ix: int) -> list[Diff]:
         return self.compare_all_in("element", get_item_of,
                                    [x for x in range(end_ix)])
 
-    def compare_sets(self, on: str, get_comparisons: Typ.GetPartNames,
-                     get_subcomparator: Typ.GetSubcomparator
-                     ) -> list[Typ.Diff]:
+    def compare_sets(self, on: str, get_comparisons: GetPartNames,
+                     get_subcomparator: GetSubcomparator
+                     ) -> list[Diff]:
         """ _summary_ 
 
         :param on: str, name of the possible difference to find
@@ -105,7 +116,7 @@ class DifferenceBetween:
         return differentiate_sets(keys) if self.difference else \
             self.compare_all_in(on, get_subcomparator, keys)
 
-    def find_difference(self) -> list[Typ.Diff] | None:
+    def find_difference(self) -> list[Diff] | None:
         """ Find the difference(s) between the objects in self.comparables.
         Returns the first difference found, not an exhaustive list.
 
@@ -148,9 +159,9 @@ class DifferenceBetween:
         if not self.is_different:
             result = " == ".join(self.names)
         else:
-            names = stringify_list(self.names, enclose_in=None)
+            names = stringify(self.names, enclose_in=None)
             if self.difference:
-                differences = stringify_list([
+                differences = stringify([
                     f"{self.difference} of {self.names[i]} == {self.diffs[i]}"
                     for i in range(len(self.diffs))], quote=None, enclose_in=None)
                 result = f"{self.difference} differs between {names}:" \
@@ -181,9 +192,14 @@ class IteratorFactory:
 
 
 class Peeler(IteratorFactory):
+    _P = TypeVar("_P")
 
     @classmethod
     def can_peel(cls, an_obj: Any) -> bool:
+        """ 
+        :param an_obj: Any,
+        :return: bool, True if an_obj is a container of 1 element; else False
+        """
         try:
             is_peelable = len(an_obj) == 1 and not has_method(an_obj, "strip")
         except DATA_ERRORS:
@@ -191,7 +207,14 @@ class Peeler(IteratorFactory):
         return is_peelable
 
     @classmethod
-    def peel(self, to_peel: Iterable) -> Iterable:
+    def peel(self, to_peel: Iterable[Iterable[_P]]) -> Iterable[_P] | _P:
+        """ Extract data from redundant nested container data structures.
+
+        :param to_peel: Iterable, especially a nested container data structure
+        :return: Iterable formerly contained in too many layers of nested \
+            Iterables; this will be an Iterable unless to_peel contains only \
+            one item, in which case the function will return that item
+        """
         while self.can_peel(to_peel):
             to_peel = self.first_element_of(to_peel)
         return to_peel
@@ -204,6 +227,11 @@ class SimpleShredder:
         self.reset()
 
     def _collect(self, an_obj: Any) -> None:
+        """ Recursively collect/save the attributes, items, and/or elements \
+            of an_obj regardless of how deeply they are nested.
+
+        :param an_obj: Any, object to get the parts of
+        """
         try:  # If it's a string, then it's not shreddable, so save it
             self.parts.add(an_obj.strip())
         except self.SHRED_ERRORS:
@@ -217,6 +245,11 @@ class SimpleShredder:
                 self.parts.add(an_obj)
 
     def _shred_iterable(self, an_obj: Iterable) -> None:
+        """ Save every item in an Iterable regardless of how deeply nested, \
+            unless that item is "shreddable" (a non-string data container).
+
+        :param an_obj: Iterable to save the "shreddable" elements of.
+        """
         # If we already shredded it, then don't shred it again
         objID = id(an_obj)
         if objID not in self.shredded:
@@ -242,6 +275,13 @@ class SimpleShredder:
         self.shredded: set[int] = set()
 
     def shred(self, an_obj: Any) -> set:
+        """ Recursively collect/save the attributes, items, and/or elements \
+            of an_obj regardless of how deeply they are nested. Return only \
+            the Hashable data in an_obj, not the Containers they're in.
+
+        :param an_obj: Any, object to return the parts of.
+        :return: set of the particular Hashable non-Container data in an_obj
+        """
         self._collect(an_obj)
         return self.parts
 
@@ -250,13 +290,28 @@ class Shredder(SimpleShredder, Debuggable):
     _T = TypeVar("_T")
 
     def __init__(self, max_shreds: int = 500, debugging: bool = False,
-                 exclude: Iterable[Hashable] = set()):
+                 map_filter: MapSubset.Filter = always_true) -> None:
+        """ 
+        :param max_shreds: int, the maximum number of times to "shred" a \
+            data container to collect the data inside; defaults to 500
+        :param debugging: bool, True to pause and interact on error, else \
+            False to raise errors/exceptions; defaults to False.
+        :param map_filter: Callable[[str, Any], bool], MapSubset.Filter \
+            function to exclude certain keys and/or values from the returned \
+            result; by default, no keys/values will be excluded.
+        """
         self.debugging = debugging
-        self.exclude_keys = set(exclude)
+        self.filter = map_filter
         self.max_shreds = max_shreds
         self.reset()
 
     def _shred_iterable(self, an_obj: Iterable) -> None:
+        """ Save every item in an Iterable regardless of how deeply nested, \
+            unless that item is "shreddable" (a non-string data container) \
+            or that item is excluded by the filters defined in __init__
+
+        :param an_obj: Iterable to save the "shreddable" elements of.
+        """
         # If we already shredded it, then don't shred it again
         objID = id(an_obj)
         if objID not in self.shredded and len(self.shredded
@@ -270,7 +325,7 @@ class Shredder(SimpleShredder, Debuggable):
             # Shred or save each of an_obj's...
             try:  # ...values if it's a Mapping
                 for k, v in an_obj.items():
-                    if k not in self.exclude_keys:
+                    if has_method(v, "items") or self.filter(k, v):
                         self._collect(v)
             except self.SHRED_ERRORS:
 
@@ -279,6 +334,16 @@ class Shredder(SimpleShredder, Debuggable):
                     self._collect(element)
 
     def shred(self, an_obj: Any, remember: bool = False) -> set:
+        """ Recursively collect/save the attributes, items, and/or elements \
+            of an_obj regardless of how deeply they are nested. Return only \
+            the Hashable data in an_obj, not the Containers they're in.
+
+        :param an_obj: Any, object to return the parts of.
+        :param remember: bool, True to keep previously collected items; else \
+            False to reset the max_shreds counter and return only the items \
+            found in this .shred(...) call
+        :return: set of the particular Hashable non-Container data in an_obj
+        """
         try:
             if not remember:
                 self.reset()
@@ -419,4 +484,4 @@ class Xray(list):
         super().__init__(gotten)
 
     def __repr__(self):
-        return f"{self.what_elements_are}: {stringify_list(self)}"
+        return f"{self.what_elements_are}: {stringify(self)}"

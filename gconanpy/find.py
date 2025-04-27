@@ -8,17 +8,16 @@ Updated: 2025-04-16
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Sequence
-import pdb
 from typing import Any
 
 # Import remote custom libraries
 try:
-    from metafunc import FinderTypes as Typ, KeepSkippingExceptions, \
-        IgnoreExceptions
+    from metafunc import DATA_ERRORS, FinderTypes as Typ, \
+        KeepSkippingExceptions, IgnoreExceptions
     from trivial import is_not_none, always_none
 except ModuleNotFoundError:
-    from gconanpy.metafunc import FinderTypes as Typ, KeepSkippingExceptions, \
-        IgnoreExceptions
+    from gconanpy.metafunc import DATA_ERRORS, FinderTypes as Typ, \
+        KeepSkippingExceptions, IgnoreExceptions
     from gconanpy.trivial import is_not_none, always_none
 
 
@@ -173,7 +172,8 @@ def modifind(find_in: Iterable[Typ.I],
              found_if: Typ.Ready = is_not_none,
              found_args: Iterable[Typ.R] = list(),
              default: Typ.D = None,
-             errs: Iterable[BaseException] = list()) -> Typ.I | Typ.D:
+             errs: Iterable[BaseException] = [
+                 *DATA_ERRORS, UnboundLocalError]) -> Typ.I | Typ.D:
     i = 0
     is_found = False
     iter_over = list(find_in)

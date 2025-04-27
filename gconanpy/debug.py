@@ -6,7 +6,7 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-10
+Updated: 2025-04-26
 """
 # Import standard libraries
 from abc import ABC
@@ -27,9 +27,11 @@ from pympler.asizeof import asizeof
 
 # Import local custom libraries
 try:
-    from seq import stringify_dt, stringify_list, uniqs_in
+    from metafunc import nameof
+    from seq import stringify, uniqs_in
 except ModuleNotFoundError:
-    from gconanpy.seq import stringify_dt, stringify_list, uniqs_in
+    from gconanpy.metafunc import nameof
+    from gconanpy.seq import stringify, uniqs_in
 
 # Constants
 LOGGER_NAME = __package__
@@ -49,7 +51,7 @@ def debug(an_err: Exception, local_vars: Mapping[str, Any]) -> None:
     try:
         logger = logging.getLogger(LOGGER_NAME)
         logger.exception(an_err)
-        print("Local variables: " + stringify_list([x for x in locals()]))
+        print("Local variables: " + stringify([x for x in locals()]))
     except Exception as new_err:
         errs.append(new_err)
     # show_keys_in(locals(), level=logger.level)
@@ -58,8 +60,16 @@ def debug(an_err: Exception, local_vars: Mapping[str, Any]) -> None:
 
 
 class Debuggable:
-    """ I put the debugger function in a class so it can use its \
-    implementer classes' self.debugging variable. """
+    """ I put the debugger function in a class so it can check its \
+        implementer classes' self.debugging variable to determine whether \
+        to raise errors/exceptions or pause and interactively debug them. """
+
+    def __init__(self, debugging: bool = False):
+        """
+        :param debugging: bool, True to pause and interact on error, else \
+            False to raise errors/exceptions; defaults to False.
+        """
+        self.debugging = debugging
 
     def debug_or_raise(self, an_err: Exception, local_vars: Mapping[str, Any]
                        ) -> None:
@@ -142,20 +152,27 @@ def log(content: str, level: int = logging.INFO,
 
 
 def print_tb_of(err: BaseException) -> None:
+    """ Print the traceback, type, and message of an error or exception.
+
+    :param err: BaseException to print information about.
+    """
+    print(nameof(err), end=": ", file=sys.stderr)
     traceback.print_tb(err.__traceback__)
     print(err, file=sys.stderr)
 
 
-def show_keys_in(a_dict: Mapping[str, Any],  # show: Callable = print,
+def show_keys_in(a_map: Mapping[str, Any],  # show: Callable = print,
                  what_keys_are: str = "Local variables",
                  level: int = logging.INFO,
                  logger_name: str = LOGGER_NAME) -> None:
+    """ Log all of the keys in a Mapping.
+
+    :param a_map: Mapping[str, Any]
+    :param what_keys_are: String naming what the keys in a_map are
+    :param level: int, the severity level to log the message at (10 to 50)
+    :param logger_name: str naming the logger to use for logging the message
     """
-    :param a_dict: Dictionary mapping strings to anything
-    :param log: Function to log/print text, e.g. logger.info or print
-    :param what_keys_are: String naming what the keys are
-    """
-    log(f"{what_keys_are}: {stringify_list(uniqs_in(a_dict))}", level=level,
+    log(f"{what_keys_are}: {stringify(uniqs_in(a_map))}", level=level,
         logger_name=logger_name)
 
 
@@ -244,7 +261,7 @@ class SplitLogger(logging.getLoggerClass()):
         """
         log_to = dict()
         if cli_args.get("log"):
-            log_file_name = f"log_{stringify_dt(dt.datetime.now())}.txt"
+            log_file_name = f"log_{stringify(dt.datetime.now())}.txt"
             log_file_path = os.path.join(cli_args["log"], log_file_name)
             log_to = dict(out=log_file_path, err=log_file_path)
         return cls(verbosity=cli_args["verbosity"], **log_to)

@@ -3,10 +3,11 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-04-07
+Updated: 2025-04-25
 """
 # Import local custom libraries
 from gconanpy.dissectors import Corer, Shredder, SimpleShredder
+from gconanpy.extend import MapSubset
 from tests.testers import Tester
 
 
@@ -26,7 +27,8 @@ class TestShredders(Tester):
 
     def test_3(self):
         cli_args = self.build_cli_args()
-        cored = Corer(exclude={"__doc__"}).core(cli_args)
+        excluder = MapSubset(keys={"__doc__"}, include_keys=False).filter
+        cored = Corer(map_filter=excluder).core(cli_args)
         self.check_result(cored, self.bytes_nums.strip())
 
     def test_4(self):
@@ -57,3 +59,10 @@ class TestShredders(Tester):
         cored = Corer().core(soup)
         print(cored)
         assert cored.strip().startswith("Thank you")
+
+    def test_7(self):
+        cli_args = self.build_cli_args()
+        excluder = MapSubset(keys={"b"}, include_keys=True).filter
+        cored = Corer(map_filter=excluder).core(cli_args)
+        print(cored)
+        self.check_result(cored, 2)

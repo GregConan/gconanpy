@@ -7,14 +7,13 @@ Overlaps significantly with:
     DCAN-Labs:abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-04-23
+Updated: 2025-04-26
 """
 # Import standard libraries
 import builtins
-from collections.abc import (Callable, Generator, Hashable, Iterable,
-                             Mapping, Sequence)
+from collections.abc import (Callable, Container, Generator, Hashable,
+                             Iterable, Mapping, Sequence)
 import datetime as dt
-from functools import reduce
 import itertools
 import os
 import pdb
@@ -30,8 +29,8 @@ import pathvalidate
 import regex
 
 # Constant: TypeVars for...
-T = TypeVar("T")  # ...differentiate_sets & insert_into functions
-M = TypeVar("M", bound=Mapping)  # combine_maps function
+I = TypeVar("I")  # ...insert_into
+S = TypeVar("S")  # ...differentiate_sets & get_key_set
 
 # NOTE All functions/classes below are in alphabetical order.
 
@@ -53,9 +52,8 @@ def are_all_equal(comparables: Iterable, equality: str | None = None) -> bool:
     combos_iter = itertools.combinations(comparables, 2)
     while are_same is None:
         next_pair = next(combos_iter, None)
-        if not next_pair:  # is None:
+        if next_pair is None:
             are_same = True
-        # elif not getattr(next_pair[0], equality)(next_pair[1]):
         elif not are_both_equal(*next_pair):
             are_same = False
     return are_same
@@ -74,10 +72,6 @@ def as_HTTPS_URL(*parts: str, **url_params: Any) -> str:
         str_params = [f"{k}={v}" for k, v in url_params.items()]
         url += "?" + "&".join(str_params)
     return url
-
-
-def combine_maps(maps: Iterable[M]) -> M:
-    return reduce(lambda x, y: x.update(y) or x, maps)
 
 
 def count_uniqs_in_cols(a_df: pd.DataFrame) -> dict[str, int]:
@@ -103,7 +97,7 @@ def default_pop(poppable: Any, key: Any = None,
     return to_return
 
 
-def differentiate_sets(sets: Iterable[set[T]]) -> list[set[T]]:
+def differentiate_sets(sets: Iterable[set[S]]) -> list[set[S]]:
     """ Remove all shared/non-unique items from sets until they no longer \
     overlap/intersect at all.
 
@@ -131,11 +125,11 @@ def extract_parentheticals_from(txt: str) -> list[Any]:
     return regex.findall(r"\((?:[^()]+|(?R))*+\)", txt)
 
 
-def get_key_set(a_map: Mapping[T, Any]) -> set[T]:
+def get_key_set(a_map: Mapping[S, Any]) -> set[S]:
     return set(a_map.keys())
 
 
-def insert_into(a_seq: Sequence[T], item: T, at_ix: int) -> list[T]:
+def insert_into(a_seq: Sequence[I], item: I, at_ix: int) -> list[I]:
     # TODO items: Iterable[T] ?
     return [*a_seq[:at_ix], item, *a_seq[at_ix:]]
 
@@ -214,7 +208,7 @@ def search_sequence_numpy(arr: np.array, subseq: np.array) -> list[int]:
         start_indices = [all_seq_ixs[0], all_seq_ixs[-seq_len]]
         # start_indices = [all_seq_ixs[x] for x in range(0, all_seq_ixs.shape[0], seq_len)]
     else:
-        start_indices = list()        # No match found
+        start_indices = list()  # No match found
     return start_indices
 
 
@@ -269,7 +263,7 @@ def to_file_path(dir_path: str, file_name: str, file_ext: str = "",
     file_name = pathvalidate.sanitize_filename(file_name, max_len=max_len)
 
     if put_dt_after:
-        file_name += put_dt_after + stringify_dt(dt.datetime.now())
+        file_name += put_dt_after + stringify(dt.datetime.now())
 
     if file_ext:  # If a file extension was provided, validate it
         ext = file_ext if file_ext[0] == "." else "." + file_ext
@@ -279,12 +273,28 @@ def to_file_path(dir_path: str, file_name: str, file_ext: str = "",
 
 class ToString(str):
     _S = TypeVar("_S")  # for truncate(...) function
+    BLANKS: set[str | None] = {None, ""}  # Objects not to show in strings
     Quotator = Callable[[Any], "ToString"]
     NoneType = type(None)
 
+    def __add__(self, value: str):
+        return self.__class__(f"{self}{value}")
+
     def enclosed_by(self, affix: str):
-        return self.that_ends_with(affix).that_starts_with(affix) \
-            if len(self) else self.__class__(affix + affix)
+        """
+        :param affix: str to prepend and append to this ToString instance
+        :return: ToString with `affix` at the beginning and another at the end
+        """
+        return self.enclosed_in(affix, affix)
+
+    def enclosed_in(self, prefix: str | None, suffix: str | None):
+        """
+        :param prefix: str to prepend to this ToString instance
+        :param suffix: str to append to this ToString instance
+        :return: ToString with `prefix` at the beginning & `suffix` at the end
+        """
+        return self.that_starts_with(prefix).that_ends_with(suffix) \
+            if len(self) else self.__class__(prefix + suffix)
 
     @classmethod
     def from_datetime(cls, moment: dt.date | dt.time | dt.datetime,
@@ -305,7 +315,7 @@ class ToString(str):
     @classmethod
     def from_iterable(cls, an_obj: Iterable, quote: str | None = "'",
                       sep: str = ",", quote_numbers: bool = False,
-                      enclose_in: tuple[str, str] | None = ("[", "]"),
+                      prefix: str | None = "[", suffix: str | None = "]",
                       max_len: int | None = None, lastly: str = "and "):
         """
 
@@ -315,25 +325,31 @@ class ToString(str):
         :return: ToString of all items in a_list, {quote}-quoted and \
                  {sep}-separated if there are multiple 
         """
-        result = an_obj
-        if isinstance(an_obj, str):
-            if quote:
-                result = cls(an_obj).enclosed_by(quote)
-        elif isinstance(an_obj, Iterable):  # TODO Refactor from LBYL to EAFP?
+        if isinstance(an_obj, str):  # TODO Refactor from LBYL to EAFP?
+            string = an_obj
+        else:
             list_with_str_els = cls.quotate_all(an_obj, quote,
                                                 quote_numbers, max_len)
             if len(an_obj) > 2:
                 except_end = (sep + ' ').join(list_with_str_els[:-1])
-                result = f"{except_end}{sep} {lastly}{list_with_str_els[-1]}"
+                string = f"{except_end}{sep} {lastly}{list_with_str_els[-1]}"
             else:
-                result = f" {lastly}".join(list_with_str_els)
-            if enclose_in:
-                result = f"{enclose_in[0]}{result}{enclose_in[1]}"
-        return cls(result)
+                string = f" {lastly}".join(list_with_str_els)
+        self = cls(string)
+        if max_len is not None:
+            affix_len = sum([len(x) if x else 0 for x in (prefix, suffix)])
+            self = self.truncate(max_len - affix_len)
+        return self.enclosed_in(prefix, suffix)
 
     @classmethod
-    # TODO Make this __init__(self, an_obj) ?
-    def from_object(cls, an_obj: Any, max_len: int | None = None):
+    def from_object(cls, an_obj: Any, max_len: int | None = None,
+                    quote: str | None = "'", quote_numbers: bool = False,
+                    join_on: str = ": ", sep: str = ",",
+                    prefix: str | None = None, suffix: str | None = None,
+                    dt_sep: str = "_", timespec: str = "seconds",
+                    replace: Mapping[str, str] = {":": "-"},
+                    encoding: str = sys.getdefaultencoding(),
+                    errors: str = "ignore", lastly: str = "and "):
         """ _summary_
 
         :param an_obj: None | str | SupportsBytes | dt.datetime | list, _description_
@@ -345,43 +361,50 @@ class ToString(str):
         """  # TODO Class pattern match? stackoverflow.com/questions/72295812
         match type(an_obj):
             case builtins.bytes | builtins.bytearray:
-                stringified = cls(an_obj, encoding=sys.getdefaultencoding(),
-                                  errors="ignore")
+                stringified = cls(an_obj, encoding=encoding, errors=errors)
             case builtins.dict:  # TODO case Mapping equivalent after builtins
-                stringified = cls.from_mapping(an_obj, max_len=max_len)
-            case builtins.list | builtins.set | builtins.tuple:
-                stringified = cls.from_iterable(an_obj, max_len=max_len)
+                stringified = cls.from_mapping(an_obj, quote, quote_numbers,
+                                               join_on, prefix, suffix, sep,
+                                               max_len, lastly)
+            case builtins.list | builtins.tuple | builtins.set:  # metafunc.PureIterable:
+                stringified = cls.from_iterable(an_obj, quote, sep,
+                                                quote_numbers, prefix, suffix,
+                                                max_len, lastly)
             case dt.date | dt.time | dt.datetime:
-                stringified = cls.from_datetime(an_obj)
+                stringified = cls.from_datetime(an_obj, dt_sep,
+                                                timespec, replace)
             case cls.NoneType:
                 stringified = cls()
             case _:  # str or other
+                assert not isinstance(an_obj, list)
                 stringified = cls(an_obj)
         return stringified
 
     @classmethod
     def from_mapping(cls, a_map: Mapping, quote: str | None = "'",
-                     quote_numbers: bool = False, join_on: str = ":",
-                     enclose_in: tuple[str, str] | None = ("{", "}"),
+                     quote_numbers: bool = False, join_on: str = ": ",
+                     prefix: str | None = "{", suffix: str | None = "}",
                      sep: str = ",", max_len: int | None = None,
                      lastly: str = "and "):
         join_on = cls(join_on)
         quotate = cls.get_quotator(quote, quote_numbers)
-        mappings = list()
+        pair_strings = list()
         for k, v in a_map.items():
             v = quotate(v) if max_len is None else \
-                cls.from_object(v).truncate(max_len, quotate)
-            mappings.append(join_on.join(quotate(k), v))
-        return cls.from_iterable(mappings, None, sep, enclose_in=enclose_in,
+                quotate(v).truncate(max_len, quotate)
+            pair_strings.append(join_on.join(quotate(k), v))
+        return cls.from_iterable(pair_strings, None, sep, prefix=prefix,
+                                 suffix=suffix, max_len=max_len,
                                  lastly=lastly)
 
     @classmethod
     def get_quotator(cls, quote: str | None = "'", quote_numbers:
                      bool = False) -> Quotator:
-        quotate = cls.quotate_number if quote_numbers else cls.quotate_obj
+        quotate = cls.quotate_obj if quote_numbers else cls.quotate_number
         return cls.from_object if not quote else lambda x: quotate(x, quote)
 
     def join(self, *strings: str):
+
         return self.__class__(str.join(self, strings))
 
     @classmethod
@@ -395,33 +418,41 @@ class ToString(str):
     @classmethod
     def quotate_number(cls, a_num, quote: str = "'"):
         stringified = cls.from_object(a_num)
-        return stringified if stringified.isdigit() else \
-            stringified.enclosed_by(quote)
+        return stringified if stringified.isnumeric() \
+            else stringified.enclosed_by(quote)
 
     @classmethod
     def quotate_obj(cls, an_obj: Any, quote: str = "'"):
         return cls.from_object(an_obj).enclosed_by(quote)
 
-    def that_ends_with(self, suffix: str):
-        return self if self.endswith(suffix) \
+    def that_ends_with(self, suffix: str | None) -> "ToString":
+        return self if suffix in self.BLANKS or self.endswith(suffix) \
             else self.__class__(self + suffix)
 
-    def that_starts_with(self, prefix: str):
-        return self if self.startswith(prefix) \
+    def that_starts_with(self, prefix: str | None) -> "ToString":
+        return self if prefix in self.BLANKS or self.startswith(prefix) \
             else self.__class__(prefix + self)
 
-    def truncate(self, max_len: int, quotate: Quotator | None = None,
-                 end_with: str = "..."):
-        truncated = self.__class__(self[:max_len] + end_with) \
-            if len(self) > max_len else self
-        return quotate(truncated) if quotate else truncated
+    def truncate(self, max_len: int | None = None,
+                 quotate: Quotator | None = None,
+                 suffix: str = "...") -> "ToString":
+        if max_len is None:
+            truncated = self
+        else:
+            quotated = quotate(self) if quotate else self
+            if len(quotated) <= max_len:
+                truncated = quotated
+            else:
+                quote_len = len(quotated) - len(self)
+                raw_max_len = max_len - quote_len - len(suffix)
+                raw_truncated = truncate(self, max_len=raw_max_len) + suffix
+                truncated = self.__class__(quotate(raw_truncated) if quotate
+                                           else raw_truncated)
+        return truncated
 
 
-# Shorter names to export
+# Shorter name to export
 stringify = ToString.from_object
-stringify_dt = ToString.from_datetime
-stringify_map = ToString.from_mapping
-stringify_list = ToString.from_iterable
 
 
 def truncate(a_seq: Sequence, max_len: int) -> Sequence:
