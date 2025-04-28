@@ -4,12 +4,13 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-04-26
+Updated: 2025-04-27
 """
 # Import standard libraries
 from abc import ABC
-from collections.abc import Callable, Generator, Hashable, Iterable, Mapping
+from collections.abc import Callable, Generator, Iterable, Mapping
 from functools import reduce
+import itertools
 from typing import Any, Literal, TypeVar
 
 # Constants: TypeVars for...
@@ -37,6 +38,29 @@ def add_attributes_to(an_obj: T, **attributes: Any) -> T:
     return an_obj
 
 
+def are_all_equal(comparables: Iterable, equality: str | None = None) -> bool:
+    """ `are_all_equal([x, y, z])` means `x == y == z`.
+    `are_all_equal({x, y}, "is_like")` means `x.is_like(y) and y.is_like(x)`.
+
+    :param comparables: Iterable of objects to compare.
+    :param equality: str naming the method of every item in comparables to \
+        call on every other item. `==` (`__eq__`) is the default comparison.
+    :return: bool, True if calling the `equality` method attribute of every \
+        item in comparables on every other item always returns True; \
+        otherwise False.
+    """
+    are_same = None
+    are_both_equal = method(equality) if equality else (lambda x, y: x == y)
+    combos_iter = itertools.combinations(comparables, 2)
+    while are_same is None:
+        next_pair = next(combos_iter, None)
+        if next_pair is None:
+            are_same = True
+        elif not are_both_equal(*next_pair):
+            are_same = False
+    return are_same
+
+
 def combine_maps(maps: Iterable[M]) -> M:
     return reduce(lambda x, y: x.update(y) or x, maps)
 
@@ -53,6 +77,30 @@ def has_method(an_obj: Any, method_name: str) -> bool:
         (method) of `an_obj`; otherwise False.
     """
     return callable(getattr(an_obj, method_name, None))
+
+
+def method(method_name: str) -> Callable:
+    """ Wrapper to retrieve a specific callable object attribute. 
+    `method(method_name)(something, *args, **kwargs)` is the same as \
+    `getattr(something, method_name)(*args, **kwargs)`.
+
+    :param method_name: str naming the object method for the returned \
+        wrapped function to call
+    :return: Callable that runs the named method of its first input argument \
+        and passes the rest of its input arguments to the method
+    """
+
+    def call_method_of(self, *args, **kwargs):
+        """
+        :param self: Any, object with a method to call
+        :param args: Iterable, positional arguments to call the method with
+        :param kwargs: Mapping[str, Any], keyword arguments to call the \
+            method with
+        :return: Any, the output of calling the method of `self` with the \
+            specified `args` and `kwargs` 
+        """
+        return getattr(self, method_name)(*args, **kwargs)
+    return call_method_of
 
 
 def nameof(an_obj: Any) -> str:

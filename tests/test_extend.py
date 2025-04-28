@@ -44,11 +44,11 @@ class TestExtend(Tester):
         class Parent(Person):
             children: list[Person]
 
-        err_1 = "__init__() missing 1 required positional argument: 'name'"
+        err_msg = "__init__() missing {} required positional argument"
+        err_1 = err_msg.format(1) + ": 'name'"
         self.check_args_err(Person, TypeError, err_1)
         self.check_args_err(Sibling, TypeError, err_1)
-        err_2 = ("__init__() missing 2 required positional arguments: "
-                 "'name' and 'children'")
+        err_2 = err_msg.format(2) + "s: 'name' and 'children'"
         self.check_args_err(Parent, TypeError, err_2)
 
         for person_class in (Person, Sibling, Parent):

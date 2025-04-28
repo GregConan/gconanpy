@@ -7,14 +7,13 @@ Overlaps significantly with:
     DCAN-Labs:abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-04-26
+Updated: 2025-04-27
 """
 # Import standard libraries
 import builtins
-from collections.abc import (Callable, Container, Generator, Hashable,
+from collections.abc import (Callable, Generator, Hashable,
                              Iterable, Mapping, Sequence)
 import datetime as dt
-import itertools
 import os
 import pdb
 from pprint import pprint
@@ -33,30 +32,6 @@ I = TypeVar("I")  # ...insert_into
 S = TypeVar("S")  # ...differentiate_sets & get_key_set
 
 # NOTE All functions/classes below are in alphabetical order.
-
-
-def are_all_equal(comparables: Iterable, equality: str | None = None) -> bool:
-    """ `are_all_equal([x, y, z])` means `x == y == z`.
-    `are_all_equal({x, y}, "is_like")` means `x.is_like(y) and y.is_like(x)`.
-
-    :param comparables: Iterable of objects to compare.
-    :param equality: str naming the method of every item in comparables to \
-        call on every other item. `==` (`__eq__`) is the default comparison.
-    :return: bool, True if calling the `equality` method attribute of every \
-        item in comparables on every other item always returns True; \
-        otherwise False.
-    """
-    are_same = None
-    are_both_equal = (lambda x, y: getattr(x, equality)(y)
-                      ) if equality else (lambda x, y: x == y)
-    combos_iter = itertools.combinations(comparables, 2)
-    while are_same is None:
-        next_pair = next(combos_iter, None)
-        if next_pair is None:
-            are_same = True
-        elif not are_both_equal(*next_pair):
-            are_same = False
-    return are_same
 
 
 def as_HTTPS_URL(*parts: str, **url_params: Any) -> str:

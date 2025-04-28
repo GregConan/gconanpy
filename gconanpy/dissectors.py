@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-25
+Updated: 2025-04-27
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable, Iterator
@@ -16,18 +16,18 @@ from typing import Any, SupportsFloat, TypeVar
 try:
     from debug import Debuggable
     from extend import MapSubset
-    from metafunc import DATA_ERRORS, has_method, \
-        IgnoreExceptions, KeepTryingUntilNoErrors, nameof
-    from seq import (are_all_equal, differentiate_sets,
-                     get_key_set, stringify, uniqs_in)
+    from metafunc import are_all_equal, DATA_ERRORS, has_method, \
+        IgnoreExceptions, KeepTryingUntilNoErrors, method, nameof
+    from seq import (differentiate_sets, get_key_set,
+                     stringify, uniqs_in)
     from trivial import always_true, get_item_of
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
     from gconanpy.extend import MapSubset
-    from gconanpy.metafunc import DATA_ERRORS, has_method, \
-        IgnoreExceptions, KeepTryingUntilNoErrors, nameof
-    from gconanpy.seq import (are_all_equal, differentiate_sets,
-                              get_key_set, stringify, uniqs_in)
+    from gconanpy.metafunc import are_all_equal, DATA_ERRORS, has_method, \
+        IgnoreExceptions, KeepTryingUntilNoErrors, method, nameof
+    from gconanpy.seq import (differentiate_sets, get_key_set,
+                              stringify, uniqs_in)
     from gconanpy.trivial import always_true, get_item_of
 
 
@@ -376,8 +376,8 @@ class Comparer:
             calls an inequality method of the first's on the second, and \
             returns the (boolean) result.
         """
-        method = f'__{"l" if smallest else "g"}{"t" if earliest else "e"}__'
-        return lambda x, y: getattr(x, method)(y)
+        return method(f'__{"l" if smallest else "g"}'
+                      f'{"t" if earliest else "e"}__')
 
     @classmethod
     def compare(cls, items: Iterable[Comparee], compare_their: ToNumber = len,
@@ -477,10 +477,8 @@ class Xray(list):
         self.what_elements_are = nameof(an_obj) + \
             f" {list_its if list_its else what_elements_are}"
 
-        try:
+        with IgnoreExceptions(TypeError):
             gotten = uniqs_in(gotten)
-        except TypeError:
-            pass
         super().__init__(gotten)
 
     def __repr__(self):
