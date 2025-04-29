@@ -3,11 +3,11 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-04-25
+Updated: 2025-04-28
 """
 # Import local custom libraries
 from gconanpy.dissectors import Corer, Shredder, SimpleShredder
-from gconanpy.extend import MapSubset
+from gconanpy.maps import MapSubset
 from tests.testers import Tester
 
 

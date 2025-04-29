@@ -15,7 +15,7 @@ from typing import Any, SupportsFloat, TypeVar
 # Import local custom libraries
 try:
     from debug import Debuggable
-    from extend import MapSubset
+    from maps import MapSubset
     from metafunc import are_all_equal, DATA_ERRORS, has_method, \
         IgnoreExceptions, KeepTryingUntilNoErrors, method, nameof
     from seq import (differentiate_sets, get_key_set,
@@ -23,7 +23,7 @@ try:
     from trivial import always_true, get_item_of
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
-    from gconanpy.extend import MapSubset
+    from gconanpy.maps import MapSubset
     from gconanpy.metafunc import are_all_equal, DATA_ERRORS, has_method, \
         IgnoreExceptions, KeepTryingUntilNoErrors, method, nameof
     from gconanpy.seq import (differentiate_sets, get_key_set,

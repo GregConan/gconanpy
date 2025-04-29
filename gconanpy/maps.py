@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-26
+Updated: 2025-04-28
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Hashable, Iterable, Mapping
@@ -18,15 +18,64 @@ from cryptography.fernet import Fernet
 # Import local custom libraries
 try:
     from debug import Debuggable
-    from extend import MapSubset
     from metafunc import AttributesOf, KeepTryingUntilNoErrors, nameof
     from trivial import always_none
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
-    from gconanpy.extend import MapSubset
     from gconanpy.metafunc import AttributesOf, KeepTryingUntilNoErrors, \
         nameof
     from gconanpy.trivial import always_none
+
+
+class MapSubset:
+    """ Filter object that can take a specific subset from any Mapping. """
+    _M = TypeVar("_M", bound=Mapping)  # Type of Mapping to get subset(s) of
+    _T = TypeVar("_T", bound=Mapping)  # Type of Mapping to return
+
+    # Function that takes a key-value pair and returns True to include it
+    # in the returned Mapping subset or False to exclude it; type(self.filter)
+    Filter = Callable[[Hashable, Any], bool]
+
+    def __init__(self, keys: Container[Hashable] = set(),
+                 values: Container = set(), include_keys: bool = False,
+                 include_values: bool = False) -> None:
+        """
+        :param keys: Container[Hashable] of keys to (in/ex)clude.
+        :param values: Container of values to (in/ex)clude.
+        :param include_keys: bool, True for `filter` to return a subset \
+            with ONLY the provided `keys`; else False to return a subset \
+            with NONE OF the provided `keys`.
+        :param include_values: bool, True for `filter` to return a subset \
+            with ONLY the provided `values`; else False to return a subset \
+            with NONE OF the provided `values`.
+        """
+
+        @staticmethod
+        def passes_filter(k: Hashable, v: Any) -> bool:
+            result = (k in keys) is include_keys
+            try:
+                return result and (v in values) is include_values
+
+            # If v isn't Hashable and values can only contain Hashables,
+            except TypeError:  # then v cannot be in values
+                return result and not include_values
+
+        self.filter = passes_filter
+
+    def of(self, from_map: _M, as_type: type[_T] | None = None) -> _M | _T:
+        """ Construct an instance of this class by picking a subset of \
+            key-value pairs to keep.
+
+        :param from_map: Mapping to return a subset of.
+        :param as_type: type[Mapping], type of Mapping to return; or None to \
+            return the same type of Mapping as `from_map`.
+        :return: Mapping, `from_map` subset including only the specified \
+            keys and values
+        """
+        if as_type is None:
+            as_type = type(from_map)
+        return as_type({k: v for k, v in from_map.items()
+                        if self.filter(k, v)})
 
 
 class Explictionary(dict):
@@ -107,29 +156,6 @@ class Defaultionary(Invertionary):
             is mapped to something in `exclude`
         """
         return key not in self or self[key] in exclude
-
-    @classmethod  # TODO Does the MapSubset class make this method redundant?
-    def from_subset_of(cls, a_map: Mapping, keys: Container[Hashable] = set(),
-                       values: Container = set(), include_keys: bool = False,
-                       include_values: bool = False):
-        # No return type hint so VSCode can infer subclass instances' types
-        """ Construct an instance of this class by picking a subset of \
-            key-value pairs to keep.
-
-        :param a_map: Mapping to build an Defaultionary from a subset of.
-        :param keys: Container[Hashable] of `a_map` keys.
-        :param values: Container of `a_map` values.
-        :param include_keys: bool, True to return an `a_map` subset with \
-            ONLY the provided `keys`; else False to return `a_map` WITHOUT \
-            the provided `keys`.
-        :param include_values: bool, True to return an `a_map` subset with \
-            ONLY the provided `values`; else False to return `a_map` WITHOUT \
-            the provided `values`.
-        :return: Defaultionary, `a_map` subset including only the specified \
-            keys and values.
-        """
-        return MapSubset(keys=keys, values=values, include_keys=include_keys,
-                         include_values=include_values).of(a_map, cls)
 
     def get(self, key: str, default: Any = None, exclude: Container = set()
             ) -> Any:
@@ -499,8 +525,8 @@ class Promptionary(LazyDict, Debuggable):
 class Bytesifier(Debuggable):
     """ Class with a method to convert objects into bytes without knowing \
         what type those things are. """
-    DEFAULTS = dict(encoding=sys.getdefaultencoding(), length=1,
-                    byteorder="big", signed=False)
+    DEFAULTS = Defaultionary(encoding=sys.getdefaultencoding(), length=1,
+                             byteorder="big", signed=False)
 
     @staticmethod
     def can_bytesify(an_object: Any) -> bool:
@@ -518,8 +544,7 @@ class Bytesifier(Debuggable):
         :return: bytes, an_obj converted to bytes
         """
         # Get default values for encoder methods' input options
-        defaults = self.DEFAULTS.copy()
-        defaults.update(kwargs)
+        defaults = self.DEFAULTS.update(kwargs, copy=True)
         encoding = defaults.pop("encoding")
 
         # Define these outside the context manager to preserve them afterwards

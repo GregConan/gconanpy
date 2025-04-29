@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-04-27
+Updated: 2025-04-28
 """
 # Import standard libraries
 from abc import ABC
@@ -100,6 +100,7 @@ def method(method_name: str) -> Callable:
             specified `args` and `kwargs` 
         """
         return getattr(self, method_name)(*args, **kwargs)
+
     return call_method_of
 
 

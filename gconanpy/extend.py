@@ -3,27 +3,25 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2025-04-25
+Updated: 2025-04-28
 """
 # Import standard libraries
-from collections.abc import Callable, Container, Hashable, Iterable, Mapping
+from collections.abc import Callable, Iterable
 import inspect
 import re
-from typing import Any, TypeVar
+from typing import Any
 
 # Import third-party PyPI libraries
 from makefun import create_function, with_signature
 
 # Import local custom libraries
 try:
-    from debug import print_tb_of
     from metafunc import (add_attributes_to, AttributesOf,
-                          combine_maps, has_method, nameof)
+                          combine_maps, nameof)
     from seq import ToString
 except ModuleNotFoundError:
-    from gconanpy.debug import print_tb_of
     from gconanpy.metafunc import (add_attributes_to, AttributesOf,
-                                   combine_maps, has_method, nameof)
+                                   combine_maps, nameof)
     from gconanpy.seq import ToString
 
 
@@ -137,54 +135,3 @@ def weak_dataclass(a_class: type, *args: inspect.Parameter) -> type:
                                              func_name="__init__",
                                              qualname="__init__")
     return WeakDataclass
-
-
-class MapSubset:
-    _M = TypeVar("_M", bound=Mapping)
-    _T = TypeVar("_T", bound=Mapping)
-    Filter = Callable[[Hashable, Any], bool]
-
-    def __init__(self, keys: Container[Hashable] = set(),
-                 values: Container = set(), include_keys: bool = False,
-                 include_values: bool = False) -> None:
-        """
-        :param keys: Container[Hashable] of keys to (in/ex)clude.
-        :param values: Container of values to (in/ex)clude.
-        :param include_keys: bool, True for `filter` to return a subset \
-            with ONLY the provided `keys`; else False to return a subset \
-            with NONE OF the provided `keys`.
-        :param include_values: bool, True for `filter` to return a subset \
-            with ONLY the provided `values`; else False to return a subset \
-            with NONE OF the provided `values`.
-        """
-
-        @staticmethod
-        def passes_filter(k: Hashable, v: Any) -> bool:
-            result = (k in keys) is include_keys
-            try:
-                return result and (v in values) is include_values
-
-            # If v isn't Hashable and values can only contain Hashables,
-            except TypeError:  # then v cannot be in values
-                return result and not include_values
-
-        self.filter = passes_filter
-
-    def of(self, from_map: _M, as_type: type[_T] | None = None) -> _M | _T:
-        """ Construct an instance of this class by picking a subset of \
-            key-value pairs to keep.
-
-        :param from_map: Mapping to return a subset of.
-        :param as_type: type[Mapping], return type; or None to return the \
-            same type of Mapping as `from_map`.
-        :return: Mapping, `from_map` subset including only the specified \
-            keys and values
-        """
-        if as_type is None:
-            as_type = type(from_map)
-        passes_filter = self.filter
-        try:
-            return as_type({k: v for k, v in from_map.items()
-                            if passes_filter(k, v)})
-        except TypeError as err:
-            print_tb_of(err)

@@ -17,7 +17,7 @@ from bs4 import BeautifulSoup
 
 # Import local custom libraries
 from gconanpy.find import ErrIterChecker
-from gconanpy.maps import Cryptionary, DotDict
+from gconanpy.maps import Cryptionary, DotDict, MapSubset
 from gconanpy.metafunc import has_method
 
 
@@ -38,9 +38,10 @@ class Tester(ABC):
                             "debugging": True, "a dict": self.adict,
                             "a list": [*self.alist, DotDict],
                             "bytes_nums": self.bytes_nums})
-        cli_args.creds = Cryptionary.from_subset_of(
-            cli_args, keys={"address", "debugging", "password"},
-            values={None}, include_keys=True, include_values=False)
+        cli_args.creds = MapSubset(
+            keys={"address", "debugging", "password"},
+            values={None}, include_keys=True, include_values=False
+        ).of(cli_args, as_type=Cryptionary)
         return cli_args
 
     @classmethod

@@ -19,7 +19,7 @@ import pdb
 from pprint import pprint
 import re
 import sys
-from typing import Any, TypeVar
+from typing import Any, Literal, TypeVar
 
 # Import third-party PyPI libraries
 import numpy as np
@@ -157,12 +157,13 @@ def pprint_val_lens(a_map: Mapping) -> None:
 
 
 def search_sequence_numpy(arr: np.array, subseq: np.array) -> list[int]:
-    """
-    Find sequence in an array using NumPy only. "Approach #1" of the code at
-    https://stackoverflow.com/a/36535397 with an extra line to mimic str.find.
-    :param arr: np.array, a 1D array of which some slices are equal to subseq
-    :param subseq: np.array, the 1D sub-array of arr to find arr's indices of
-    :return: List of integers, each an index in arr where subseq begins
+    """ Find sequence in an array using NumPy only. "Approach #1" of the \
+        code at https://stackoverflow.com/a/36535397 with an extra line to \
+        mimic `str.find`.
+
+    :param arr: np.array, a 1D array of which some slices equal `subseq`
+    :param subseq: np.array, 1D sub-array of `arr` to find `arr`'s indices of
+    :return: list[int], each element an index in `arr` where su`bseq begins
     """
     # Store sizes of input array and sequence
     arr_len = arr.size
@@ -173,13 +174,13 @@ def search_sequence_numpy(arr: np.array, subseq: np.array) -> list[int]:
 
     # Create a 2D array of sliding indices across the entire length of input array.
     # Match up with the input sequence & get the matching starting indices.
-    M = (arr[np.arange(arr_len - seq_len + 1)[:, None]
-             + r_seq] == subseq).all(1)
+    arr_match = (arr[np.arange(arr_len - seq_len + 1)[:, None]
+                 + r_seq] == subseq).all(1)
 
     # Get the range of those indices as final output
-    if M.any() > 0:
-        all_seq_ixs = np.where(np.convolve(M, np.ones((seq_len),
-                                                      dtype=int)) > 0)[0]
+    if arr_match.any() > 0:
+        all_seq_ixs = np.where(np.convolve(
+            arr_match, np.ones((seq_len), dtype=int)) > 0)[0]
         start_indices = [all_seq_ixs[0], all_seq_ixs[-seq_len]]
         # start_indices = [all_seq_ixs[x] for x in range(0, all_seq_ixs.shape[0], seq_len)]
     else:
@@ -247,22 +248,32 @@ def to_file_path(dir_path: str, file_name: str, file_ext: str = "",
 
 
 class ToString(str):
+    _TIMESPEC = Literal["auto", "hours", "minutes", "seconds", "milliseconds",
+                        "microseconds"]  # for datetime.isoformat
     _S = TypeVar("_S")  # for truncate(...) function
     BLANKS: set[str | None] = {None, ""}  # Objects not to show in strings
     Quotator = Callable[[Any], "ToString"]
     NoneType = type(None)
 
-    def __add__(self, value: str):
+    def __add__(self, value: str) -> "ToString":
+        """ Append `value` to the end of `self`. Implements `self + value`. \
+            Defined explicitly so that `ToString() + str() -> ToString` \
+            instead of returning a `str` object.
+
+        :param value: str
+        :return: ToString, `self` with `value` appended after it.
+        """
         return self.__class__(f"{self}{value}")
 
-    def enclosed_by(self, affix: str):
+    def enclosed_by(self, affix: str) -> "ToString":
         """
         :param affix: str to prepend and append to this ToString instance
         :return: ToString with `affix` at the beginning and another at the end
         """
         return self.enclosed_in(affix, affix)
 
-    def enclosed_in(self, prefix: str | None, suffix: str | None):
+    def enclosed_in(self, prefix: str | None, suffix: str | None
+                    ) -> "ToString":
         """
         :param prefix: str to prepend to this ToString instance
         :param suffix: str to append to this ToString instance
@@ -273,8 +284,22 @@ class ToString(str):
 
     @classmethod
     def from_datetime(cls, moment: dt.date | dt.time | dt.datetime,
-                      sep: str = "_", timespec: str = "seconds",
-                      replace: Mapping[str, str] = {":": "-"}):
+                      sep: str = "_", timespec: _TIMESPEC = "seconds",
+                      replace: Mapping[str, str] = {":": "-"}) -> "ToString":
+        """ Return the time formatted according to ISO as a ToString object.
+
+        The full format is 'HH:MM:SS.mmmmmm+zz:zz'. By default, the fractional
+        part is omitted if self.microsecond == 0.
+
+        :param moment: dt.date | dt.time | dt.datetime to convert ToString.
+        :param sep: str, the separator between date and time; defaults to "_"
+        :param timespec: str specifying the number of additional terms of \
+            the time to include; defaults to "seconds".
+        :param replace: Mapping[str, str] of parts (in the result of calling \
+            `moment.isoformat`) to different strings to replace them with; \
+            by default, this will replace ":" with "-" (for naming files).
+        :return: ToString, _description_
+        """
         match type(moment):
             case dt.date:
                 stringified = dt.date.isoformat(moment)
@@ -289,16 +314,33 @@ class ToString(str):
 
     @classmethod
     def from_iterable(cls, an_obj: Iterable, quote: str | None = "'",
-                      sep: str = ",", quote_numbers: bool = False,
+                      sep: str = ", ", quote_numbers: bool = False,
                       prefix: str | None = "[", suffix: str | None = "]",
-                      max_len: int | None = None, lastly: str = "and "):
-        """
+                      max_len: int | None = None, lastly: str = "and "
+                      ) -> "ToString":
+        """ Convert an Iterable into a ToString object.
 
-        :param a_list: list[Any]
-        :param quote: str | None,_description_, defaults to "'"
-        :param sep: str,_description_, defaults to ","
-        :return: ToString of all items in a_list, {quote}-quoted and \
-                 {sep}-separated if there are multiple 
+        :param an_obj: Iterable to convert ToString
+        :param quote: str to add before and after each element of `an_obj`, \
+            or None to insert no quotes; defaults to "'"
+        :param sep: str to insert between all of the elements of `an_obj`, \
+            or None to insert no such separators; defaults to ", "
+        :param quote_numbers: bool, True to insert `quote` before and after \
+            each numerical element of `an_obj`; else False to add no \
+            quotes to numbers in `an_obj`; defaults to False
+        :param prefix: str to insert as the first character of the returned \
+            ToString object, or None to add no prefix; defaults to "["
+        :param suffix: str to insert as the last character of the returned \
+            ToString object, or None to add no suffix; defaults to "]"
+        :param max_len: int, size of the longest possible ToString to return \
+            without truncation, or None to never truncate; defaults to None
+        :param lastly: str to insert after the last `sep` in the returned \
+            ToString object `if len(an_obj) > 2`, or None to add no such \
+            string; defaults to "and "
+        :return: ToString of all elements in `an_obj`, `quote`-quoted and \
+                 `sep`-separated if there are multiple elements, starting \
+                 with `prefix` and ending with `suffix`, with `lastly` after \
+                 the last `sep` if there are more than 2 elements of `an_obj`.
         """
         if isinstance(an_obj, str):  # TODO Refactor from LBYL to EAFP?
             string = an_obj
@@ -321,19 +363,44 @@ class ToString(str):
                     quote: str | None = "'", quote_numbers: bool = False,
                     join_on: str = ": ", sep: str = ",",
                     prefix: str | None = None, suffix: str | None = None,
-                    dt_sep: str = "_", timespec: str = "seconds",
+                    dt_sep: str = "_", timespec: _TIMESPEC = "seconds",
                     replace: Mapping[str, str] = {":": "-"},
                     encoding: str = sys.getdefaultencoding(),
-                    errors: str = "ignore", lastly: str = "and "):
-        """ _summary_
+                    errors: str = "ignore", lastly: str = "and "
+                    ) -> "ToString":
+        """ Convert an object ToString 
 
-        :param an_obj: None | str | SupportsBytes | dt.datetime | list, _description_
-        :param sep: str,_description_, defaults to "_"
-        :param timespec: str,_description_, defaults to "seconds"
+        :param an_obj: Any, object to convert ToString
+        :param max_len: int, size of the longest possible ToString to return \
+            without truncation, or None to never truncate; defaults to None
+        :param quote: str to add before and after each element of `an_obj`, \
+            or None to insert no quotes; defaults to "'"
+        :param quote_numbers: bool, True to insert `quote` before and after \
+            each numerical element of `an_obj`; else False to add no \
+            quotes to numbers in `an_obj`; defaults to False
+        :param join_on: str to insert between the key and value of each \
+            key-value pair in `an_obj` if it's a Mapping; defaults to ": "
+        :param sep: str to insert between all of the elements of `an_obj`, \
+            or None to insert no such separators; defaults to ", "
+        :param prefix: str to insert as the first character of the returned \
+            ToString object, or None to add no prefix; defaults to None
+        :param suffix: str to insert as the last character of the returned \
+            ToString object, or None to add no suffix; defaults to None
+        :param dt_sep: str, separator between date and time; defaults to "_"
+        :param timespec: str specifying the number of additional terms of \
+            the time to include; defaults to "seconds".
+        :param replace: Mapping[str, str] of parts (in the result of calling \
+            `datetime.*.isoformat` on a `datetime`-typed `an_obj`) to \
+            different strings to replace them with; by default, will replace ":" \
+            with "-" to name files.
         :param encoding: str,_description_, defaults to sys.getdefaultencoding()
         :param errors: str,_description_, defaults to "ignore"
-        :return: str, _description_
-        """  # TODO Class pattern match? stackoverflow.com/questions/72295812
+        :param lastly: str to insert after the last `sep` in the returned \
+            ToString object `if len(an_obj) > 2`, or None to add no such \
+            string; defaults to "and "
+        :return: ToString of `an_obj` formatted as specified.
+        """
+        # TODO Class pattern match? stackoverflow.com/questions/72295812
         match type(an_obj):
             case builtins.bytes | builtins.bytearray:
                 stringified = cls(an_obj, encoding=encoding, errors=errors)
@@ -351,7 +418,6 @@ class ToString(str):
             case cls.NoneType:
                 stringified = cls()
             case _:  # str or other
-                assert not isinstance(an_obj, list)
                 stringified = cls(an_obj)
         return stringified
 
@@ -360,7 +426,29 @@ class ToString(str):
                      quote_numbers: bool = False, join_on: str = ": ",
                      prefix: str | None = "{", suffix: str | None = "}",
                      sep: str = ",", max_len: int | None = None,
-                     lastly: str = "and "):
+                     lastly: str = "and ") -> "ToString":
+        """
+        :param a_map: Mapping to convert ToString
+        :param quote: str to add before and after each key-value pair in \
+            `a_map`, or None to insert no quotes; defaults to "'"
+        :param quote_numbers: bool, True to insert `quote` before and after \
+            each numerical key or value in `a_map`; else False to add no \
+            quotes to numbers in `a_map`; defaults to False
+        :param join_on: str to insert between the key and value of each \
+            key-value pair in `a_map`; defaults to ": "
+        :param prefix: str to insert as the first character of the returned \
+            ToString object, or None to add no prefix; defaults to "{"
+        :param suffix: str to insert as the last character of the returned \
+            ToString object, or None to add no suffix; defaults to "}"
+        :param sep: str to insert between all of the key-value pairs in \
+            `a_map`, or None to insert no such separators; defaults to ", "
+        :param max_len: int, size of the longest possible ToString to return \
+            without truncation, or None to never truncate; defaults to None
+        :param lastly: str to insert after the last `sep` in the returned \
+            ToString object `if len(a_map) > 2`, or None to add no such \
+            string; defaults to "and "
+        :return: ToString, _description_
+        """
         join_on = cls(join_on)
         quotate = cls.get_quotator(quote, quote_numbers)
         pair_strings = list()
@@ -378,8 +466,13 @@ class ToString(str):
         quotate = cls.quotate_obj if quote_numbers else cls.quotate_number
         return cls.from_object if not quote else lambda x: quotate(x, quote)
 
-    def join(self, *strings: str):
+    def join(self, *strings: str) -> "ToString":
+        """ Concatenate any number of strings. Same as `str.join`, but \
+            returns a `ToString` object.
 
+        :return: ToString, all `strings` concatenated together with this \
+            ToString (`self`) inserted in between them all.
+        """
         return self.__class__(str.join(self, strings))
 
     @classmethod
@@ -391,20 +484,35 @@ class ToString(str):
                 finish(obj).truncate(max_len) for obj in objects]
 
     @classmethod
-    def quotate_number(cls, a_num, quote: str = "'"):
+    def quotate_number(cls, a_num: Any, quote: str = "'") -> "ToString":
         stringified = cls.from_object(a_num)
         return stringified if stringified.isnumeric() \
             else stringified.enclosed_by(quote)
 
     @classmethod
-    def quotate_obj(cls, an_obj: Any, quote: str = "'"):
+    def quotate_obj(cls, an_obj: Any, quote: str = "'") -> "ToString":
+        """
+        :param an_obj: Any, object to convert ToString.
+        :param quote: str to add before and after `an_obj`; defaults to "'"
+        :return: ToString, `quote + stringify(an_obj) + quote`
+        """
         return cls.from_object(an_obj).enclosed_by(quote)
 
     def that_ends_with(self, suffix: str | None) -> "ToString":
+        """ Append `suffix` to the end of `self` unless it is already there.
+
+        :param suffix: str to append to `self`, or None to do nothing.
+        :return: ToString ending with `suffix`.
+        """
         return self if suffix in self.BLANKS or self.endswith(suffix) \
             else self.__class__(self + suffix)
 
     def that_starts_with(self, prefix: str | None) -> "ToString":
+        """ Prepend `suffix` at index 0 of `self` unless it is already there.
+
+        :param prefix: str to prepend to `self`, or None to do nothing.
+        :return: ToString beginning with `prefix`.
+        """
         return self if prefix in self.BLANKS or self.startswith(prefix) \
             else self.__class__(prefix + self)
 
