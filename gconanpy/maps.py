@@ -208,58 +208,6 @@ class Invertionary(Defaultionary):
             self.update(inverted)
 
 
-class LazyDict(Defaultionary):
-    """ Dict that can get/set items and ignore the default parameter \
-    until/unless it is needed, ONLY evaluating it after failing to get/set \
-    an existing key. Benefit: The `default=` code does not need to be valid \
-    (yet) if self already has the key. If you pass a function to a "lazy" \
-    method, then that function only needs to work if a value is missing.
-    Keeps most core functionality of the Python `dict` type.
-    Extended `LazyButHonestDict` from https://stackoverflow.com/q/17532929 """
-
-    def lazyget(self, key: str, get_if_absent: Callable = always_none,
-                getter_args: Iterable = list(),
-                getter_kwargs: Mapping = dict(),
-                exclude: Container = set()) -> Any:
-        """ Return the value for key if key is in the dictionary, else \
-        return the result of calling the `get_if_absent` parameter with args \
-        & kwargs. Adapted from LazyButHonestDict.lazyget from \
-        https://stackoverflow.com/q/17532929
-
-        :param key: str to use as a dict key to map to value
-        :param get_if_absent: function that returns the default value
-        :param getter_args: Iterable[Any] of get_if_absent arguments
-        :param getter_kwargs: Mapping[Any] of get_if_absent keyword arguments
-        :param exclude: set of possible values which (if they are mapped to \
-            `key` in `self`) will not be returned; instead returning \
-            `get_if_absent(*getter_args, **getter_kwargs)`
-        """
-        return get_if_absent(*getter_args, **getter_kwargs) if \
-            self._will_getdefault(key, exclude) else self[key]
-
-    def lazysetdefault(self, key: str, get_if_absent: Callable = always_none,
-                       getter_args: Iterable = list(),
-                       getter_kwargs: Mapping = dict(),
-                       exclude: Container = set()) -> Any:
-        """ Return the value for key if key is in the dictionary; else add \
-        that key to the dictionary, set its value to the result of calling \
-        the `get_if_absent` parameter with args & kwargs, then return that \
-        result. Adapted from LazyButHonestDict.lazysetdefault from \
-        https://stackoverflow.com/q/17532929
-
-        :param key: str to use as a dict key to map to value
-        :param get_if_absent: Callable, function to set & return default value
-        :param getter_args: Iterable[Any] of get_if_absent arguments
-        :param getter_kwargs: Mapping[Any] of get_if_absent keyword arguments
-        :param exclude: Container of possible values to replace with \
-            `get_if_absent(*getter_args, **getter_kwargs)` and return if \
-            they are mapped to `key` in `self`
-        """
-        if self._will_getdefault(key, exclude):
-            self[key] = get_if_absent(*getter_args, **getter_kwargs)
-        return self[key]
-
-
 class DotDict(Defaultionary):
     """ dict with dot.notation item access. Compare `sklearn.utils.Bunch`.
         DotDict can get/set items as attributes: `self.item is self['item']`.
@@ -437,6 +385,58 @@ class DotDict(Defaultionary):
         except (KeyError, TypeError, ValueError):
             pass
         return default if retrieved is self else retrieved
+
+
+class LazyDict(Defaultionary):
+    """ Dict that can get/set items and ignore the default parameter \
+    until/unless it is needed, ONLY evaluating it after failing to get/set \
+    an existing key. Benefit: The `default=` code does not need to be valid \
+    (yet) if self already has the key. If you pass a function to a "lazy" \
+    method, then that function only needs to work if a value is missing.
+    Keeps most core functionality of the Python `dict` type.
+    Extended `LazyButHonestDict` from https://stackoverflow.com/q/17532929 """
+
+    def lazyget(self, key: str, get_if_absent: Callable = always_none,
+                getter_args: Iterable = list(),
+                getter_kwargs: Mapping = dict(),
+                exclude: Container = set()) -> Any:
+        """ Return the value for key if key is in the dictionary, else \
+        return the result of calling the `get_if_absent` parameter with args \
+        & kwargs. Adapted from LazyButHonestDict.lazyget from \
+        https://stackoverflow.com/q/17532929
+
+        :param key: str to use as a dict key to map to value
+        :param get_if_absent: function that returns the default value
+        :param getter_args: Iterable[Any] of get_if_absent arguments
+        :param getter_kwargs: Mapping[Any] of get_if_absent keyword arguments
+        :param exclude: set of possible values which (if they are mapped to \
+            `key` in `self`) will not be returned; instead returning \
+            `get_if_absent(*getter_args, **getter_kwargs)`
+        """
+        return get_if_absent(*getter_args, **getter_kwargs) if \
+            self._will_getdefault(key, exclude) else self[key]
+
+    def lazysetdefault(self, key: str, get_if_absent: Callable = always_none,
+                       getter_args: Iterable = list(),
+                       getter_kwargs: Mapping = dict(),
+                       exclude: Container = set()) -> Any:
+        """ Return the value for key if key is in the dictionary; else add \
+        that key to the dictionary, set its value to the result of calling \
+        the `get_if_absent` parameter with args & kwargs, then return that \
+        result. Adapted from LazyButHonestDict.lazysetdefault from \
+        https://stackoverflow.com/q/17532929
+
+        :param key: str to use as a dict key to map to value
+        :param get_if_absent: Callable, function to set & return default value
+        :param getter_args: Iterable[Any] of get_if_absent arguments
+        :param getter_kwargs: Mapping[Any] of get_if_absent keyword arguments
+        :param exclude: Container of possible values to replace with \
+            `get_if_absent(*getter_args, **getter_kwargs)` and return if \
+            they are mapped to `key` in `self`
+        """
+        if self._will_getdefault(key, exclude):
+            self[key] = get_if_absent(*getter_args, **getter_kwargs)
+        return self[key]
 
 
 class LazyDotDict(DotDict, LazyDict):
