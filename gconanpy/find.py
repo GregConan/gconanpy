@@ -4,21 +4,91 @@
 Classes and functions that iterate and break once they find what they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-04-16
+Updated: 2025-04-29
 """
 # Import standard libraries
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any
 
 # Import remote custom libraries
 try:
     from metafunc import DATA_ERRORS, FinderTypes as Typ, \
-        KeepSkippingExceptions, IgnoreExceptions
+        FrozenFunction, KeepSkippingExceptions, IgnoreExceptions
     from trivial import is_not_none, always_none
 except ModuleNotFoundError:
     from gconanpy.metafunc import DATA_ERRORS, FinderTypes as Typ, \
-        KeepSkippingExceptions, IgnoreExceptions
+        FrozenFunction, KeepSkippingExceptions, IgnoreExceptions
     from gconanpy.trivial import is_not_none, always_none
+
+
+def iterfind(find_in: Iterable[Typ.I], found_if: Typ.Ready = is_not_none,
+             found_args: Iterable[Typ.R] = list(),
+             found_kwargs: Mapping[str, Any] = dict(),
+             default: Typ.D = None, element_is_arg: bool = True
+             ) -> Typ.I | Typ.D:
+    for each_item in find_in:
+        args = [each_item, *found_args] if element_is_arg else found_args
+        if found_if(*args, **found_kwargs):
+            to_return = each_item
+            break
+    else:
+        to_return = default
+    return to_return
+
+
+def modifind(find_in: Iterable[Typ.I],
+             modify: Typ.Modify | None = None,
+             modify_args: Iterable[Typ.X] = list(),
+             found_if: Typ.Ready = is_not_none,
+             found_args: Iterable[Typ.R] = list(),
+             default: Typ.D = None,
+             errs: Iterable[BaseException] = [
+                 *DATA_ERRORS, UnboundLocalError]) -> Typ.I | Typ.D:
+    i = 0
+    is_found = False
+    iter_over = list(find_in)
+    while not is_found and i < len(iter_over):
+        with IgnoreExceptions(*errs):
+            modified = modify(iter_over[i], *modify_args
+                              ) if modify else iter_over[i]
+        with IgnoreExceptions(*errs):
+            is_found = found_if(modified, *found_args)
+        i += 1
+    return modified if is_found else default
+
+
+def spliterate(parts: Iterable[str], ready_if:
+               Callable[[str | None], bool] = is_not_none,
+               min_len: int = 1, get_target:
+               Callable[[str], Any] = always_none,
+               pop_ix: int = -1, join_on: str = " ") -> tuple[str, Any]:
+    """ _summary_
+
+    :param parts: Iterable[str] to iteratively modify, check, and recombine
+    :param ready_if: Callable[[str], bool], function that returns True \
+        if join_on.join(parts) is ready to return and False if it still \
+        needs to be modified further; defaults to is_not_none
+    :param pop_ix: int, index of item to remove from parts once per \
+        iteration; defaults to -1 (the last item)
+    :param join_on: str, delimiter to insert between parts; defaults to " "
+    :return: tuple[str, Any], the modified and recombined string built from \
+        parts and then something retrieved from within parts
+    """
+    gotten = get_target(parts[pop_ix])
+    rejoined = join_on.join(parts)
+    while not ready_if(rejoined) and len(parts) > min_len \
+            and gotten is None:
+        parts.pop(pop_ix)
+        gotten = get_target(parts[pop_ix])
+        rejoined = join_on.join(parts)
+    return rejoined, gotten
+
+
+class UntilFound(FrozenFunction):
+    def check_each(self, find_in: Iterable[Typ.I], default: Typ.D = None,
+                   element_is_arg: bool = True) -> Typ.I | Typ.D:
+        return iterfind(find_in, self.inner, default=default,
+                        element_is_arg=element_is_arg)
 
 
 class BasicRange(Iterable):
@@ -161,54 +231,6 @@ class ReadyChecker(BasicRange):
 
     def is_not_ready(self) -> bool:
         """ 
-        :return: bool, False if there is no more need to iterate; else False.
+        :return: bool, True to keep iterating; else False if that's unneeded.
         """
         return self.is_iterating and not self.item_is_ready(self.to_check)
-
-
-def modifind(find_in: Iterable[Typ.I],
-             modify: Typ.Modify | None = None,
-             modify_args: Iterable[Typ.X] = list(),
-             found_if: Typ.Ready = is_not_none,
-             found_args: Iterable[Typ.R] = list(),
-             default: Typ.D = None,
-             errs: Iterable[BaseException] = [
-                 *DATA_ERRORS, UnboundLocalError]) -> Typ.I | Typ.D:
-    i = 0
-    is_found = False
-    iter_over = list(find_in)
-    while not is_found and i < len(iter_over):
-        with IgnoreExceptions(*errs):
-            modified = modify(iter_over[i], *modify_args
-                              ) if modify else iter_over[i]
-        with IgnoreExceptions(*errs):
-            is_found = found_if(modified, *found_args)
-        i += 1
-    return modified if is_found else default
-
-
-def spliterate(parts: Iterable[str], ready_if:
-               Callable[[str | None], bool] = is_not_none,
-               min_len: int = 1, get_target:
-               Callable[[str], Any] = always_none,
-               pop_ix: int = -1, join_on: str = " ") -> tuple[str, Any]:
-    """ _summary_
-
-    :param parts: Iterable[str] to iteratively modify, check, and recombine
-    :param ready_if: Callable[[str], bool], function that returns True \
-        if join_on.join(parts) is ready to return and False if it still \
-        needs to be modified further; defaults to is_not_none
-    :param pop_ix: int, index of item to remove from parts once per \
-        iteration; defaults to -1 (the last item)
-    :param join_on: str, delimiter to insert between parts; defaults to " "
-    :return: tuple[str, Any], the modified and recombined string built from \
-        parts and then something retrieved from within parts
-    """
-    gotten = get_target(parts[pop_ix])
-    rejoined = join_on.join(parts)
-    while not ready_if(rejoined) and len(parts) > min_len \
-            and gotten is None:
-        parts.pop(pop_ix)
-        gotten = get_target(parts[pop_ix])
-        rejoined = join_on.join(parts)
-    return rejoined, gotten

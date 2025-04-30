@@ -11,7 +11,7 @@ from typing import Any
 
 # Import local custom libraries
 from gconanpy.debug import ShowTimeTaken
-from gconanpy.find import modifind, ReadyChecker
+from gconanpy.find import iterfind, modifind, ReadyChecker, UntilFound
 from tests.testers import Tester
 
 # Import third-party PyPI libraries
@@ -63,3 +63,23 @@ class TestReadyChecker(Tester):
                     check(str.replace(check.to_check, next(check), " "
                                       ).strip())
             self.check_result(check.to_check, result)
+
+
+class TestIterFind(Tester):
+    @staticmethod
+    def greater(x, y):
+        return x > y
+
+    def test_iterfind(self):
+        self.add_basics()
+        for eachnum in self.alist:
+            bigger = iterfind(self.alist, self.greater, [eachnum],
+                              default=max(self.alist) + 1)
+            self.check_result(bigger, eachnum + 1)
+
+    def test_UntilFound(self):
+        self.add_basics()
+        for eachnum in self.alist:
+            bigger = UntilFound(self.greater, post=[eachnum]).check_each(
+                self.alist, default=max(self.alist) + 1)
+            self.check_result(bigger, eachnum + 1)

@@ -13,6 +13,12 @@ from functools import reduce
 import itertools
 from typing import Any, Literal, TypeVar
 
+# Import local custom libraries
+try:
+    from seq import stringify
+except ModuleNotFoundError:
+    from gconanpy.seq import stringify
+
 # Constants: TypeVars for...
 M = TypeVar("M", bound=Mapping)  # ...combine_maps
 T = TypeVar("T")  # ...add_attributes_to
@@ -162,8 +168,10 @@ class FrozenFunction(Callable):
             inner = call
 
         # Put all pre-defined args and kwargs into this instance's str repr
+
         kwargstrs = [f"{k}={v}" for k, v in kwargs.items()]
-        argstr = ", ".join([*pre, "*args", *post, *kwargstrs])
+        argstr = stringify([*pre, "*args", *post, *kwargstrs],
+                           prefix="[", suffix="]")
         self.name = f"{nameof(self)}[{nameof(call)}({argstr}, **kwargs)]"
 
         self.inner = inner

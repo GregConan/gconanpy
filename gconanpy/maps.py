@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-28
+Updated: 2025-04-29
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Hashable, Iterable, Mapping
@@ -95,55 +95,7 @@ class Explictionary(dict):
         return self.__class__(self)
 
 
-class Invertionary(Explictionary):
-    _T = TypeVar("_T")
-    CollisionHandler = Callable[[list[_T]], Iterable[_T]]
-
-    def invert(self, keep_collisions_in: CollisionHandler | None = None
-               ) -> None:
-        """ Swap keys and values. `{1: 2, 3: 4}.invert()` -> `{2: 1, 4: 3}`.
-
-        When 2+ keys are mapped to the same value, then that value will be \
-        mapped either to a `keep_collisions_in` container of all of those \
-        keys or (by default) to only the most recently-added key.
-
-        :param keep_collisions_in: CollisionHandler, type of container to \
-            map a value to when multiple keys were mapped to that value; \
-            e.g. `list`, `tuple`, or `set`
-        """
-        # Predefine to avoid RuntimeError(changed size during iteration)
-        keys = [k for k in self.keys()]
-
-        # If we are NOT keeping all keys mapped to the same value, then
-        # just keep whichever key was added most recently
-        if keep_collisions_in is None:
-            for key in keys:
-                self[self.pop(key)] = key
-
-        # If we ARE keeping all keys mapped to the same value, then:
-        else:  # Make new empty dict to avoid conflating keys & values
-            inverted = self.__class__()
-            collided = set()  # Keep track of which values collide
-
-            # Remove every key-value pairing, swap them, and put into new dict
-            for key in keys:
-                value = self.pop(key)
-                if value not in inverted:
-                    inverted[value] = key
-
-                # If 2+ former values (now keys) collide, then map them to a
-                # keep_collisions_in container holding all of the former keys
-                else:
-                    new_value = [*inverted[value], key] if value in collided \
-                        else [inverted[value], key]
-                    collided.add(value)
-                    inverted[value] = keep_collisions_in(new_value)
-
-            # Replace all old key-value pairs with new value-key pairs
-            self.update(inverted)
-
-
-class Defaultionary(Invertionary):
+class Defaultionary(Explictionary):
 
     def _will_getdefault(self, key: Any, exclude: Container = set()
                          ) -> bool:
@@ -210,6 +162,50 @@ class Defaultionary(Invertionary):
         run_update(**kwargs) if a_map is None else run_update(a_map, **kwargs)
         if copy:
             return updated
+
+
+class Invertionary(Defaultionary):
+    _T = TypeVar("_T")
+    CollisionHandler = Callable[[list[_T]], Iterable[_T]]
+
+    def invert(self, keep_collisions_in: CollisionHandler | None = None,
+               copy: bool = False):  # -> None | "Invertionary":
+        """ Swap keys and values. `{1: 2, 3: 4}.invert()` -> `{2: 1, 4: 3}`.
+
+        When 2+ keys are mapped to the same value, then that value will be \
+        mapped either to a `keep_collisions_in` container of all of those \
+        keys or (by default) to only the most recently-added key.
+
+        :param keep_collisions_in: CollisionHandler, type of container to \
+            map a value to when multiple keys were mapped to that value; \
+            e.g. `list`, `tuple`, or `set`
+        """
+        # If we are NOT keeping all keys mapped to the same value, then
+        # just keep whichever key was added most recently
+        if keep_collisions_in is None:
+            inverted = {v: k for k, v in self.items()}
+
+        else:  # If we ARE keeping all keys mapped to the same value, then:
+            inverted = dict()  # Avoid conflating keys & values
+            collided = set()  # Keep track of which values collide
+
+            # If values don't collide, just swap them with keys
+            for key, value in self.items():
+                if value not in inverted:
+                    inverted[value] = key
+
+                # If 2+ former values (now keys) collide, then map them to a
+                # keep_collisions_in container holding all of the former keys
+                else:
+                    new_value = [*inverted[value], key] if value in collided \
+                        else [inverted[value], key]
+                    collided.add(value)
+                    inverted[value] = keep_collisions_in(new_value)
+        if copy:
+            return self.__class__(inverted)
+        else:
+            self.clear()
+            self.update(inverted)
 
 
 class LazyDict(Defaultionary):

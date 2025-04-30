@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-04-23
+Updated: 2025-04-29
 """
 # Import standard libraries
 from collections.abc import Generator, Mapping
@@ -33,7 +33,7 @@ class MapTester(Tester):
 
 
 class TestInvertionary(MapTester):
-    TEST_CLASSES = (Invertionary, Defaultionary, DotDict, LazyDotDict)
+    TEST_CLASSES = (Invertionary, )  # Defaultionary, DotDict, LazyDotDict)
 
     def test_1(self):
         self.add_basics()
@@ -61,6 +61,11 @@ class TestInvertionary(MapTester):
             except TypeError as expected_err:
                 actual_err = expected_err
             assert isinstance(actual_err, TypeError)
+
+    def test_5(self):
+        for dict_class in self.TEST_CLASSES:
+            invertable = dict_class(a="b", b="a")
+            self.check_result(invertable.invert(copy=True), invertable)
 
 
 class TestDefaultionary(MapTester):
@@ -99,13 +104,13 @@ class TestDefaultionary(MapTester):
 class TestDotDicts(MapTester):
     TEST_CLASSES = (DotDict, LazyDotDict)
 
-    def test_1(self):
+    def test_set(self):
         for dd in self.get_custom_dicts():
             self.check_result(dd.a, 1)
             for k, v in self.adict.items():
                 self.check_result(getattr(dd, k), v)
 
-    def test_2(self):
+    def test_len(self):
         for dd in self.get_custom_dicts():
             self.check_result(len(dd), 3)
             del dd.b
@@ -113,7 +118,7 @@ class TestDotDicts(MapTester):
             self.check_result(len(dd), 2)
             self.check_result(dd.PROTECTEDS in dd, False)
 
-    def test_3(self):
+    def test_get(self):
         for dd in self.get_custom_dicts():
             dd.five = 5
             self.check_result(dd["five"], 5)
@@ -121,7 +126,7 @@ class TestDotDicts(MapTester):
             self.check_result(dd.six, 6)
             assert self.cannot_alter(dd, "get")
 
-    def test_4(self):
+    def test_homogenize(self):
         for dd in self.get_custom_dicts():
             dd.testdict = dict(a=dd)
             assert not isinstance(dd["testdict"], type(dd))
@@ -129,18 +134,16 @@ class TestDotDicts(MapTester):
             assert isinstance(dd["testdict"], type(dd))
             assert isinstance(dd.testdict, type(dd))
 
-    def test_5(self):
+    def test_protected(self):
         self.add_basics()
         ldd = LazyDotDict(self.adict)
 
         protected_attrs = getattr(ldd, ldd.PROTECTEDS)
-        print(ldd.PROTECTEDS)
         assert self.cannot_alter(ldd, *protected_attrs)
+        assert protected_attrs.issuperset({"lazyget", "lazysetdefault",
+                                           ldd.PROTECTEDS})
 
-        lazy_attrs = {"lazyget", "lazysetdefault"}
-        assert lazy_attrs.issubset(protected_attrs)
-
-    def test_6(self):
+    def test_subclass(self):
         self.add_basics()
         for ddclass in self.TEST_CLASSES:
             class DotDictSubClass(ddclass):

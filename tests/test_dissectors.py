@@ -3,10 +3,13 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-04-28
+Updated: 2025-04-29
 """
+# Import standard libraries
+from typing import Any
+
 # Import local custom libraries
-from gconanpy.dissectors import Corer, Shredder, SimpleShredder
+from gconanpy.dissectors import Corer, DifferenceBetween, Shredder, SimpleShredder
 from gconanpy.maps import MapSubset
 from tests.testers import Tester
 
@@ -66,3 +69,49 @@ class TestShredders(Tester):
         cored = Corer(map_filter=excluder).core(cli_args)
         print(cored)
         self.check_result(cored, 2)
+
+
+class TestDifferenceBetween(Tester):
+    def check_diff(self, a_diff: DifferenceBetween, what_differs: str,
+                   *expected_diffs: Any):
+        self.check_result(a_diff.difference, what_differs)
+        for i in range(len(expected_diffs)):
+            self.check_result(a_diff.diffs[i], expected_diffs[i])
+
+    def test_no_diff(self):
+        self.add_basics()
+        for x in (self.alist, self.adict, self, 1, None, "the"):
+            sames = DifferenceBetween(x, x)
+            assert not sames.diffs
+            sames = DifferenceBetween(x, x, x)
+            assert not sames.diffs
+
+    def test_len_diff(self):
+        self.add_basics()
+        longerlist = [*self.alist, max(self.alist) + 1]
+        list_diff = DifferenceBetween(self.alist, longerlist)
+        self.check_diff(list_diff, "length", len(self.alist), len(longerlist))
+        self.check_result(len(list_diff.diffs), 2)
+
+    def test_type_diff(self):
+        self.add_basics()
+        atuple = tuple(self.alist)
+        list_diff = DifferenceBetween(self.alist, atuple)
+        self.check_diff(list_diff, "type", list, tuple)
+
+    def test_element_diff(self):
+        self.add_basics()
+        for ix in range(len(self.alist)):
+            otherlist = self.alist.copy()
+            otherlist[ix] = 270
+            list_diff = DifferenceBetween(self.alist, otherlist)
+            print(f"ix {ix}, {self.alist[ix]} ?= {otherlist[ix]}")
+            self.check_diff(list_diff, f"element {ix}",
+                            self.alist[ix], otherlist[ix])
+
+    def test_attr_diff(self):
+        self.add_basics()
+        sub1 = MapSubset(keys=self.alist)
+        sub2 = MapSubset(values=self.alist)
+        sub_diff = DifferenceBetween(sub1, sub2)
+        assert sub_diff.difference.startswith("unique attribute(s)")

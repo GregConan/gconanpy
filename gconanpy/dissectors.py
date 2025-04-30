@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-27
+Updated: 2025-04-29
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable, Iterator
@@ -32,7 +32,7 @@ except ModuleNotFoundError:
 
 
 class DifferenceBetween:
-    # Types
+    # Class type variables
     Diff = TypeVar("Diff")
     ToCompare = TypeVar("ToCompare")
     PartName = TypeVar("PartName", bound=Hashable)
@@ -41,10 +41,10 @@ class DifferenceBetween:
     GetSubcomparator = Callable[[ToCompare, PartName], Diff]
 
     # Instance variables
-    comparables: list[ToCompare]
-    difference: str | None
-    diffs: list[str | None]
-    names: list[str]
+    comparables: list[ToCompare]  # The objects to compare/contrast
+    difference: str | None  # Name classifying the difference
+    diffs: list[str | None]  # The differing values themselves
+    names: list[str]  # The names of the objects to compare/contrast
 
     def __init__(self, *args: ToCompare, **kwargs: ToCompare):
         """ Identify difference(s) between any Python objects/values.
@@ -53,15 +53,17 @@ class DifferenceBetween:
         :param kwargs: Mapping[str, Any] of names to objects to compare.
         """
         self.difference = None
+
+        # List objects to compare, and their names, for comparison methods
         self.comparables = list()
         self.names = list()
-
         for name, to_compare in kwargs.items():
             self.names.append(name)
             self.comparables.append(to_compare)
-
         for arg in args:
             self.comparables.append(arg)
+
+            # By default, name unnamed objects their type and insertion order
             arg_type = nameof(arg)
             arg_name = arg_type
             i = 1
@@ -70,55 +72,56 @@ class DifferenceBetween:
                 arg_name = f"{arg_type}{i}"
             self.names.append(arg_name)
 
+        # If objects differ, then discover how; else there's no need
         self.is_different = not are_all_equal(self.comparables)
-        self.diffs = self.find_difference() if self.is_different else None
+        self.diffs = self.find() if self.is_different else list()
 
-    def compare_all_in(self, on: str, get_subcomparator: GetSubcomparator,
+    def compare_all_in(self, by: str, get_subcomparator: GetSubcomparator,
                        comparisons: Iterable[PartName]) -> list[Diff]:
         diffs = list()
         get_comparison = iter(comparisons)
         next_name = next(get_comparison, None)
         while not self.difference and next_name is not None:
-            diffs = self.compare_by(f"{on} {next_name}", lambda y:
+            diffs = self.compare_by(f"{by} {next_name}", lambda y:
                                     get_subcomparator(y, next_name))
             next_name = next(get_comparison, None)
         return diffs
 
-    def compare_by(self, on: str, get_comparator: GetComparator
+    def compare_by(self, by: str, get_comparator: GetComparator
                    ) -> list[Diff]:
         """ _summary_
 
-        :param on: str, name of the possible difference to find
+        :param by: str, name of the possible difference to find
         :param get_comparator: Callable[[Any], Any], \
             1-arg-to-1-arg function that extracts things to compare
         :return: list, _description_
         """
         comparables = [get_comparator(c) for c in self.comparables]
         if not are_all_equal(comparables):
-            self.difference = on
+            self.difference = by
         return comparables
 
     def compare_elements_0_to(self, end_ix: int) -> list[Diff]:
         return self.compare_all_in("element", get_item_of,
                                    [x for x in range(end_ix)])
 
-    def compare_sets(self, on: str, get_comparisons: GetPartNames,
+    def compare_sets(self, by: str, get_comparisons: GetPartNames,
                      get_subcomparator: GetSubcomparator
                      ) -> list[Diff]:
         """ _summary_ 
 
-        :param on: str, name of the possible difference to find
+        :param by: str, name of the possible difference to find
         :param get_comparisons: Callable[[Any], Iterable[Any]], _description_
         :param get_subcomparator: Callable[[Any, Any], Any], _description_
         :return: list[Diff], _description_
         """
-        keys = self.compare_by(on, get_comparisons)
+        keys = self.compare_by(by, get_comparisons)
         return differentiate_sets(keys) if self.difference else \
-            self.compare_all_in(on, get_subcomparator, keys)
+            self.compare_all_in(by, get_subcomparator, next(iter(keys)))
 
-    def find_difference(self) -> list[Diff] | None:
+    def find(self) -> list[Diff] | None:
         """ Find the difference(s) between the objects in self.comparables.
-        Returns the first difference found, not an exhaustive list.
+            Returns the first difference found, not an exhaustive list.
 
         :return: list | None, the values that differ between the objects, or
                  None if no difference is found.
@@ -159,11 +162,11 @@ class DifferenceBetween:
         if not self.is_different:
             result = " == ".join(self.names)
         else:
-            names = stringify(self.names, enclose_in=None)
+            names = stringify(self.names)
             if self.difference:
                 differences = stringify([
                     f"{self.difference} of {self.names[i]} == {self.diffs[i]}"
-                    for i in range(len(self.diffs))], quote=None, enclose_in=None)
+                    for i in range(len(self.diffs))], quote=None)
                 result = f"{self.difference} differs between {names}:" \
                     f"\n{differences}."
             else:
@@ -463,7 +466,7 @@ class Xray(list):
                     case "outputs" | "results":
                         gotten = [x for x in an_obj()]
                     case "attributes" | "properties":
-                        gotten = [x for x in dir(an_obj)]
+                        gotten = dir(an_obj)
                     case _:
                         what_elements_are = next(to_check)
             except (NameError, TypeError) as err:
