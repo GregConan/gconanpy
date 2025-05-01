@@ -210,9 +210,11 @@ class Invertionary(Defaultionary):
 
 class DotDict(Defaultionary):
     """ dict with dot.notation item access. Compare `sklearn.utils.Bunch`.
-        DotDict can get/set items as attributes: `self.item is self['item']`.
-        Benefit: You can get/set items by using '.' or key names in brackets.
-        Keeps most core functionality of the Python dict type.
+        DotDict can get/set items as attributes: if `name` is not protected, \
+        then `self.name is self["name"]`.
+
+    Benefit: You can get/set items by using '.' or key names in brackets.
+    Keeps most core functionality of the Python dict type.
 
     Adapted from answers to https://stackoverflow.com/questions/2352181 and \
     `attrdict` from https://stackoverflow.com/a/45354473 and `dotdict` from \

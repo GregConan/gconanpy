@@ -9,7 +9,8 @@ Updated: 2025-04-29
 from typing import Any
 
 # Import local custom libraries
-from gconanpy.dissectors import Corer, DifferenceBetween, Shredder, SimpleShredder
+from gconanpy.dissectors import Corer, DifferenceBetween, Shredder, \
+    SimpleShredder, Xray
 from gconanpy.maps import MapSubset
 from tests.testers import Tester
 
@@ -115,3 +116,15 @@ class TestDifferenceBetween(Tester):
         sub2 = MapSubset(values=self.alist)
         sub_diff = DifferenceBetween(sub1, sub2)
         assert sub_diff.difference.startswith("unique attribute(s)")
+
+
+class TestXray(Tester):
+    def test_repr_recursion_err(self):
+        class Dummy:
+            def __init__(self, txt: str, start: int, end: int):
+                self.txt = txt
+                self.start = start
+                self.end = end
+
+        dummies = [Dummy("hello", 0, 100), Dummy("goodbye", 100, 200)]
+        str(Xray(dummies[0]))

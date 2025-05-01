@@ -54,7 +54,7 @@ class DifferenceBetween:
         """
         self.difference = None
 
-        # List objects to compare, and their names, for comparison methods
+        # List the objects to compare, and their names, for comparison methods
         self.comparables = list()
         self.names = list()
         for name, to_compare in kwargs.items():

@@ -142,6 +142,7 @@ class TestDotDicts(MapTester):
         assert self.cannot_alter(ldd, *protected_attrs)
         assert protected_attrs.issuperset({"lazyget", "lazysetdefault",
                                            ldd.PROTECTEDS})
+        # for attr_name in protected_attrs: self.check_result(ldd[attr_name], getattr(ldd, attr_name))  # TODO?
 
     def test_subclass(self):
         self.add_basics()

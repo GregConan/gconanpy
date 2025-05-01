@@ -37,11 +37,12 @@ class Tester(ABC):
         cli_args = DotDict({"address": None, "password": "my_password",
                             "debugging": True, "a dict": self.adict,
                             "a list": [*self.alist, DotDict],
-                            "bytes_nums": self.bytes_nums})
+                            "to remove": True, "bytes_nums": self.bytes_nums})
         cli_args.creds = MapSubset(
             keys={"address", "debugging", "password"},
             values={None}, include_keys=True, include_values=False
         ).of(cli_args, as_type=Cryptionary)
+        del cli_args["to remove"]  # test Cryptionary.__del__
         return cli_args
 
     @classmethod

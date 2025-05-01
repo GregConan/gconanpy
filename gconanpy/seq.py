@@ -248,12 +248,11 @@ def to_file_path(dir_path: str, file_name: str, file_ext: str = "",
 
 
 class ToString(str):
+    _S = TypeVar("_S")  # for truncate(...) function
     _TIMESPEC = Literal["auto", "hours", "minutes", "seconds", "milliseconds",
                         "microseconds"]  # for datetime.isoformat
-    _S = TypeVar("_S")  # for truncate(...) function
     BLANKS: set[str | None] = {None, ""}  # Objects not to show in strings
     Quotator = Callable[[Any], "ToString"]
-    NoneType = type(None)
 
     def __add__(self, value: str) -> "ToString":
         """ Append `value` to the end of `self`. Implements `self + value`. \
@@ -401,21 +400,21 @@ class ToString(str):
         :return: ToString of `an_obj` formatted as specified.
         """
         # TODO Class pattern match? stackoverflow.com/questions/72295812
-        match type(an_obj):
-            case builtins.bytes | builtins.bytearray:
+        match an_obj:
+            case bytes() | bytearray():
                 stringified = cls(an_obj, encoding=encoding, errors=errors)
-            case builtins.dict:  # TODO case Mapping equivalent after builtins
+            case dict():
                 stringified = cls.from_mapping(an_obj, quote, quote_numbers,
                                                join_on, prefix, suffix, sep,
                                                max_len, lastly)
-            case builtins.list | builtins.tuple | builtins.set:  # metafunc.PureIterable:
+            case list() | tuple() | set():
                 stringified = cls.from_iterable(an_obj, quote, sep,
                                                 quote_numbers, prefix, suffix,
                                                 max_len, lastly)
-            case dt.date | dt.time | dt.datetime:
+            case dt.date() | dt.time() | dt.datetime():
                 stringified = cls.from_datetime(an_obj, dt_sep,
                                                 timespec, replace)
-            case cls.NoneType:
+            case None:
                 stringified = cls()
             case _:  # str or other
                 stringified = cls(an_obj)

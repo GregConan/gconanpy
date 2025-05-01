@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-04-24
+Updated: 2025-04-29
 """
 # Import standard libraries
 import datetime as dt
@@ -29,6 +29,7 @@ class TestStringify(Tester):
     def test_add(self):
         self.check_result(type(stringify("hi") + " there"),
                           ToString)
+        # self.check_result(type("hi" + stringify(" there")), ToString)  # TODO?
 
     def test_affix(self):
         self.add_basics()

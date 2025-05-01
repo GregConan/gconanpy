@@ -85,7 +85,7 @@ def has_method(an_obj: Any, method_name: str) -> bool:
     return callable(getattr(an_obj, method_name, None))
 
 
-def method(method_name: str) -> Callable:
+def method(method_name: str) -> Callable:  # TODO move to trivial.py?
     """ Wrapper to retrieve a specific callable object attribute. 
     `method(method_name)(something, *args, **kwargs)` is the same as \
     `getattr(something, method_name)(*args, **kwargs)`.
