@@ -318,7 +318,7 @@ class AttributesOf:
         return found_attr
 
     def items(self):
-        return self.select()
+        yield from self.select()
 
     def methods(self) -> Generator[tuple[str, Callable], None, None]:
         """ Iterate over this object's methods (callable attributes).
@@ -326,7 +326,7 @@ class AttributesOf:
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each method of this object.
         """
-        return self.select(filter_if=self.METHOD_FILTERS)
+        yield from self.select(filter_if=self.METHOD_FILTERS)
 
     def method_names(self) -> list[str]:
         """
@@ -356,7 +356,7 @@ class AttributesOf:
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each private attribute.
         """
-        return self.select([self._attr_is_private])
+        yield from self.select([self._attr_is_private])
 
     def public(self) -> Generator[tuple[str, Any], None, None]:
         """ Iterate over this object's public attributes.
@@ -364,7 +364,7 @@ class AttributesOf:
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each public attribute.
         """
-        return self.select([self._attr_is_private], exclude=True)
+        yield from self.select([self._attr_is_private], exclude=True)
 
     def public_names(self) -> list[str]:
         """

@@ -3,14 +3,15 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-04-29
+Updated: 2025-05-01
 """
 # Import standard libraries
 from collections.abc import Generator, Mapping
 from typing import Any
 
 # Import local custom libraries
-from gconanpy.maps import Defaultionary, DotDict, Invertionary, LazyDotDict
+from gconanpy.maps import (Defaultionary, DotDict, Invertionary,
+                           LazyDotDict, WalkMap)
 from tests.testers import Tester
 
 
@@ -20,7 +21,7 @@ class MapTester(Tester):
     def get_1s_dict(self) -> dict[str, int]:
         return dict(a=1, b=1, c=1, d=1)
 
-    def get_custom_dicts(self) -> Generator[type, None, None]:
+    def get_custom_dicts(self) -> Generator[Mapping, None, None]:
         self.add_basics()
         for dict_class in self.TEST_CLASSES:
             yield dict_class(self.adict)
@@ -128,11 +129,16 @@ class TestDotDicts(MapTester):
 
     def test_homogenize(self):
         for dd in self.get_custom_dicts():
-            dd.testdict = dict(a=dd)
-            assert not isinstance(dd["testdict"], type(dd))
+            dd.testdict = dict(hello=dict(q=dd),
+                               world=DotDict(foo=dict(bar="baz")))
+            print(type(dd.testdict["world"]))
+            for a_dict in (dd["testdict"], dd["testdict"]["hello"],
+                           dd.testdict["world"].foo):
+                assert not isinstance(a_dict, type(dd))
             dd.homogenize()
-            assert isinstance(dd["testdict"], type(dd))
-            assert isinstance(dd.testdict, type(dd))
+            for a_map in WalkMap(dd).values():
+                print(f"a_map: {a_map}")
+                assert isinstance(a_map, type(dd))
 
     def test_protected(self):
         self.add_basics()

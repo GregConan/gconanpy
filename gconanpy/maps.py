@@ -4,10 +4,11 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-29
+Updated: 2025-05-01
 """
 # Import standard libraries
-from collections.abc import Callable, Container, Hashable, Iterable, Mapping
+from collections.abc import (Callable, Container, Generator,
+                             Hashable, Iterable, Mapping)
 from configparser import ConfigParser
 import sys
 from typing import Any, SupportsBytes, TypeVar
@@ -76,6 +77,39 @@ class MapSubset:
             as_type = type(from_map)
         return as_type({k: v for k, v in from_map.items()
                         if self.filter(k, v)})
+
+
+class WalkMap:
+    _KeyType = Hashable | None
+    _MapTuple = tuple[_KeyType, Mapping]
+    _Walker = Generator[_MapTuple, None, None]
+    traversed: set[int]
+
+    def __init__(self, a_map: Mapping) -> None:
+        self.root = a_map
+        self.traversed = set()
+
+    def _walk(self, key: _KeyType, value: Mapping | Any) -> _Walker:
+        objID = id(value)
+        if objID not in self.traversed:
+            self.traversed.add(objID)
+            try:
+                for k, v in value.items():
+                    yield from self._walk(k, v)
+                yield (key, value)
+            except AttributeError:
+                pass
+
+    def items(self) -> _Walker:
+        yield from self._walk(None, self.root)
+
+    def keys(self) -> Generator[_KeyType, None, None]:
+        for key, _ in self.items():
+            yield key
+
+    def values(self) -> Generator[Mapping, None, None]:
+        for _, value in self.items():
+            yield value
 
 
 class Explictionary(dict):
@@ -225,9 +259,18 @@ class DotDict(Defaultionary):
     # not be accessible/modifiable as keys/values/items
     PROTECTEDS = "__protected_keywords__"
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, from_map: Mapping | None = None, **kwargs):
+        """
+        _summary_ 
+        :param from_map: Mapping | None,_description_, defaults to None
+        """
         # First, add all (non-item) custom methods and attributes
-        super().__init__(*args, **kwargs)
+        # super().__init__(*args, **kwargs)
+        if from_map:
+            super().update(from_map)
+        super().update(kwargs)
+
+        self.homogenized: set[int] = set()
 
         # Prevent overwriting method/attributes or treating them like items
         dict.__setattr__(self, self.PROTECTEDS,  # set(dir(self.__class__)))
@@ -352,7 +395,7 @@ class DotDict(Defaultionary):
         return self.__class__({key: self.lookup(path, sep, default)
                                for key, path in to_look_up.items()})
 
-    def homogenize(self, replace: type = dict):
+    def homogenize(self, replace: type[dict] = dict):
         """ Recursively transform every dict contained inside this DotDict \
             into a DotDict itself, ensuring nested dot access to attributes.
             From https://gist.github.com/miku/dc6d06ed894bc23dfd5a364b7def5ed8
@@ -360,9 +403,13 @@ class DotDict(Defaultionary):
         :param replace: type of element/child/attribute to change to DotDict.
         """
         for k, v in self.items():
-            if isinstance(v, replace) and not isinstance(v, self.__class__):
-                self[k] = self.__class__(v)
-                self[k].homogenize()
+            vID = id(v)
+            if vID not in self.homogenized:
+                self.homogenized.add(vID)
+                if isinstance(v, replace):
+                    if not isinstance(v, self.__class__):
+                        self[k] = self.__class__(v)
+                    self[k].homogenize()
 
     def lookup(self, path: str, sep: str = ".", default: Any = None) -> Any:
         """ Get the value mapped to a key in nested structure. Adapted from \
