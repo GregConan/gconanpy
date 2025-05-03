@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-04-28
+Updated: 2025-05-02
 """
 # Import standard libraries
 from abc import ABC
@@ -124,6 +124,23 @@ def name_attributes_of(*objects: Any) -> set[str]:
     for an_obj in objects:
         attr_names.update(dir(an_obj))
     return attr_names
+
+
+class Traversible:
+    traversed: set[int]
+
+    def __init__(self) -> None:
+        self.traversed = set()
+
+    def _will_traverse(self, an_obj: Any) -> bool:
+        """
+        :param an_obj: Any, object to recursively visit while traversing
+        :return: bool, False if `an_obj` was already visited, else True
+        """
+        objID = id(an_obj)
+        not_traversed = objID not in self.traversed
+        self.traversed.add(objID)
+        return not_traversed
 
 
 class FrozenFunction(Callable):

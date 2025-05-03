@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-29
+Updated: 2025-05-02
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable, Iterator
@@ -17,7 +17,7 @@ try:
     from debug import Debuggable
     from maps import MapSubset
     from metafunc import are_all_equal, DATA_ERRORS, has_method, \
-        IgnoreExceptions, KeepTryingUntilNoErrors, method, nameof
+        IgnoreExceptions, KeepTryingUntilNoErrors, method, nameof, Traversible
     from seq import (differentiate_sets, get_key_set,
                      stringify, uniqs_in)
     from trivial import always_true, get_item_of
@@ -25,7 +25,7 @@ except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
     from gconanpy.maps import MapSubset
     from gconanpy.metafunc import are_all_equal, DATA_ERRORS, has_method, \
-        IgnoreExceptions, KeepTryingUntilNoErrors, method, nameof
+        IgnoreExceptions, KeepTryingUntilNoErrors, method, nameof, Traversible
     from gconanpy.seq import (differentiate_sets, get_key_set,
                               stringify, uniqs_in)
     from gconanpy.trivial import always_true, get_item_of
@@ -223,7 +223,7 @@ class Peeler(IteratorFactory):
         return to_peel
 
 
-class SimpleShredder:
+class SimpleShredder(Traversible):
     SHRED_ERRORS = (AttributeError, TypeError)
 
     def __init__(self) -> None:
@@ -254,9 +254,7 @@ class SimpleShredder:
         :param an_obj: Iterable to save the "shreddable" elements of.
         """
         # If we already shredded it, then don't shred it again
-        objID = id(an_obj)
-        if objID not in self.shredded:
-            self.shredded.add(objID)
+        if self._will_traverse(an_obj):
 
             try:  # If it has a __dict__, then shred that
                 self._shred_iterable(an_obj.__dict__)
@@ -274,8 +272,9 @@ class SimpleShredder:
                     self._collect(element)
 
     def reset(self):
+        super(SimpleShredder, self).__init__()
         self.parts: set = set()
-        self.shredded: set[int] = set()
+        # self.shredded: set[int] = set()
 
     def shred(self, an_obj: Any) -> set:
         """ Recursively collect/save the attributes, items, and/or elements \
@@ -316,10 +315,8 @@ class Shredder(SimpleShredder, Debuggable):
         :param an_obj: Iterable to save the "shreddable" elements of.
         """
         # If we already shredded it, then don't shred it again
-        objID = id(an_obj)
-        if objID not in self.shredded and len(self.shredded
-                                              ) < self.max_shreds:
-            self.shredded.add(objID)
+        if self._will_traverse(an_obj) and len(self.traversed
+                                               ) < self.max_shreds:
 
             # If it has a __dict__, then shred that
             with IgnoreExceptions(*self.SHRED_ERRORS):

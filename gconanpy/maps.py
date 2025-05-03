@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-01
+Updated: 2025-05-02
 """
 # Import standard libraries
 from collections.abc import (Callable, Container, Generator,
@@ -19,12 +19,13 @@ from cryptography.fernet import Fernet
 # Import local custom libraries
 try:
     from debug import Debuggable
-    from metafunc import AttributesOf, KeepTryingUntilNoErrors, nameof
+    from metafunc import AttributesOf, KeepTryingUntilNoErrors, \
+        nameof, Traversible
     from trivial import always_none
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
     from gconanpy.metafunc import AttributesOf, KeepTryingUntilNoErrors, \
-        nameof
+        nameof, Traversible
     from gconanpy.trivial import always_none
 
 
@@ -79,20 +80,18 @@ class MapSubset:
                         if self.filter(k, v)})
 
 
-class WalkMap:
+class WalkMap(Traversible):
     _KeyType = Hashable | None
     _MapTuple = tuple[_KeyType, Mapping]
     _Walker = Generator[_MapTuple, None, None]
-    traversed: set[int]
+    # traversed: set[int]
 
     def __init__(self, a_map: Mapping) -> None:
         self.root = a_map
-        self.traversed = set()
+        self.traversed: set[int] = set()
 
     def _walk(self, key: _KeyType, value: Mapping | Any) -> _Walker:
-        objID = id(value)
-        if objID not in self.traversed:
-            self.traversed.add(objID)
+        if self._will_traverse(value):
             try:
                 for k, v in value.items():
                     yield from self._walk(k, v)
@@ -242,7 +241,7 @@ class Invertionary(Defaultionary):
             self.update(inverted)
 
 
-class DotDict(Defaultionary):
+class DotDict(Defaultionary, Traversible):
     """ dict with dot.notation item access. Compare `sklearn.utils.Bunch`.
         DotDict can get/set items as attributes: if `name` is not protected, \
         then `self.name is self["name"]`.
@@ -270,7 +269,7 @@ class DotDict(Defaultionary):
             super().update(from_map)
         super().update(kwargs)
 
-        self.homogenized: set[int] = set()
+        self.traversed: set[int] = set()
 
         # Prevent overwriting method/attributes or treating them like items
         dict.__setattr__(self, self.PROTECTEDS,  # set(dir(self.__class__)))
@@ -403,9 +402,7 @@ class DotDict(Defaultionary):
         :param replace: type of element/child/attribute to change to DotDict.
         """
         for k, v in self.items():
-            vID = id(v)
-            if vID not in self.homogenized:
-                self.homogenized.add(vID)
+            if self._will_traverse(v):
                 if isinstance(v, replace):
                     if not isinstance(v, self.__class__):
                         self[k] = self.__class__(v)
