@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-05-02
+Updated: 2025-05-04
 """
 # Import standard libraries
 from abc import ABC
@@ -15,9 +15,11 @@ from typing import Any, Literal, TypeVar
 
 # Import local custom libraries
 try:
-    from seq import stringify
+    from seq import DunderParser
+    from ToString import stringify, ToString
 except ModuleNotFoundError:
-    from gconanpy.seq import stringify
+    from gconanpy.seq import DunderParser
+    from gconanpy.ToString import stringify, ToString
 
 # Constants: TypeVars for...
 M = TypeVar("M", bound=Mapping)  # ...combine_maps
@@ -25,7 +27,6 @@ T = TypeVar("T")  # ...add_attributes_to
 
 # Purely "internal" errors only involving local data; ignorable in some cases
 DATA_ERRORS = (AttributeError, IndexError, KeyError, TypeError, ValueError)
-# TODO Does this include SysExit and pdb exit? It shouldn't!
 
 # Names of methods not to overwrite when wrapping an object
 ESSENTIALS = {f"__{attr}__" for attr in
@@ -68,10 +69,20 @@ def are_all_equal(comparables: Iterable, equality: str | None = None) -> bool:
 
 
 def combine_maps(maps: Iterable[M]) -> M:
+    """ Merge dicts/maps. (NOTE: It's wild that this implementation works.)
+
+    :param maps: Iterable[Mapping], maps to combine
+    :return: Mapping combining all of the `maps` into one
+    """
     return reduce(lambda x, y: x.update(y) or x, maps)
 
 
 def combine_sets(sets: Iterable[set]) -> set:
+    """ Merge sets.
+
+    :param sets: Iterable[set] to merge/combine.
+    :return: set, the union of all of the provided `sets`.
+    """
     return reduce(set.union, sets)
 
 
@@ -110,37 +121,85 @@ def method(method_name: str) -> Callable:  # TODO move to trivial.py?
     return call_method_of
 
 
-def nameof(an_obj: Any) -> str:
-    """ Get the `__name__` of an object or of its type/class.
+def method_metaclass(method_name: str, include: bool = True) -> type:
+    """ _summary_ 
 
-    :param an_obj: Any
-    :return: str naming an_obj, usually its type/class name.
+    :param method_name: str naming the method that the returned metaclass \
+        type object will check whether objects have 
+    :param include: bool, True to return a metaclass for 
+    :return: type, _description_
     """
-    return getattr(an_obj, "__name__", type(an_obj).__name__)
+    capitalized = DunderParser().pascalize(method_name)
+    if include:
+        def _check(cls, other: Any) -> bool:
+            return has_method(other, method_name)
+        verb = "Supports"
+    else:
+        def _check(cls, other: Any) -> bool:
+            return not has_method(other, method_name)
+        verb = "Lacks"
+    print(f"{verb}{capitalized}Meta")  # TODO REMOVE LINE
+    return type(f"{verb}{capitalized}Meta", (type, ),
+                {"__instancecheck__": _check,
+                 "__subclasscheck__": _check})
 
 
 def name_attributes_of(*objects: Any) -> set[str]:
+    """
+    :param objects: Iterable of objects to return the attribute names of
+    :return: set[str], the name of every attribute of everything in `objects`
+    """
     attr_names = set()
     for an_obj in objects:
         attr_names.update(dir(an_obj))
     return attr_names
 
 
-class Traversible:
-    traversed: set[int]
+def nameof(an_obj: Any) -> str:
+    """ Get the `__name__` of an object or of its type/class.
 
-    def __init__(self) -> None:
-        self.traversed = set()
+    :param an_obj: Any
+    :return: str naming an_obj, usually its type/class name.
+    """
+    return of_self_or_class(an_obj, "__name__")
+    # return getattr(an_obj, "__name__", type(an_obj).__name__)
 
-    def _will_traverse(self, an_obj: Any) -> bool:
-        """
-        :param an_obj: Any, object to recursively visit while traversing
-        :return: bool, False if `an_obj` was already visited, else True
-        """
-        objID = id(an_obj)
-        not_traversed = objID not in self.traversed
-        self.traversed.add(objID)
-        return not_traversed
+
+def of_self_or_class(an_obj: Any, attr_name: str) -> Any:
+    """
+    :param an_obj: Any, instance of type/class to get the attribute from
+    :param attr_name: str naming the attribute to return
+    :return: Any, the named attribute of either `an_obj` or its type/class
+    """
+    return getattr(an_obj, attr_name, getattr(type(an_obj), attr_name))
+
+
+def parents_of(an_obj: Any) -> tuple[type, ...]:
+    """ List the inheritance tree from `class object` to `an_obj`.
+
+    :param an_obj: Any
+    :return: tuple[type, ...], the method resolution order (`__mro__`) of \
+        `an_obj` or of `type(an_obj)`.
+    """
+    return of_self_or_class(an_obj, "__mro__")
+
+
+def pairs(*args: Any, **kwargs: Any
+          ) -> Generator[tuple[Any, Any], None, None]:
+    """ Iterate over pairs of items. Used for avoiding creating a dict only \
+        to iterate over it, especially when some pairings are redundant.
+
+    :param args: Iterable, arguments to iterate over first; each pair \
+        iterated over will be two instances of each arg in `args`.
+    :param kwargs: Mapping, arguments to iterate over second; each pair \
+        iterated over will be each key-value mapping/pair in `kwargs`.
+
+    :yield: Generator[tuple[Any, Any], None, None]
+    """
+    for arg in args:
+        yield (arg, arg)
+    for key, value in kwargs.items():
+        yield (key, value)
 
 
 class FrozenFunction(Callable):
@@ -212,9 +271,10 @@ class FrozenFunction(Callable):
 
 
 class FilterAttributes:
-    _SELECTOR = Callable[[Any], bool]
+    # Class variables: method input argument types
+    _SELECTOR = Callable[[Any], bool]  #
     _SELECTORS = list[_SELECTOR]
-    _WHICH = Literal["names"] | Literal["values"]
+    _WHICH = Literal["names", "values"]
 
     FilterFunction = Callable[[str, Any], bool]
     selectors: dict[_WHICH, _SELECTORS]
@@ -265,10 +325,17 @@ class AttributesOf:
     """ Select/iterate/copy the attributes of any object. """
     _T = TypeVar("_T")  # Type of object to copy attributes to
 
+    # Generator that iterates over attribute name-value pairs
+    _IterAttrPairs = Generator[tuple[str, Any], None, None]
+
     # Filters to choose which attributes to copy or iterate over
-    addFilter = FilterAttributes
+    newFilter = FilterAttributes
     METHOD_FILTERS: FilterAttributes.FilterFunction = \
         FilterAttributes(if_values=[callable]).build()
+
+    # If an attribute/method name starts with an underscore, then assume
+    # that it's private, and vice versa if it doesn't
+    attr_is_private = ToString("_").starts
 
     def __init__(self, what: Any) -> None:
         """ 
@@ -277,15 +344,7 @@ class AttributesOf:
         self.names = name_attributes_of(what)  # set(dir(what))
         self.what = what
 
-    def _attr_is_private(self, attr_name: str) -> bool:
-        """
-        :param attr_name: str naming an object attribute/method
-        :return: bool, True if `attr_name` names a private attribute or \
-            method (if it starts with '_'); otherwise False
-        """
-        return attr_name.startswith("_")
-
-    def add_to(self, an_obj: _T, filter_if: FilterAttributes.FilterFunction,
+    def add_to(self, an_obj: _T, filter_if: newFilter.FilterFunction,
                exclude: bool = False) -> _T:
         """ Copy attributes and their values into `an_obj`.
 
@@ -302,6 +361,11 @@ class AttributesOf:
         return an_obj
 
     def but_not(self, *others: Any) -> set[str]:
+        """
+        :param others: Iterable of objects to exclude attributes shared by
+        :return: set[str] naming all attributes that are in this object but \
+            not in any of the `others`
+        """
         return set(self.names) - name_attributes_of(others)
 
     def first_of(self, attr_names: Iterable[str], default: Any = None,
@@ -334,7 +398,12 @@ class AttributesOf:
             found_attr = found_attr()
         return found_attr
 
-    def items(self):
+    def items(self) -> _IterAttrPairs:
+        """ Iterate over all of this object's attributes.
+
+        :yield: Generator[tuple[str, Any], None, None] that returns the name \
+            and value of each selected attribute.
+        """
         yield from self.select()
 
     def methods(self) -> Generator[tuple[str, Callable], None, None]:
@@ -367,21 +436,21 @@ class AttributesOf:
             to_return = getattr(to_return, attributes.pop(0), None)
         return to_return
 
-    def private(self) -> Generator[tuple[str, Any], None, None]:
+    def private(self) -> _IterAttrPairs:
         """ Iterate over this object's private attributes.
 
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each private attribute.
         """
-        yield from self.select([self._attr_is_private])
+        yield from self.select([self.attr_is_private])
 
-    def public(self) -> Generator[tuple[str, Any], None, None]:
+    def public(self) -> _IterAttrPairs:
         """ Iterate over this object's public attributes.
 
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each public attribute.
         """
-        yield from self.select([self._attr_is_private], exclude=True)
+        yield from self.select([self.attr_is_private], exclude=True)
 
     def public_names(self) -> list[str]:
         """
@@ -389,9 +458,8 @@ class AttributesOf:
         """
         return [attr_name for attr_name, _ in self.public()]
 
-    def select(self, filter_if: FilterAttributes.FilterFunction,
-               exclude: bool = False) -> Generator[tuple[str, Any],
-                                                   None, None]:
+    def select(self, filter_if: newFilter.FilterFunction,
+               exclude: bool = False) -> _IterAttrPairs:
         """ Iterate over some of this object's attributes. 
 
         :param filter_if: Callable[[str, Any], bool] that returns True if \
@@ -422,15 +490,14 @@ class BoolableMeta(type):  # https://realpython.com/python-interface/
         methods = ("__bool__", "__len__")
         return bool(AttributesOf(subclass).first_of(methods, None,
                                                     set(methods)))
-        # return find_an_attr_in(subclass, methods, None, set(methods))
-
-
-def parents_of(an_obj: Any) -> tuple[type, ...]:
-    return getattr(an_obj, "__mro__", type(an_obj).__mro__)
 
 
 class Boolable(metaclass=BoolableMeta):
     """ Any object that you can call `bool()` on is a `Boolable`. """
+
+
+class NonIterable(metaclass=method_metaclass("__iter__", include=False)):
+    """ Any object that isn't an Iterable is a NonIterable. """
 
 
 class PureIterableMeta(type):
@@ -446,36 +513,12 @@ class PureIterableMeta(type):
         return not issubclass(subclass, self.EXCLUDES)
 
 
-class NonIterableMeta(type):
-
-    def _check(self, subclass):
-        return not has_method(subclass, "__iter__")
-
-    __subclasscheck__ = _check
-    __instancecheck__ = _check
-
-
-class NonIterable(metaclass=NonIterableMeta):
-    """ Any object that isn't an Iterable is a NonIterable. """
-
-
 class PureIterable(metaclass=PureIterableMeta):
     """ Any Iterable is a PureIterable unless it is a str, bytes,
         or Mapping. """
 
 
-class SupportsGetItemMeta(type):  # https://realpython.com/python-interface/
-    """ A metaclass that will be used for SupportsGetItem class creation.
-    """
-    def __instancecheck__(cls, instance: Any) -> bool:
-        # TODO try: instance[0]; KeyError: return True; AttributeError: False?
-        return has_method(instance, "__getitem__")
-
-    def __subclasscheck__(cls, subclass: type) -> bool:
-        return has_method(subclass, "__getitem__")
-
-
-class SupportsGetItem(metaclass=SupportsGetItemMeta):
+class SupportsGetItem(metaclass=method_metaclass("__getitem__")):
     """ Any object with a `__getitem__` method is a `SupportsGetItem`. """
 
 
@@ -523,9 +566,6 @@ class ErrCatcher:
 
 class IgnoreExceptions(ErrCatcher):
     def __enter__(self):
-        """ 
-        :return: IgnoreExceptions, self.
-        """
         return self
 
     # TODO Does this stop SysExit and pdb exit from propagating? It shouldn't!
@@ -536,24 +576,21 @@ class IgnoreExceptions(ErrCatcher):
             the context was exited without an exception, all three arguments \
             will be None.
 
-        If an exception is supplied, and the method wishes to suppress the \
-        exception (i.e., prevent it from being propagated), it should return \
-        a true value. Otherwise, the exception will be processed normally \
-        upon exit from this method.
-
         Note that __exit__() methods should not reraise the passed-in \
-        exception; this is the caller’s responsibility.
+        exception; this is the caller's responsibility.
 
         Docstring shamelessly stolen from \
         https://docs.python.org/3/reference/datamodel.html#object.__exit__
 
-        :param exc_type: type[BaseException] | None,_description_, defaults to None
-        :return: bool, _description_
+        :param exc_type: type[BaseException] | None, the `type` of exception \
+            caught (or None if no exception occurred)
+        :return: bool, True if no exception occurred or if an exception was \
+            caught and suppressed; else False to raise the exception
         """
         return (not self.catch) or (exc_type in self.catch)
 
 
-class SkipOrNot(IgnoreExceptions):
+class SkipOrNot(IgnoreExceptions, ABC):
     def __init__(self, parent: "KeepTryingUntilNoErrors", *catch) -> None:
         super(SkipOrNot, self).__init__(*catch)
         self.parent = parent
@@ -567,6 +604,15 @@ class Skip(SkipOrNot):
 class DontSkip(SkipOrNot):
     def __exit__(self, exc_type: type[BaseException] | None = None,
                  exc_val: BaseException | None = None, _: Any = None) -> bool:
+        """ Upon exiting a code block, inform the parent \
+            `KeepSkippingExceptions` context manager whether the code block \
+            completed successfully or raised an exception.
+
+        :param exc_type: type[BaseException] | None,_description_, defaults to None
+        :param exc_val: BaseException | None,_description_, defaults to None
+        :param _: Any,_description_, defaults to None
+        :return: bool, _description_
+        """
         if exc_val is None:
             self.parent.is_done = True
         else:
@@ -577,6 +623,12 @@ class DontSkip(SkipOrNot):
 class KeepSkippingExceptions(ErrCatcher):
     def __init__(self, catch: Iterable[type[BaseException]] = list(),
                  is_done: bool = False) -> None:
+        """
+        :param catch: Iterable[type[BaseException]] to catch and skip; \
+            defaults to `ErrCatcher.DEFAULT_CATCH` (`DATA_ERRORS`).
+        :param is_done: bool, True to skip any remaining code blocks; \
+            else False to execute them 
+        """
         super(KeepSkippingExceptions, self).__init__(*catch)
         self.errors = list()
         self.is_done = is_done
@@ -584,9 +636,18 @@ class KeepSkippingExceptions(ErrCatcher):
 
 class KeepTryingUntilNoErrors(KeepSkippingExceptions):
     def __init__(self, *catch: type[BaseException]) -> None:
+        """
+        :param catch: Iterable[type[BaseException]] to catch and skip. 
+        """
         super(KeepTryingUntilNoErrors, self).__init__(catch)
 
-    def __call__(self) -> Skip | DontSkip:
+    def __call__(self) -> SkipOrNot:
+        """ Execute the following code block unless a previous code block \
+            executed successfully (without raising an exception).
+
+        :return: SkipOrNot, Skip to ignore the following code block; else \
+            DontSkip to execute it.
+        """
         skip_or_not = Skip if self.is_done else DontSkip
         return skip_or_not(self, *self.catch)
 

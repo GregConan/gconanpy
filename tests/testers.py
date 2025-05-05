@@ -17,7 +17,8 @@ from bs4 import BeautifulSoup
 
 # Import local custom libraries
 from gconanpy.find import ErrIterChecker
-from gconanpy.maps import Cryptionary, DotDict, MapSubset
+from gconanpy.maps import Cryptionary, DotDict
+from gconanpy.maptools import MapSubset
 from gconanpy.metafunc import has_method
 
 

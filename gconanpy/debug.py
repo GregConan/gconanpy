@@ -6,7 +6,7 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-04-26
+Updated: 2025-05-04
 """
 # Import standard libraries
 from abc import ABC
@@ -28,10 +28,12 @@ from pympler.asizeof import asizeof
 # Import local custom libraries
 try:
     from metafunc import nameof
-    from seq import stringify, uniqs_in
+    from seq import uniqs_in
+    from ToString import stringify_dt, stringify_seq
 except ModuleNotFoundError:
     from gconanpy.metafunc import nameof
-    from gconanpy.seq import stringify, uniqs_in
+    from gconanpy.seq import uniqs_in
+    from gconanpy.ToString import stringify_dt, stringify_seq
 
 # Constants
 LOGGER_NAME = __package__
@@ -51,7 +53,7 @@ def debug(an_err: Exception, local_vars: Mapping[str, Any]) -> None:
     try:
         logger = logging.getLogger(LOGGER_NAME)
         logger.exception(an_err)
-        print("Local variables: " + stringify([x for x in locals()]))
+        print("Local variables: " + stringify_seq([x for x in locals()]))
     except Exception as new_err:
         errs.append(new_err)
     # show_keys_in(locals(), level=logger.level)
@@ -60,8 +62,8 @@ def debug(an_err: Exception, local_vars: Mapping[str, Any]) -> None:
 
 
 class Debuggable:
-    """ I put the debugger function in a class so it can check its \
-        implementer classes' self.debugging variable to determine whether \
+    """ I put the debugger function in a class so it can check its
+        implementer classes' `self.debugging` variable to determine whether
         to raise errors/exceptions or pause and interactively debug them. """
 
     def __init__(self, debugging: bool = False):
@@ -172,7 +174,7 @@ def show_keys_in(a_map: Mapping[str, Any],  # show: Callable = print,
     :param level: int, the severity level to log the message at (10 to 50)
     :param logger_name: str naming the logger to use for logging the message
     """
-    log(f"{what_keys_are}: {stringify(uniqs_in(a_map))}", level=level,
+    log(f"{what_keys_are}: {stringify_seq(uniqs_in(a_map))}", level=level,
         logger_name=logger_name)
 
 
@@ -222,7 +224,7 @@ def sizeof(an_obj: Any, precision: int = 3, metric: bool = True) -> str:
 
 
 class SplitLogger(logging.getLoggerClass()):
-    # Container class for message-logger and error-logger ("split" apart)
+    """Container class for message-logger and error-logger ("split" apart)"""
     FMT = "\n%(levelname)s %(asctime)s: %(message)s"
     LVL = dict(OUT={logging.DEBUG, logging.INFO, logging.NOTSET},
                ERR={logging.CRITICAL, logging.ERROR, logging.WARNING})
@@ -261,7 +263,7 @@ class SplitLogger(logging.getLoggerClass()):
         """
         log_to = dict()
         if cli_args.get("log"):
-            log_file_name = f"log_{stringify(dt.datetime.now())}.txt"
+            log_file_name = f"log_{stringify_dt(dt.datetime.now())}.txt"
             log_file_path = os.path.join(cli_args["log"], log_file_name)
             log_to = dict(out=log_file_path, err=log_file_path)
         return cls(verbosity=cli_args["verbosity"], **log_to)

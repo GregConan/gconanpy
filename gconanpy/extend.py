@@ -3,10 +3,10 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2025-04-28
+Updated: 2025-05-04
 """
 # Import standard libraries
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 import inspect
 import re
 from typing import Any
@@ -17,18 +17,23 @@ from makefun import create_function, with_signature
 # Import local custom libraries
 try:
     from metafunc import (add_attributes_to, AttributesOf,
-                          combine_maps, nameof)
-    from seq import ToString
+                          combine_maps, nameof, pairs)
+    from ToString import ToString
 except ModuleNotFoundError:
     from gconanpy.metafunc import (add_attributes_to, AttributesOf,
-                                   combine_maps, nameof)
-    from gconanpy.seq import ToString
+                                   combine_maps, nameof, pairs)
+    from gconanpy.ToString import ToString
 
 
 Wrapper = Callable[[Callable], Callable]
 
 
 def all_annotations_of(a_class: type) -> dict[str, type]:
+    """ 
+    :param a_class: type
+    :return: dict[str, type], the `__annotations__` of `a_class` and all of \
+        its parent (`__mro__`) classes, prioritizing `a_class`'s annotations
+    """
     return combine_maps([getattr(base, "__annotations__", dict())
                          for base in reversed(a_class.__mro__)])
 
@@ -37,9 +42,18 @@ def signature_extends(func: Callable,
                       pre: Iterable[inspect.Parameter] = list(),
                       post: Iterable[inspect.Parameter] = list(),
                       default: Any = None, **kwargs) -> Wrapper:
-    for param, attr in dict(
-        func_name="name", doc="doc", module_name="module", qualname="qualname"
-    ).items():
+    """
+    :param func: Callable, function or method to extend the signature of
+    :param pre: Iterable[inspect.Parameter] of new arguments to prepend to \
+        `func`'s signature before its existing input arguments
+    :param post: Iterable[inspect.Parameter] of new arguments to append to \
+        `func`'s signature after its existing input arguments
+    :param default: Any,_description_, defaults to None
+    :return: Callable[[Callable], Callable], Wrapper, function decorator to \
+        add the specified input arguments to a given method/function `func`
+    """
+    for param, attr in pairs("doc", "qualname", func_name="name",
+                             module_name="module"):
         kwargs.setdefault(param, getattr(func, f"__{attr}__", default))
 
     old_params = inspect.signature(func).parameters
@@ -49,6 +63,14 @@ def signature_extends(func: Callable,
 
 
 def append_default(a_func: Callable) -> Callable:
+    """ 
+    :param a_func: Callable, function or method to extend by appending a new \
+        input parameter to its signature called `default_return`, which is \
+        the value for `append_default`'s returned function/method to return \
+        if `a_func` retunrns something falsy
+    :return: Callable, function decorator to add the new `default_return` \
+        input parameter to a given function/method `a_func`
+    """
     def_ret = inspect.Parameter(
         "default_return", default=None, annotation=Any,
         kind=inspect._ParameterKind.POSITIONAL_OR_KEYWORD)
@@ -63,19 +85,21 @@ def append_default(a_func: Callable) -> Callable:
     return wrapper
 
 
-def extend(a_class: type, name: str, **wrappers: Wrapper) -> type:
-    return type(name, tuple(), {  # TODO Allow for adding wholly new methods
-        meth_name: wrappers[meth_name](meth) if meth_name in wrappers
-        else meth for meth_name, meth in AttributesOf(a_class).methods()})
+def extend(a_class: type, name: str, wrappers: Mapping[str, Wrapper],
+           **new: Any) -> type:
+    wrapped = {meth_name: wrappers[meth_name](meth)
+               if meth_name in wrappers else meth
+               for meth_name, meth in AttributesOf(a_class).methods()}
+    return type(name, tuple(), {**wrapped, **new})
 
 
 def extend1(a_class: type, name: str, wrapper: Wrapper, *methods: str) -> type:
-    return extend(a_class, name, **{m: wrapper for m in methods})
+    return extend(a_class, name, {m: wrapper for m in methods})
 
 
 def initialize(self: Any, *args: Any, **kwargs: Any) -> None:
-    """ Generic __init__ function for `weak_dataclass` to specify by adding \
-        a method signature.
+    """ Generic `__init__` function for `weak_dataclass` to specify by \
+        adding a method signature.
 
     :param self: Any, object with a `__slots__: tuple[str, ...]` attribute \
         naming the `__init__` input arguments.

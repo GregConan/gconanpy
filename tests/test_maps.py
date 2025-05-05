@@ -3,15 +3,16 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-05-01
+Updated: 2025-05-04
 """
 # Import standard libraries
 from collections.abc import Generator, Mapping
 from typing import Any
 
 # Import local custom libraries
-from gconanpy.maps import (Defaultionary, DotDict, Invertionary,
-                           LazyDotDict, WalkMap)
+from gconanpy.maps import (Defaultionary, DotDict, FancyDict,
+                           Invertionary, LazyDotDict)
+from gconanpy.maptools import WalkMap
 from tests.testers import Tester
 
 
@@ -34,7 +35,8 @@ class MapTester(Tester):
 
 
 class TestInvertionary(MapTester):
-    TEST_CLASSES = (Invertionary, )  # Defaultionary, DotDict, LazyDotDict)
+    # Defaultionary, DotDict, LazyDotDict)
+    TEST_CLASSES = (Invertionary, FancyDict)
 
     def test_1(self):
         self.add_basics()
@@ -70,7 +72,8 @@ class TestInvertionary(MapTester):
 
 
 class TestDefaultionary(MapTester):
-    TEST_CLASSES = (Defaultionary, DotDict, LazyDotDict)
+    TEST_CLASSES = (Defaultionary, DotDict, FancyDict,
+                    Invertionary, LazyDotDict)
 
     def one_update_test(self, dfty: Defaultionary, expected_len: int,
                         a_map: Mapping | None = None,
@@ -103,7 +106,7 @@ class TestDefaultionary(MapTester):
 
 
 class TestDotDicts(MapTester):
-    TEST_CLASSES = (DotDict, LazyDotDict)
+    TEST_CLASSES = (DotDict, LazyDotDict, FancyDict)
 
     def test_set(self):
         for dd in self.get_custom_dicts():

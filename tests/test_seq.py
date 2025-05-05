@@ -3,15 +3,41 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-04-29
+Updated: 2025-05-04
 """
 # Import standard libraries
 import datetime as dt
 import random
 
 # Import local custom libraries
-from gconanpy.seq import stringify, ToString
+from gconanpy.metafunc import method_metaclass
+from gconanpy.seq import DunderParser
+from gconanpy.ToString import stringify, ToString
 from tests.testers import Tester
+
+
+class TestDunderParser(Tester):
+    def pascaltest(self, method_name: str, pascalized: str) -> None:
+        self.check_result(self.dp.pascalize(method_name), pascalized)
+        new_type = method_metaclass(method_name, include=True)
+        self.check_result(new_type.__name__, f"Supports{pascalized}Meta")
+        new_type = method_metaclass(method_name, include=False)
+        self.check_result(new_type.__name__, f"Lacks{pascalized}Meta")
+
+    def test_pascalize(self):
+        self.dp = DunderParser()
+        for method_name, pascalized in (
+            ("__class_instancecheck__", "ClassInstanceCheck"),
+            ("__delattr__", "DelAttr"), ("__delitem__", "DelItem"),
+            ("__getattr__", "GetAttr"), ("__getitem__", "GetItem"),
+            ("__hash__", "Hash"), ("__iter__", "Iter"),
+            ("__init_subclass__", "InitSubclass"),
+            ("__instancecheck__", "InstanceCheck"),
+            ("__next__", "Next"), ("__qualname__", "QualName"),
+            ("__setattr__", "SetAttr"), ("__setitem__", "SetItem"),
+            ("__sizeof__", "SizeOf"), ("__subclasscheck__", "SubclassCheck")
+        ):
+            self.pascaltest(method_name, pascalized)
 
 
 class TestStringify(Tester):
@@ -27,8 +53,7 @@ class TestStringify(Tester):
         self.check_map("'a': 1, 'b': 2, and 'c': 3")
 
     def test_add(self):
-        self.check_result(type(stringify("hi") + " there"),
-                          ToString)
+        self.check_result(type(stringify("hi") + " there"), ToString)
         # self.check_result(type("hi" + stringify(" there")), ToString)  # TODO?
 
     def test_affix(self):

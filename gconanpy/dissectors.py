@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-02
+Updated: 2025-05-04
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable, Iterator
@@ -15,19 +15,19 @@ from typing import Any, SupportsFloat, TypeVar
 # Import local custom libraries
 try:
     from debug import Debuggable
-    from maps import MapSubset
+    from maptools import MapSubset, Traversible
     from metafunc import are_all_equal, DATA_ERRORS, has_method, \
-        IgnoreExceptions, KeepTryingUntilNoErrors, method, nameof, Traversible
-    from seq import (differentiate_sets, get_key_set,
-                     stringify, uniqs_in)
+        IgnoreExceptions, KeepTryingUntilNoErrors, method, nameof
+    from seq import differentiate_sets, get_key_set, uniqs_in
+    from ToString import stringify
     from trivial import always_true, get_item_of
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
-    from gconanpy.maps import MapSubset
+    from gconanpy.maptools import MapSubset, Traversible
     from gconanpy.metafunc import are_all_equal, DATA_ERRORS, has_method, \
-        IgnoreExceptions, KeepTryingUntilNoErrors, method, nameof, Traversible
-    from gconanpy.seq import (differentiate_sets, get_key_set,
-                              stringify, uniqs_in)
+        IgnoreExceptions, KeepTryingUntilNoErrors, method, nameof
+    from gconanpy.seq import differentiate_sets, get_key_set, uniqs_in
+    from gconanpy.ToString import stringify
     from gconanpy.trivial import always_true, get_item_of
 
 

@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-04-29
+Updated: 2025-05-04
 """
 # Import standard libraries
 from typing import Any
@@ -11,11 +11,13 @@ from typing import Any
 # Import local custom libraries
 from gconanpy.dissectors import Corer, DifferenceBetween, Shredder, \
     SimpleShredder, Xray
-from gconanpy.maps import MapSubset
+from gconanpy.maptools import MapSubset
 from tests.testers import Tester
 
 
 class TestShredders(Tester):
+    TEST_CLASSES = (Corer, Shredder, SimpleShredder)
+
     def test_1(self):
         self.add_basics()
         corer = Corer()
@@ -53,7 +55,7 @@ class TestShredders(Tester):
     def test_5(self):
         shreddables = [list, dict, set, tuple]
         soup = self.get_soup()
-        for shredder_type in (Shredder, SimpleShredder):
+        for shredder_type in self.TEST_CLASSES:
             for chunk in shredder_type().shred(soup):
                 for shreddable in shreddables:
                     assert not isinstance(chunk, shreddable)
