@@ -3,14 +3,14 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-05-04
+Updated: 2025-05-07
 """
 # Import standard libraries
 import datetime as dt
 import random
 
 # Import local custom libraries
-from gconanpy.metafunc import method_metaclass
+from gconanpy.metafunc import metaclass_hasmethod
 from gconanpy.seq import DunderParser
 from gconanpy.ToString import stringify, ToString
 from tests.testers import Tester
@@ -19,9 +19,9 @@ from tests.testers import Tester
 class TestDunderParser(Tester):
     def pascaltest(self, method_name: str, pascalized: str) -> None:
         self.check_result(self.dp.pascalize(method_name), pascalized)
-        new_type = method_metaclass(method_name, include=True)
+        new_type = metaclass_hasmethod(method_name, include=True)
         self.check_result(new_type.__name__, f"Supports{pascalized}Meta")
-        new_type = method_metaclass(method_name, include=False)
+        new_type = metaclass_hasmethod(method_name, include=False)
         self.check_result(new_type.__name__, f"Lacks{pascalized}Meta")
 
     def test_pascalize(self):

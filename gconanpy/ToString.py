@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-05-04
+Updated: 2025-05-07
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping
@@ -362,4 +362,4 @@ class ToString(str):
 stringify = ToString.from_object
 stringify_dt = ToString.from_datetime
 stringify_map = ToString.from_mapping
-stringify_seq = ToString.from_iterable
+stringify_iter = ToString.from_iterable

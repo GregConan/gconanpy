@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-05-04
+Updated: 2025-05-07
 """
 # Import standard libraries
 from abc import ABC
@@ -16,10 +16,10 @@ from typing import Any, Literal, TypeVar
 # Import local custom libraries
 try:
     from seq import DunderParser
-    from ToString import stringify, ToString
+    from ToString import stringify_iter, ToString
 except ModuleNotFoundError:
     from gconanpy.seq import DunderParser
-    from gconanpy.ToString import stringify, ToString
+    from gconanpy.ToString import stringify_iter, ToString
 
 # Constants: TypeVars for...
 M = TypeVar("M", bound=Mapping)  # ...combine_maps
@@ -45,20 +45,27 @@ def add_attributes_to(an_obj: T, **attributes: Any) -> T:
     return an_obj
 
 
-def are_all_equal(comparables: Iterable, equality: str | None = None) -> bool:
-    """ `are_all_equal([x, y, z])` means `x == y == z`.
-    `are_all_equal({x, y}, "is_like")` means `x.is_like(y) and y.is_like(x)`.
+def are_all_equal(comparables: Iterable, equality: str | None = None,
+                  reflexive: bool = False) -> bool:
+    """ `are_all_equal([a, b, c, d, e])` means `a == b == c == d == e`.
 
     :param comparables: Iterable of objects to compare.
     :param equality: str naming the method of every item in comparables to \
         call on every other item. `==` (`__eq__`) is the default comparison.
+        `are_all_equal((a, b, c), equality="isEqualTo")` means \
+        `a.isEqualTo(b) and a.isEqualTo(c) and b.isEqualTo(c)`.
+    :param reflexive: bool, True to compare each possible pair of objects in \
+        `comparables` forwards and backwards.
+        `are_all_equal({x, y}, equality="is_like", reflexive=True)` means \
+        `x.is_like(y) and y.is_like(x)`.
     :return: bool, True if calling the `equality` method attribute of every \
         item in comparables on every other item always returns True; \
         otherwise False.
     """
     are_same = None
     are_both_equal = method(equality) if equality else (lambda x, y: x == y)
-    combos_iter = itertools.combinations(comparables, 2)
+    pair_up = itertools.permutations if reflexive else itertools.combinations
+    combos_iter = pair_up(comparables, 2)
     while are_same is None:
         next_pair = next(combos_iter, None)
         if next_pair is None:
@@ -66,6 +73,10 @@ def are_all_equal(comparables: Iterable, equality: str | None = None) -> bool:
         elif not are_both_equal(*next_pair):
             are_same = False
     return are_same
+
+
+def bool_pair_to_cases(cond1, cond2) -> Literal[0, 1, 2, 3]:
+    return sum(which_of(cond1, cond2))
 
 
 def combine_maps(maps: Iterable[M]) -> M:
@@ -121,7 +132,7 @@ def method(method_name: str) -> Callable:  # TODO move to trivial.py?
     return call_method_of
 
 
-def method_metaclass(method_name: str, include: bool = True) -> type:
+def metaclass_hasmethod(method_name: str, include: bool = True) -> type:
     """ _summary_ 
 
     :param method_name: str naming the method that the returned metaclass \
@@ -131,17 +142,42 @@ def method_metaclass(method_name: str, include: bool = True) -> type:
     """
     capitalized = DunderParser().pascalize(method_name)
     if include:
-        def _check(cls, other: Any) -> bool:
-            return has_method(other, method_name)
+        def _check(cls, thing: Any) -> bool:
+            return has_method(thing, method_name)
         verb = "Supports"
     else:
-        def _check(cls, other: Any) -> bool:
-            return not has_method(other, method_name)
+        def _check(cls, thing: Any) -> bool:
+            return not has_method(thing, method_name)
         verb = "Lacks"
-    print(f"{verb}{capitalized}Meta")  # TODO REMOVE LINE
     return type(f"{verb}{capitalized}Meta", (type, ),
                 {"__instancecheck__": _check,
                  "__subclasscheck__": _check})
+
+
+def metaclass_issubclass(is_all_of: Iterable[type] = list(),
+                         isnt_any_of: Iterable[type] = list(),
+                         name: str | None = None) -> type:
+    def _checker(is_a: Callable[[Any, type], bool]):
+        def _check(cls, instance):
+            return (not is_all_of or is_a(instance, is_all_of)
+                    ) and not is_a(instance, isnt_any_of)
+        return _check
+    if not name:
+        name = name_type_class(is_all_of, isnt_any_of)
+    return type(name, (type, ), {"__instancecheck__": _checker(isinstance),
+                                 "__subclasscheck__": _checker(issubclass)})
+
+
+def name_all(objects: Iterable, max_n: int | None = None) -> list[str]:
+    """
+    :param objects: Iterable of things to return the names of
+    :param max_n: int | None, maximum number of names to return; by default, \
+        this function will return all names
+    :return: list[str], names of `max_n` (or all) `objects`
+    """
+    if max_n is None:
+        max_n = len(objects)
+    return [nameof(x) for i, x in enumerate(objects) if i < max_n]
 
 
 def name_attributes_of(*objects: Any) -> set[str]:
@@ -155,6 +191,23 @@ def name_attributes_of(*objects: Any) -> set[str]:
     return attr_names
 
 
+def name_type_class(is_all_of: Iterable[type] = list(),
+                    isnt_any_of: Iterable[type] = list(),
+                    max_n: int = 5, default: str = "NewTypeClass") -> str:
+    str_isall = "And".join(name_all(is_all_of, max_n=max_n))
+    str_isntany = "Or".join(name_all(isnt_any_of, max_n=max_n))
+    match bool_pair_to_cases(str_isall, str_isntany):
+        case 0:
+            name = default
+        case 1:
+            name = "Is" + str_isall
+        case 2:
+            name = "IsNot" + str_isntany
+        case 3:
+            name = f"Is{str_isall}ButNot{str_isntany}"
+    return name
+
+
 def nameof(an_obj: Any) -> str:
     """ Get the `__name__` of an object or of its type/class.
 
@@ -162,7 +215,6 @@ def nameof(an_obj: Any) -> str:
     :return: str naming an_obj, usually its type/class name.
     """
     return of_self_or_class(an_obj, "__name__")
-    # return getattr(an_obj, "__name__", type(an_obj).__name__)
 
 
 def of_self_or_class(an_obj: Any, attr_name: str) -> Any:
@@ -200,6 +252,14 @@ def pairs(*args: Any, **kwargs: Any
         yield (arg, arg)
     for key, value in kwargs.items():
         yield (key, value)
+
+
+def which_of(*conditions: bool) -> set[int]:
+    """
+    :param conditions: Iterable[Boolable] of items to filter
+    :return: set[int], the indices of every truthy item in `conditions`
+    """
+    return set((i for i, cond in enumerate(conditions) if cond))
 
 
 class FrozenFunction(Callable):
@@ -246,11 +306,17 @@ class FrozenFunction(Callable):
         # Put all pre-defined args and kwargs into this instance's str repr
 
         kwargstrs = [f"{k}={v}" for k, v in kwargs.items()]
-        argstr = stringify([*pre, "*args", *post, *kwargstrs],
-                           prefix="[", suffix="]")
+        argstr = stringify_iter([*pre, "*args", *post, *kwargstrs],
+                                prefix="[", suffix="]")
         self.name = f"{nameof(self)}[{nameof(call)}({argstr}, **kwargs)]"
 
         self.inner = inner
+
+    def __repr__(self) -> str:
+        """
+        :return: str, annotated function header describing this FrozenFunction
+        """
+        return self.name
 
     def expect(self, output: Any) -> "FrozenFunction":
         """ 
@@ -263,11 +329,9 @@ class FrozenFunction(Callable):
             return self.inner(*args, **kwargs) == output
         return self.__class__(is_as_expected)
 
-    def __repr__(self) -> str:
-        """
-        :return: str, annotated function header describing this FrozenFunction
-        """
-        return self.name
+    def foreach(self, *objects: Inner) -> Generator[Ret, None, None]:
+        for an_obj in objects:
+            yield self.inner(an_obj)
 
 
 class FilterAttributes:
@@ -366,7 +430,7 @@ class AttributesOf:
         :return: set[str] naming all attributes that are in this object but \
             not in any of the `others`
         """
-        return set(self.names) - name_attributes_of(others)
+        return set(self.names) - name_attributes_of(*others)
 
     def first_of(self, attr_names: Iterable[str], default: Any = None,
                  method_names: set[str] = set()) -> Any:
@@ -496,29 +560,17 @@ class Boolable(metaclass=BoolableMeta):
     """ Any object that you can call `bool()` on is a `Boolable`. """
 
 
-class NonIterable(metaclass=method_metaclass("__iter__", include=False)):
+class NonIterable(metaclass=metaclass_hasmethod("__iter__", include=False)):
     """ Any object that isn't an Iterable is a NonIterable. """
 
 
-class PureIterableMeta(type):
-    EXCLUDES = (str, bytes, Mapping)
-
-    def __instancecheck__(self, an_obj: Any) -> bool:
-        return isinstance(an_obj, Iterable) and \
-            not isinstance(an_obj, Mapping) and \
-            not isinstance(an_obj, str) and \
-            not isinstance(an_obj, bytes)
-
-    def __subclasscheck__(self, subclass):
-        return not issubclass(subclass, self.EXCLUDES)
+class PureIterable(metaclass=metaclass_issubclass(
+        is_all_of=(Iterable, ), isnt_any_of=(str, bytes, Mapping),
+        name="PureIterableMeta")):
+    """ Iterables that aren't strings, bytes, or Mappings are "Pure." """
 
 
-class PureIterable(metaclass=PureIterableMeta):
-    """ Any Iterable is a PureIterable unless it is a str, bytes,
-        or Mapping. """
-
-
-class SupportsGetItem(metaclass=method_metaclass("__getitem__")):
+class SupportsGetItem(metaclass=metaclass_hasmethod("__getitem__")):
     """ Any object with a `__getitem__` method is a `SupportsGetItem`. """
 
 

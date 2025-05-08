@@ -6,7 +6,7 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-04
+Updated: 2025-05-07
 """
 # Import standard libraries
 from abc import ABC
@@ -29,11 +29,11 @@ from pympler.asizeof import asizeof
 try:
     from metafunc import nameof
     from seq import uniqs_in
-    from ToString import stringify_dt, stringify_seq
+    from ToString import stringify_dt, stringify_iter
 except ModuleNotFoundError:
     from gconanpy.metafunc import nameof
     from gconanpy.seq import uniqs_in
-    from gconanpy.ToString import stringify_dt, stringify_seq
+    from gconanpy.ToString import stringify_dt, stringify_iter
 
 # Constants
 LOGGER_NAME = __package__
@@ -53,7 +53,7 @@ def debug(an_err: Exception, local_vars: Mapping[str, Any]) -> None:
     try:
         logger = logging.getLogger(LOGGER_NAME)
         logger.exception(an_err)
-        print("Local variables: " + stringify_seq([x for x in locals()]))
+        print("Local variables: " + stringify_iter([x for x in locals()]))
     except Exception as new_err:
         errs.append(new_err)
     # show_keys_in(locals(), level=logger.level)
@@ -174,7 +174,7 @@ def show_keys_in(a_map: Mapping[str, Any],  # show: Callable = print,
     :param level: int, the severity level to log the message at (10 to 50)
     :param logger_name: str naming the logger to use for logging the message
     """
-    log(f"{what_keys_are}: {stringify_seq(uniqs_in(a_map))}", level=level,
+    log(f"{what_keys_are}: {stringify_iter(uniqs_in(a_map))}", level=level,
         logger_name=logger_name)
 
 

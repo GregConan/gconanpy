@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-05-04
+Updated: 2025-05-07
 """
 # Import standard libraries
 from collections.abc import Generator, Mapping
@@ -73,7 +73,7 @@ class TestInvertionary(MapTester):
 
 class TestDefaultionary(MapTester):
     TEST_CLASSES = (Defaultionary, DotDict, FancyDict,
-                    Invertionary, LazyDotDict)
+                    LazyDotDict)
 
     def one_update_test(self, dfty: Defaultionary, expected_len: int,
                         a_map: Mapping | None = None,

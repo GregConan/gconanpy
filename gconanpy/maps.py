@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-04
+Updated: 2025-05-07
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Hashable, Iterable, Mapping
@@ -47,6 +47,12 @@ class Explictionary(dict):
 
 
 class Defaultionary(Explictionary):
+    """ Custom dict class with extended functionality centered around the \
+        `default=` option, functionality used by various other custom dicts. \
+        The Defaultionary can ignore specified values as if they were blank \
+        in its `get` and `update` methods. It can also use `setdefault` on \
+        many different elements at once via `setdefaults`.
+    """
 
     def _will_getdefault(self, key: Any, exclude: Container = set()
                          ) -> bool:
@@ -115,7 +121,8 @@ class Defaultionary(Explictionary):
             return updated
 
 
-class Invertionary(Defaultionary):
+class Invertionary(Explictionary):
+    # Type variables for invert method
     _T = TypeVar("_T")
     CollisionHandler = Callable[[list[_T]], Iterable[_T]]
 
@@ -187,10 +194,11 @@ class DotDict(Defaultionary, Traversible):
             super().update(from_map)
         super().update(kwargs)
 
+        # Initialize self as a Traversible for homogenize method
         self.traversed: set[int] = set()
 
         # Prevent overwriting method/attributes or treating them like items
-        dict.__setattr__(self, self.PROTECTEDS,  # set(dir(self.__class__)))
+        dict.__setattr__(self, self.PROTECTEDS,
                          set(AttributesOf(self.__class__).method_names()
                              ).union({self.PROTECTEDS}))
 
@@ -320,11 +328,10 @@ class DotDict(Defaultionary, Traversible):
         :param replace: type of element/child/attribute to change to DotDict.
         """
         for k, v in self.items():
-            if self._will_traverse(v):
-                if isinstance(v, replace):
-                    if not isinstance(v, self.__class__):
-                        self[k] = self.__class__(v)
-                    self[k].homogenize()
+            if self._will_traverse(v) and isinstance(v, replace):
+                if not isinstance(v, self.__class__):
+                    self[k] = self.__class__(v)
+                self[k].homogenize()
 
     def lookup(self, path: str, sep: str = ".", default: Any = None) -> Any:
         """ Get the value mapped to a key in nested structure. Adapted from \
@@ -353,10 +360,12 @@ class DotDict(Defaultionary, Traversible):
 
 class LazyDict(Defaultionary):
     """ Dict that can get/set items and ignore the default parameter \
-    until/unless it is needed, ONLY evaluating it after failing to get/set \
-    an existing key. Benefit: The `default=` code does not need to be valid \
-    (yet) if self already has the key. If you pass a function to a "lazy" \
-    method, then that function only needs to work if a value is missing.
+        until/unless it is needed, ONLY evaluating it after failing to \
+        get/set an existing key. Benefit: The `default=` code does not \
+        need to be valid (yet) if self already has the key. If you pass a \
+        function to a "lazy" method, then that function only needs to work \
+        if a value is missing.
+
     Keeps most core functionality of the Python `dict` type.
     Extended `LazyButHonestDict` from https://stackoverflow.com/q/17532929 """
 
@@ -430,7 +439,7 @@ class Promptionary(LazyDict, Debuggable):
         """ Initialize Promptionary from existing Mapping (from_map) or from \
             new Mapping (**kwargs).
 
-        :param from_map: Mapping to convert into Promptionary.
+        :param from_map: Mapping to convert into a new Promptionary.
         :param debugging: bool, True to pause and interact on error, else \
             False to raise errors/exceptions; defaults to False.
         :param kwargs: Mapping[str, Any] of key-value pairs to add to this \
@@ -485,6 +494,8 @@ class Promptionary(LazyDict, Debuggable):
 class Bytesifier(Debuggable):
     """ Class with a method to convert objects into bytes without knowing \
         what type those things are. """
+    # Default input parameters for str.encode and int.to_bytes in bytesify.
+    # Using Defaultionary because it can copy and update in one method call.
     DEFAULTS = Defaultionary(encoding=sys.getdefaultencoding(), length=1,
                              byteorder="big", signed=False)
 
@@ -511,15 +522,18 @@ class Bytesifier(Debuggable):
         bytesified = None
         errs = None
 
+        # Try to convert to bytes: first from string, and then from int.
+        # If it's already bytes, that's unneeded. If it's some other type,
+        # then raise an error
         with KeepTryingUntilNoErrors(TypeError) as next_try:
-            with next_try():
+            with next_try():  # String to bytes
                 bytesified = str.encode(an_obj, encoding=encoding)
-            with next_try():
+            with next_try():  # Int to bytes
                 bytesified = int.to_bytes(an_obj, **defaults)
-            with next_try():
+            with next_try():  # Already bytes
                 bytes.decode(an_obj, encoding=encoding)
                 bytesified = an_obj
-            with next_try():
+            with next_try():  # Something else -> error
                 errs = next_try.errors
         if bytesified is None:
             self.debug_or_raise(errs[-1], locals())
@@ -535,11 +549,18 @@ class Cryptionary(Promptionary, Bytesifier):
 
     def __init__(self, from_map: Mapping = dict(),
                  debugging: bool = False, **kwargs):
+        """ Create a new Cryptionary.
+
+        :param from_map: Mapping to convert into a new Cryptionary.
+        :param debugging: bool, True to pause and interact on error, else \
+            False to raise errors/exceptions; defaults to False.
+        """
         try:
             # Create encryption mechanism
             self.encrypted = set()
             self.cryptor = Fernet(Fernet.generate_key())
 
+            # Initialize from Promptionary
             super(Cryptionary, self).__init__(
                 from_map=from_map, debugging=debugging, **kwargs)
 
@@ -590,19 +611,55 @@ class Cryptionary(Promptionary, Bytesifier):
 
 
 class FancyDict(DotDict, Promptionary, Invertionary):
+    """ Custom dict combining as much functionality from the other classes \
+        defined in this file and in maptools.py as possible: lazy methods, \
+        enhanced default/update methods, prompt methods, invert method, \
+        and dot.notation item access.
+    """
+
     @classmethod
     def from_subset_of(cls, from_map: Mapping,
                        keys: Container[Hashable] = set(),
                        values: Container = set(), include_keys: bool = False,
                        include_values: bool = False):
+        """ Convert a subset of `from_map` into a new `FancyDict`.
+
+        :param from_map: Mapping to create a new FancyDict from a subset of.
+        :param keys: Container[Hashable] of keys to (in/ex)clude.
+        :param values: Container of values to (in/ex)clude.
+        :param include_keys: bool, True for `filter` to return a subset \
+            with ONLY the provided `keys`; else False to return a subset \
+            with NONE OF the provided `keys`.
+        :param include_values: bool, True for `filter` to return a subset \
+            with ONLY the provided `values`; else False to return a subset \
+            with NONE OF the provided `values`.
+        :return: FancyDict including only the specified keys and values.       
+        """
         return MapSubset(keys, values, include_keys, include_values
                          ).of(from_map, cls)
 
     def subset(self, keys: Container[Hashable] = set(),
                values: Container = set(), include_keys: bool = False,
                include_values: bool = False):
+        """ Create a new `FancyDict` including only a subset of this one.
+
+        :param keys: Container[Hashable] of keys to (in/ex)clude.
+        :param values: Container of values to (in/ex)clude.
+        :param include_keys: bool, True for `filter` to return a subset \
+            with ONLY the provided `keys`; else False to return a subset \
+            with NONE OF the provided `keys`.
+        :param include_values: bool, True for `filter` to return a subset \
+            with ONLY the provided `values`; else False to return a subset \
+            with NONE OF the provided `values`.
+        :return: FancyDict including only the specified keys and values.       
+        """
         return MapSubset(keys, values, include_keys, include_values
                          ).of(self)
 
     def walk(self) -> WalkMap:
+        """ Recursively iterate over this dict and every dict inside it.
+
+        :return: WalkMap with `keys`, `values`, and `items` methods to \
+            recursively iterate over this FancyDict.
+        """
         return WalkMap(self)
