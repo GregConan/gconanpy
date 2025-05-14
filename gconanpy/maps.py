@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-07
+Updated: 2025-05-13
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Hashable, Iterable, Mapping
@@ -18,11 +18,13 @@ from cryptography.fernet import Fernet
 # Import local custom libraries
 try:
     from debug import Debuggable
+    from extend import combine
     from maptools import MapSubset, Traversible, WalkMap
     from metafunc import AttributesOf, KeepTryingUntilNoErrors, nameof
     from trivial import always_none
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
+    from gconanpy.extend import combine
     from gconanpy.maptools import MapSubset, Traversible, WalkMap
     from gconanpy.metafunc import \
         AttributesOf, KeepTryingUntilNoErrors, nameof
@@ -50,8 +52,8 @@ class Defaultionary(Explictionary):
     """ Custom dict class with extended functionality centered around the \
         `default=` option, functionality used by various other custom dicts. \
         The Defaultionary can ignore specified values as if they were blank \
-        in its `get` and `update` methods. It can also use `setdefault` on \
-        many different elements at once via `setdefaults`.
+        in its `get` method. It can also use `setdefault` on many different \
+        elements at once via `setdefaults`. `LazyDict` base class.
     """
 
     def _will_getdefault(self, key: Any, exclude: Container = set()
@@ -90,7 +92,7 @@ class Defaultionary(Explictionary):
             `self` maps `key` to one of those values, then this function \
             will try to overwrite that value with a value mapped to the \
             same key in `kwargs`, as if `key is not in self`.
-        :param kwargs: Mapping[str, Any] of values to add to self if needed
+        :param kwargs: Mapping[str, Any] of values to add to self if needed.
         """
         if exclude:
             example_exclude = next(iter(exclude))
@@ -100,25 +102,6 @@ class Defaultionary(Explictionary):
         else:
             for key, value in kwargs.items():
                 self.setdefault(key, value)
-
-    def update(self, a_map: Mapping | Iterable[tuple[Hashable, Any]
-                                               ] | None = None,
-               copy: bool = False, **kwargs: Any):
-        # No return type hint so VSCode can infer subclass instances' types
-        """ Add or overwrite items in this Mapping from other Mappings.
-
-        :param a_map: Mapping | Iterable[tuple[Hashable, Any] ] | None, \
-            `m` in `dict.update` method; defaults to None
-        :param copy: bool, True to return a copy of `self` including all \
-            items in `a_map` and in `kwargs`; else False to return None
-        :return: Defaultionary updated with all values from `a_map` and \
-            `kwargs` if `copy=True`; else None
-        """
-        updated = self.copy() if copy else self
-        run_update = super(Defaultionary, updated).update
-        run_update(**kwargs) if a_map is None else run_update(a_map, **kwargs)
-        if copy:
-            return updated
 
 
 class Invertionary(Explictionary):
@@ -166,7 +149,96 @@ class Invertionary(Explictionary):
             self.update(inverted)
 
 
-class DotDict(Defaultionary, Traversible):
+class Subsetionary(Explictionary):
+
+    @classmethod
+    def from_subset_of(cls, from_map: Mapping,
+                       keys: Container[Hashable] = set(),
+                       values: Container = set(), include_keys: bool = False,
+                       include_values: bool = False):
+        """ Convert a subset of `from_map` into a new `Subsetionary`.
+
+        :param from_map: Mapping to create a new Subsetionary from a subset of.
+        :param keys: Container[Hashable] of keys to (in/ex)clude.
+        :param values: Container of values to (in/ex)clude.
+        :param include_keys: bool, True for `filter` to return a subset \
+            with ONLY the provided `keys`; else False to return a subset \
+            with NONE OF the provided `keys`.
+        :param include_values: bool, True for `filter` to return a subset \
+            with ONLY the provided `values`; else False to return a subset \
+            with NONE OF the provided `values`.
+        :return: Subsetionary including only the specified keys and values.       
+        """
+        return MapSubset(keys, values, include_keys, include_values
+                         ).of(from_map, cls)
+
+    def subset(self, keys: Container[Hashable] = set(),
+               values: Container = set(), include_keys: bool = False,
+               include_values: bool = False):
+        """ Create a new `Subsetionary` including only a subset of this one.
+
+        :param keys: Container[Hashable] of keys to (in/ex)clude.
+        :param values: Container of values to (in/ex)clude.
+        :param include_keys: bool, True for `filter` to return a subset \
+            with ONLY the provided `keys`; else False to return a subset \
+            with NONE OF the provided `keys`.
+        :param include_values: bool, True for `filter` to return a subset \
+            with ONLY the provided `values`; else False to return a subset \
+            with NONE OF the provided `values`.
+        :return: Subsetionary including only the specified keys and values.       
+        """
+        return MapSubset(keys, values, include_keys, include_values
+                         ).of(self)
+
+
+class Updationary(Explictionary):
+    # Class type variable: `map`/`iterable` input arg in `dict.__init__`
+    OptionalMap = TypeVar("OptionalMap", Mapping, None,
+                          Iterable[tuple[Hashable, Any]])
+
+    def __init__(self, from_map: OptionalMap = None, **kwargs) -> None:
+        """ _summary_ 
+
+        :param from_map: Mapping | Iterable[tuple[Hashable, Any]] | None, \
+            Mapping to convert into a new instance of this class; `map` or \
+            `iterable` in `dict.__init__` method; None by default to create \
+            an empty dictionary (or create a dict from `kwargs` alone).
+        :param kwargs: Mapping[str, Any] of values to add to this Updationary.
+        """
+        if from_map:
+            super().update(from_map)
+        super().update(kwargs)
+
+    def update(self, a_map: OptionalMap = None, copy: bool = False,
+               **kwargs: Any):
+        # No return type hint so VSCode can infer subclass instances' types
+        """ Add or overwrite items in this Mapping from other Mappings.
+
+        :param a_map: Mapping | Iterable[tuple[Hashable, Any] ] | None, \
+            `m` in `dict.update` method; defaults to None
+        :param copy: bool, True to return a copy of `self` including all \
+            items in `a_map` and in `kwargs`; else False to return None
+        :return: Updationary updated with all values from `a_map` and \
+            `kwargs` if `copy=True`; else None
+        """
+        updated = self.copy() if copy else self
+        run_update = super(Updationary, updated).update
+        run_update(**kwargs) if a_map is None else run_update(a_map, **kwargs)
+        if copy:
+            return updated
+
+
+class Walktionary(Explictionary):
+    def walk(self) -> WalkMap:
+        """ Recursively iterate over this dict and every dict inside it.
+
+        :return: WalkMap with `keys`, `values`, and `items` methods to \
+            recursively iterate over this FancyDict.
+        """
+        return WalkMap(self)
+
+
+class DotDict(Updationary, Traversible):
     """ dict with dot.notation item access. Compare `sklearn.utils.Bunch`.
         DotDict can get/set items as attributes: if `name` is not protected, \
         then `self.name is self["name"]`.
@@ -183,18 +255,18 @@ class DotDict(Defaultionary, Traversible):
     # not be accessible/modifiable as keys/values/items
     PROTECTEDS = "__protected_keywords__"
 
-    def __init__(self, from_map: Mapping | None = None, **kwargs):
-        """
-        _summary_ 
-        :param from_map: Mapping | None,_description_, defaults to None
+    def __init__(self, from_map: Updationary.OptionalMap = None,
+                 **kwargs: Any) -> None:
+        """ 
+        :param from_map: Mapping | Iterable[tuple[Hashable, Any]] | None, \
+            Mapping to convert into a new instance of this class; `map` or \
+            `iterable` in `dict.__init__` method; defaults to None.
+        :param kwargs: Mapping[str, Any] of values to add to this DotDict.
         """
         # First, add all (non-item) custom methods and attributes
-        # super().__init__(*args, **kwargs)
-        if from_map:
-            super().update(from_map)
-        super().update(kwargs)
+        super(DotDict, self).__init__(from_map, **kwargs)
 
-        # Initialize self as a Traversible for homogenize method
+        # Initialize self as a Traversible for self.homogenize() method
         self.traversed: set[int] = set()
 
         # Prevent overwriting method/attributes or treating them like items
@@ -358,7 +430,7 @@ class DotDict(Defaultionary, Traversible):
         return default if retrieved is self else retrieved
 
 
-class LazyDict(Defaultionary):
+class LazyDict(Updationary, Defaultionary):
     """ Dict that can get/set items and ignore the default parameter \
         until/unless it is needed, ONLY evaluating it after failing to \
         get/set an existing key. Benefit: The `default=` code does not \
@@ -412,42 +484,9 @@ class LazyDict(Defaultionary):
         return self[key]
 
 
-class LazyDotDict(DotDict, LazyDict):
-    """ LazyDict with dot.notation item access. It can get/set items...
-
-    ...as object-attributes: `self.item is self['item']`. Benefit: You can \
-       get/set items by using '.' or by using variable names in brackets.
-
-    ...and ignore the `default=` code until it's needed, ONLY evaluating it \
-       after failing to get/set an existing key. Benefit: The `default=` \
-       code does not need to be valid (yet) if self already has the key.
-
-    Adapted from answers to https://stackoverflow.com/questions/2352181 and \
-    attrdict from https://stackoverflow.com/a/45354473 and dotdict from\
-    https://github.com/dmtlvn/dotdict/blob/main/dotdict/dotdict.py and then\
-    combined with LazyButHonestDict from https://stackoverflow.com/q/17532929
-
-    Keeps most core functionality of the Python dict type. """
-
-
-class Promptionary(LazyDict, Debuggable):
+class Promptionary(LazyDict):  # , Debuggable
     """ LazyDict able to interactively prompt the user to fill missing values.
     """
-
-    def __init__(self, from_map: Mapping, debugging: bool = False,
-                 **kwargs: Any) -> None:
-        """ Initialize Promptionary from existing Mapping (from_map) or from \
-            new Mapping (**kwargs).
-
-        :param from_map: Mapping to convert into a new Promptionary.
-        :param debugging: bool, True to pause and interact on error, else \
-            False to raise errors/exceptions; defaults to False.
-        :param kwargs: Mapping[str, Any] of key-value pairs to add to this \
-            Promptionary.
-        """
-        # This class can pause and debug when an exception occurs
-        self.debugging = debugging
-        super().__init__(from_map, **kwargs)
 
     def get_or_prompt_for(self, key: str, prompt: str,
                           prompt_fn: Callable = input,
@@ -495,9 +534,9 @@ class Bytesifier(Debuggable):
     """ Class with a method to convert objects into bytes without knowing \
         what type those things are. """
     # Default input parameters for str.encode and int.to_bytes in bytesify.
-    # Using Defaultionary because it can copy and update in one method call.
-    DEFAULTS = Defaultionary(encoding=sys.getdefaultencoding(), length=1,
-                             byteorder="big", signed=False)
+    # Using Updationary because it can copy and update in one method call.
+    DEFAULTS = Updationary(encoding=sys.getdefaultencoding(), length=1,
+                           byteorder="big", signed=False)
 
     @staticmethod
     def can_bytesify(an_object: Any) -> bool:
@@ -547,8 +586,8 @@ class Cryptionary(Promptionary, Bytesifier):
         Created to store user credentials slightly more securely, and to \
         slightly reduce the likelihood of accidentally exposing them. """
 
-    def __init__(self, from_map: Mapping = dict(),
-                 debugging: bool = False, **kwargs):
+    def __init__(self, from_map: Updationary.OptionalMap = None,
+                 debugging: bool = False, **kwargs: Any):
         """ Create a new Cryptionary.
 
         :param from_map: Mapping to convert into a new Cryptionary.
@@ -560,17 +599,14 @@ class Cryptionary(Promptionary, Bytesifier):
             self.encrypted = set()
             self.cryptor = Fernet(Fernet.generate_key())
 
-            # Initialize from Promptionary
-            super(Cryptionary, self).__init__(
-                from_map=from_map, debugging=debugging, **kwargs)
+            # Define whether to raise any error(s) or pause and interact
+            self.debugging = debugging
 
             # Encrypt every value in the input mapping(s)/dict(s)
-            for prev_mapping in from_map, kwargs:
-                for k, v in prev_mapping.items():
-                    self[k] = v
+            super(Cryptionary, self).__init__(from_map, **kwargs)
 
-        except TypeError as e:
-            self.debug_or_raise(e, locals())
+        except TypeError as err:
+            self.debug_or_raise(err, locals())
 
     def __delitem__(self, key: str) -> None:
         """ Delete self[key].
@@ -610,56 +646,20 @@ class Cryptionary(Promptionary, Bytesifier):
             self.debug_or_raise(err, locals())
 
 
-class FancyDict(DotDict, Promptionary, Invertionary):
-    """ Custom dict combining as much functionality from the other classes \
-        defined in this file and in maptools.py as possible: lazy methods, \
-        enhanced default/update methods, prompt methods, invert method, \
-        and dot.notation item access.
-    """
-
-    @classmethod
-    def from_subset_of(cls, from_map: Mapping,
-                       keys: Container[Hashable] = set(),
-                       values: Container = set(), include_keys: bool = False,
-                       include_values: bool = False):
-        """ Convert a subset of `from_map` into a new `FancyDict`.
-
-        :param from_map: Mapping to create a new FancyDict from a subset of.
-        :param keys: Container[Hashable] of keys to (in/ex)clude.
-        :param values: Container of values to (in/ex)clude.
-        :param include_keys: bool, True for `filter` to return a subset \
-            with ONLY the provided `keys`; else False to return a subset \
-            with NONE OF the provided `keys`.
-        :param include_values: bool, True for `filter` to return a subset \
-            with ONLY the provided `values`; else False to return a subset \
-            with NONE OF the provided `values`.
-        :return: FancyDict including only the specified keys and values.       
-        """
-        return MapSubset(keys, values, include_keys, include_values
-                         ).of(from_map, cls)
-
-    def subset(self, keys: Container[Hashable] = set(),
-               values: Container = set(), include_keys: bool = False,
-               include_values: bool = False):
-        """ Create a new `FancyDict` including only a subset of this one.
-
-        :param keys: Container[Hashable] of keys to (in/ex)clude.
-        :param values: Container of values to (in/ex)clude.
-        :param include_keys: bool, True for `filter` to return a subset \
-            with ONLY the provided `keys`; else False to return a subset \
-            with NONE OF the provided `keys`.
-        :param include_values: bool, True for `filter` to return a subset \
-            with ONLY the provided `values`; else False to return a subset \
-            with NONE OF the provided `values`.
-        :return: FancyDict including only the specified keys and values.       
-        """
-        return MapSubset(keys, values, include_keys, include_values
-                         ).of(self)
-
-    def walk(self) -> WalkMap:
-        """ Recursively iterate over this dict and every dict inside it.
-
-        :return: WalkMap with `keys`, `values`, and `items` methods to \
-            recursively iterate over this FancyDict.
-        """
-        return WalkMap(self)
+def custom_dict_class(name: str, *, default: bool = False, dot: bool = False,
+                      encrypt: bool = False, invert: bool = False,
+                      lazy: bool = False, prompt: bool = False,
+                      subset: bool = False, update: bool = False,
+                      walk: bool = False) -> type[Explictionary]:
+    # TODO Use MakeCustomDict to collect classes in this file dynamically?
+    all_custom_dicts = ((Cryptionary, encrypt),
+                        (Defaultionary, default),
+                        (DotDict, dot),
+                        (Invertionary, invert),
+                        (LazyDict, lazy),
+                        (Promptionary, prompt),
+                        (Subsetionary, subset),
+                        (Updationary, update),
+                        (Walktionary, walk))
+    return combine(name, [parent for parent, will_include_parent
+                          in all_custom_dicts if will_include_parent])

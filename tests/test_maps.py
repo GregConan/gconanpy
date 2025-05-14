@@ -3,17 +3,28 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-05-07
+Updated: 2025-05-13
 """
 # Import standard libraries
 from collections.abc import Generator, Mapping
 from typing import Any
 
 # Import local custom libraries
-from gconanpy.maps import (Defaultionary, DotDict, FancyDict,
-                           Invertionary, LazyDotDict)
+from gconanpy.maps import (custom_dict_class, Defaultionary, DotDict,
+                           Invertionary, LazyDict, Updationary)
 from gconanpy.maptools import WalkMap
 from tests.testers import Tester
+
+
+# Create various kinds of custom dicts on-the-fly to test custom_dict_class
+# TODO: Use combinations(...) to test all possible custom dicts?
+DotInvert = custom_dict_class("DotInvert", dot=True, invert=True)
+DotPromptionary = custom_dict_class("DotPromptionary", dot=True, prompt=True)
+FancyDict = custom_dict_class("FancyDict", dot=True, prompt=True,
+                              invert=True, subset=True, walk=True)
+InvertCrypt = custom_dict_class("InvertCrypt", encrypt=True, invert=True)
+LazyDotDict = custom_dict_class("LazyDotDict", dot=True, lazy=True)
+PromptInvert = custom_dict_class("PromptInvert", prompt=True, invert=True)
 
 
 class MapTester(Tester):
@@ -33,10 +44,19 @@ class MapTester(Tester):
         getattr(a_map, method_to_test)(*method_args, **method_kwargs)
         self.check_result(a_map, map_type(out_dict))
 
+    def cant_call(self, method_name: str, **custom_kwargs):
+        self.add_basics()
+        CantClass = custom_dict_class("CantClass", **custom_kwargs)
+        try:
+            getattr(CantClass(self.adict), method_name)()
+            assert False
+        except AttributeError:
+            pass
+
 
 class TestInvertionary(MapTester):
-    # Defaultionary, DotDict, LazyDotDict)
-    TEST_CLASSES = (Invertionary, FancyDict)
+    TEST_CLASSES = (DotInvert, FancyDict, InvertCrypt, Invertionary,
+                    PromptInvert)
 
     def test_1(self):
         self.add_basics()
@@ -70,35 +90,14 @@ class TestInvertionary(MapTester):
             invertable = dict_class(a="b", b="a")
             self.check_result(invertable.invert(copy=True), invertable)
 
+    def test_cant(self):
+        # TODO Use combinations(...) of custom_kwargs
+        self.cant_call("invert", update=True)
+        self.cant_call("invert", prompt=True)
 
-class TestDefaultionary(MapTester):
-    TEST_CLASSES = (Defaultionary, DotDict, FancyDict,
-                    LazyDotDict)
 
-    def one_update_test(self, dfty: Defaultionary, expected_len: int,
-                        a_map: Mapping | None = None,
-                        **expected: Any) -> Defaultionary:
-        for copy in (False, True):
-            if a_map is None:
-                newd = dfty.update(**expected, copy=copy)
-            else:
-                newd = dfty.update(a_map, **expected, copy=copy)
-                expected.update(a_map)
-            if copy:
-                dfty = newd
-            self.check_result(len(dfty), expected_len)
-            for k, v in expected.items():
-                self.check_result(dfty[k], v)
-        return dfty
-
-    def test_update_1(self) -> None:
-        for dfty in self.get_custom_dicts():
-            self.one_update_test(dfty, 4, d=4)
-
-    def test_update_2(self) -> None:
-        for dfty in self.get_custom_dicts():
-            dfty = self.one_update_test(dfty, 4, dict(d=4))
-            self.one_update_test(dfty, 4, dict(a=3), c=1)
+class TestDefaultionary(MapTester):  # TODO
+    TEST_CLASSES = (Defaultionary, FancyDict, LazyDotDict)
 
     def test_setdefaults_1(self) -> None:
         for dfty in self.get_custom_dicts():
@@ -106,7 +105,7 @@ class TestDefaultionary(MapTester):
 
 
 class TestDotDicts(MapTester):
-    TEST_CLASSES = (DotDict, LazyDotDict, FancyDict)
+    TEST_CLASSES = (DotDict, DotPromptionary, LazyDotDict, FancyDict)
 
     def test_set(self):
         for dd in self.get_custom_dicts():
@@ -130,7 +129,7 @@ class TestDotDicts(MapTester):
             self.check_result(dd.six, 6)
             assert self.cannot_alter(dd, "get")
 
-    def test_homogenize(self):
+    def test_homogenize(self):  # TODO test custom_dict_class(dot=True, walk=True) ?
         for dd in self.get_custom_dicts():
             dd.testdict = dict(hello=dict(q=dd),
                                world=DotDict(foo=dict(bar="baz")))
@@ -166,3 +165,32 @@ class TestDotDicts(MapTester):
             ddsc = DotDictSubClass(self.adict)
             self.check_result({x: getattr(ddsc, x) for x in ddsc.keys()},
                               dict(a="sub1", b="sub2", c="sub3"))
+
+
+class TestUpdationary(MapTester):
+    TEST_CLASSES = (DotDict, FancyDict, LazyDict, LazyDotDict, Updationary)
+
+    def one_update_test(self, dfty: Updationary, expected_len: int,
+                        a_map: Mapping | None = None,
+                        **expected: Any) -> Updationary:
+        for copy in (False, True):
+            if a_map is None:
+                newd = dfty.update(**expected, copy=copy)
+            else:
+                newd = dfty.update(a_map, **expected, copy=copy)
+                expected.update(a_map)
+            if copy:
+                dfty = newd
+            self.check_result(len(dfty), expected_len)
+            for k, v in expected.items():
+                self.check_result(dfty[k], v)
+        return dfty
+
+    def test_update_1(self) -> None:
+        for dfty in self.get_custom_dicts():
+            self.one_update_test(dfty, 4, d=4)
+
+    def test_update_2(self) -> None:
+        for dfty in self.get_custom_dicts():
+            dfty = self.one_update_test(dfty, 4, dict(d=4))
+            self.one_update_test(dfty, 4, dict(a=3), c=1)

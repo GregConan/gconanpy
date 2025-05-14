@@ -3,12 +3,14 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2025-05-04
+Updated: 2025-05-13
 """
 # Import standard libraries
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
+import graphlib
 import inspect
 import re
+from types import ModuleType
 from typing import Any
 
 # Import third-party PyPI libraries
@@ -16,15 +18,16 @@ from makefun import create_function, with_signature
 
 # Import local custom libraries
 try:
-    from metafunc import (add_attributes_to, AttributesOf,
-                          combine_maps, nameof, pairs)
+    from metafunc import add_attributes_to, AttributesOf, \
+        combine_maps, nameof, pairs
     from ToString import ToString
 except ModuleNotFoundError:
-    from gconanpy.metafunc import (add_attributes_to, AttributesOf,
-                                   combine_maps, nameof, pairs)
+    from gconanpy.metafunc import add_attributes_to, AttributesOf, \
+        combine_maps, nameof, pairs
     from gconanpy.ToString import ToString
 
 
+# Constant: Function wrapper type variable
 Wrapper = Callable[[Callable], Callable]
 
 
@@ -36,6 +39,30 @@ def all_annotations_of(a_class: type) -> dict[str, type]:
     """
     return combine_maps([getattr(base, "__annotations__", dict())
                          for base in reversed(a_class.__mro__)])
+
+
+def classes_in_module(module: ModuleType) -> Generator[tuple[str, type],
+                                                       None, None]:
+    """ Iterate over every `class` defined in `module`.
+
+    :param module: ModuleType, a Python module.
+    :yield: Generator[tuple[str, type], None, None], name-class pairs for \
+        every `class` defined in `module`.
+    """
+    def is_class_from_module(an_obj: Any) -> bool:
+        return inspect.isclass(an_obj) and an_obj.__module__ == nameof(module)
+    yield from inspect.getmembers(module, is_class_from_module)
+
+
+def combine(name: str, classes: Iterable[type], **kwargs: Any) -> type:
+    """ Create a new class that inherits from all `classes` specified.
+
+    :param name: str, name of the new class to return.
+    :param classes: Iterable[type], every parent/superclass of the returned \
+        child/subclass. 
+    :return: type, subclass of all specified `classes`.
+    """
+    return type(name, trim_MRO(make_MRO_for_subclass_of(*classes)), kwargs)
 
 
 def signature_extends(func: Callable,
@@ -109,6 +136,31 @@ def initialize(self: Any, *args: Any, **kwargs: Any) -> None:
     add_attributes_to(self, **kwargs)
 
 
+def make_MRO_for_subclass_of(*types: type) -> Iterator[type]:
+    """ Get the full properly-sorted method resolution order (MRO) for a new \
+        child/subclass of all specified parents/superclasses in `types`.
+
+    :return: Iterator[type] that yields all classes in the correct MRO
+    """
+    dag_dict = dict()
+    for each_class in types:
+        # Remove self (`each_class`) and object class (`object`) from MRO
+        dag_dict[each_class] = inspect.getmro(each_class)[1:-1]
+    rev_mro = graphlib.TopologicalSorter(dag_dict).static_order()
+    return reversed([each_class for each_class in rev_mro])
+
+
+def module_classes_to_args_dict(module: ModuleType, *remove: str
+                                ) -> dict[str, type]:
+    classes = dict()
+    for class_name, each_class in classes_in_module(module):
+        arg_name = class_name
+        for to_remove in remove:
+            arg_name = arg_name.replace(to_remove, "")
+        classes[arg_name] = each_class
+    return classes
+
+
 def params_for(a_class: type, *args: inspect.Parameter
                ) -> list[inspect.Parameter]:
     POS_OR_KEY = inspect.Parameter.POSITIONAL_OR_KEYWORD
@@ -134,6 +186,27 @@ RegexSearcher = extend1(re.Match, "RegexSearcher", append_default,
                         "groups", "groupdict")
 
 
+def trim_MRO(classes: Iterable[type]) -> tuple[type]:
+    """ Get the minimal method resolution order (MRO) for a subclass of all \
+        specified `classes`.
+
+    :param classes: Iterable[type], all parents/superclasses of a new \
+        child/subclass to determine the minimal MRO of.
+    :return: tuple[type], all base classes in a correctly-sorted MRO for a \
+        child/subclass of all `classes` specified.
+    """
+    minimal_MRO = list()
+    for each_class in classes:
+        is_redundant = False
+        for needed_class in minimal_MRO:
+            if issubclass(needed_class, each_class):
+                is_redundant = True
+                break
+        if not is_redundant:
+            minimal_MRO.append(each_class)
+    return tuple(minimal_MRO)  # type(...) 2nd parameter must be a tuple
+
+
 class WeakDataclassBase:
 
     def __repr__(self) -> str:
@@ -151,11 +224,11 @@ class WeakDataclassBase:
 
 def weak_dataclass(a_class: type, *args: inspect.Parameter) -> type:
     all_params = params_for(a_class, *args)
-    new_sig = inspect.Signature(all_params, return_annotation=None)
+    init_sig = inspect.Signature(all_params, return_annotation=None)
     WeakDataclass = type(nameof(a_class), (a_class, WeakDataclassBase),
                          dict())
     WeakDataclass.__slots__ = tuple([p.name for p in all_params[1:]])
-    WeakDataclass.__init__ = create_function(new_sig, initialize,
+    WeakDataclass.__init__ = create_function(init_sig, initialize,
                                              func_name="__init__",
                                              qualname="__init__")
     return WeakDataclass

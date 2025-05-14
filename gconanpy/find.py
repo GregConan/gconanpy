@@ -4,7 +4,7 @@
 Classes and functions that iterate and break once they find what they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-04-29
+Updated: 2025-05-13
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -13,11 +13,11 @@ from typing import Any
 # Import remote custom libraries
 try:
     from metafunc import DATA_ERRORS, FinderTypes as Typ, \
-        FrozenFunction, KeepSkippingExceptions, IgnoreExceptions
+        WrapFunction, KeepSkippingExceptions, IgnoreExceptions
     from trivial import is_not_none, always_none
 except ModuleNotFoundError:
     from gconanpy.metafunc import DATA_ERRORS, FinderTypes as Typ, \
-        FrozenFunction, KeepSkippingExceptions, IgnoreExceptions
+        WrapFunction, KeepSkippingExceptions, IgnoreExceptions
     from gconanpy.trivial import is_not_none, always_none
 
 
@@ -84,7 +84,7 @@ def spliterate(parts: Iterable[str], ready_if:
     return rejoined, gotten
 
 
-class UntilFound(FrozenFunction):
+class UntilFound(WrapFunction):
     def check_each(self, find_in: Iterable[Typ.I], default: Typ.D = None,
                    element_is_arg: bool = True) -> Typ.I | Typ.D:
         return iterfind(find_in, self.inner, default=default,

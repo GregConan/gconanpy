@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-05-07
+Updated: 2025-05-13
 """
 # Import standard libraries
 from abc import ABC
@@ -16,10 +16,10 @@ from typing import Any, Literal, TypeVar
 # Import local custom libraries
 try:
     from seq import DunderParser
-    from ToString import stringify_iter, ToString
+    from ToString import ToString
 except ModuleNotFoundError:
     from gconanpy.seq import DunderParser
-    from gconanpy.ToString import stringify_iter, ToString
+    from gconanpy.ToString import ToString
 
 # Constants: TypeVars for...
 M = TypeVar("M", bound=Mapping)  # ...combine_maps
@@ -137,7 +137,8 @@ def metaclass_hasmethod(method_name: str, include: bool = True) -> type:
 
     :param method_name: str naming the method that the returned metaclass \
         type object will check whether objects have 
-    :param include: bool, True to return a metaclass for 
+    :param include: bool, True to return a metaclass for a type WITH certain \
+        methods; else (by default) False for a type WITHOUT certain methods
     :return: type, _description_
     """
     capitalized = DunderParser().pascalize(method_name)
@@ -262,7 +263,7 @@ def which_of(*conditions: bool) -> set[int]:
     return set((i for i, cond in enumerate(conditions) if cond))
 
 
-class FrozenFunction(Callable):
+class WrapFunction(Callable):
     """ Function wrapper that also stores some of its input parameters. """
 
     # Type variables for inner/wrapped/"frozen" function parameters/args
@@ -270,9 +271,9 @@ class FrozenFunction(Callable):
     Inner = TypeVar("Inner")  # Positional args passed when executing
     Post = TypeVar("Post")  # Positional args to inject AFTER Inner args
     Kw = TypeVar("Kw")  # Keyword args
-    Ret = TypeVar("Ret")  # "Frozen" function's return value
+    Ret = TypeVar("Ret")  # Wrapped/"frozen" function's return value
     Caller = Callable[[tuple[Pre, ...], tuple[Inner, ...],
-                       tuple[Post, ...]], Ret]  # "Frozen" function itself
+                       tuple[Post, ...]], Ret]  # Wrapped function itself
 
     def __call__(self, *args: Inner, **kwargs: Kw) -> Ret:
         """ Call/execute/unwrap/"thaw" the wrapped/"frozen" function.
@@ -284,8 +285,8 @@ class FrozenFunction(Callable):
 
     def __init__(self, call: Caller, pre: Iterable[Pre] = list(),
                  post: Iterable[Post] = list(), **kwargs: Kw) -> None:
-        """ "Freeze" a function with some parameters already defined to \
-            call that function with those parameters later.
+        """ Wrap/"freeze" a function with some parameters already defined \
+            to call that function with those parameters later.
 
         :param call: Callable[[*pre, ..., *post], Any], the function to \
             wrap/"freeze" and then call/execute/"thaw" later.
@@ -304,25 +305,24 @@ class FrozenFunction(Callable):
             inner = call
 
         # Put all pre-defined args and kwargs into this instance's str repr
-
         kwargstrs = [f"{k}={v}" for k, v in kwargs.items()]
-        argstr = stringify_iter([*pre, "*args", *post, *kwargstrs],
-                                prefix="[", suffix="]")
+        argstr = ToString.from_iterable([*pre, "*args", *post, *kwargstrs],
+                                        prefix="[", suffix="]")
         self.name = f"{nameof(self)}[{nameof(call)}({argstr}, **kwargs)]"
 
         self.inner = inner
 
     def __repr__(self) -> str:
         """
-        :return: str, annotated function header describing this FrozenFunction
+        :return: str, annotated function header describing this WrapFunction.
         """
         return self.name
 
-    def expect(self, output: Any) -> "FrozenFunction":
+    def expect(self, output: Any) -> "WrapFunction":
         """ 
         :param output: Any, expected output returned from inner \
             wrapped/"frozen" function.
-        :return: FrozenFunction[..., bool] that returns True if the inner \
+        :return: WrapFunction[..., bool] that returns True if the inner \
             wrapped/"frozen" function returns `output` and False otherwise.
         """
         def is_as_expected(*args, **kwargs) -> bool:
@@ -330,6 +330,13 @@ class FrozenFunction(Callable):
         return self.__class__(is_as_expected)
 
     def foreach(self, *objects: Inner) -> Generator[Ret, None, None]:
+        """ Call the wrapped/"frozen" function with its specified parameters \
+            on every object in `objects`. Iterate lazily; only call/execute \
+            the wrapped function on each object at the moment of retrieval.
+
+        :yield: Generator[Any, None, None], what the wrapped/"frozen" \
+            function returns when given each object in `objects` as an input.
+        """
         for an_obj in objects:
             yield self.inner(an_obj)
 
@@ -358,12 +365,12 @@ class FilterAttributes:
         """
         self.selectors = dict(names=if_names, values=if_values)
 
-    def add(self, which: _WHICH, func: FrozenFunction.Caller,
-            pre: Iterable[FrozenFunction.Pre] = list(),
-            post: Iterable[FrozenFunction.Post] = list(),
-            **kwargs: FrozenFunction.Kw) -> None:
-        self.selectors[which].append(FrozenFunction(func, pre, post,
-                                                    **kwargs))
+    def add(self, which: _WHICH, func: WrapFunction.Caller,
+            pre: Iterable[WrapFunction.Pre] = list(),
+            post: Iterable[WrapFunction.Post] = list(),
+            **kwargs: WrapFunction.Kw) -> None:
+        self.selectors[which].append(WrapFunction(func, pre, post,
+                                                  **kwargs))
 
     def build(self) -> FilterFunction:
         """

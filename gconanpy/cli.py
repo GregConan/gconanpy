@@ -4,7 +4,7 @@
 Tools to define, accept, and validate command-line input arguments.
 Greg Conan: gregmconan@gmail.com
 Created: 2024-09-23
-Updated: 2025-04-09
+Updated: 2025-05-13
 """
 # Import standard libraries
 from collections.abc import Callable
@@ -15,9 +15,9 @@ from typing import Any
 
 # Import local custom libraries
 try:
-    from metafunc import FrozenFunction
+    from metafunc import WrapFunction
 except ModuleNotFoundError:
-    from gconanpy.metafunc import FrozenFunction
+    from gconanpy.metafunc import WrapFunction
 
 
 # NOTE: Functions and classes below are in alphabetical order.
@@ -82,9 +82,9 @@ class ArgParser(argparse.ArgumentParser):
 
 class Valid:
     # TODO Do this in a more standard way
-    dir_made = FrozenFunction(os.makedirs, exist_ok=True)
-    readable = FrozenFunction(os.access, mode=os.R_OK)
-    writable = FrozenFunction(os.access, mode=os.W_OK)
+    dir_made = WrapFunction(os.makedirs, exist_ok=True)
+    readable = WrapFunction(os.access, mode=os.R_OK)
+    writable = WrapFunction(os.access, mode=os.W_OK)
 
     @staticmethod
     def _validate(to_validate: Any, *conditions: Callable,

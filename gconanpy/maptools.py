@@ -4,7 +4,7 @@
 Useful/convenient classes to work with Python dicts/Mappings.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-05-04
+Updated: 2025-05-12
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Hashable, Mapping
@@ -36,13 +36,13 @@ class MapSubset:
 
         @staticmethod
         def passes_filter(k: Hashable, v: Any) -> bool:
-            result = (k in keys) is include_keys
             try:
-                return result and (v in values) is include_values
+                return (k in keys) is include_keys \
+                    and (v in values) is include_values
 
             # If v isn't Hashable and values can only contain Hashables,
             except TypeError:  # then v cannot be in values
-                return result and not include_values
+                return not include_values
 
         self.filter = passes_filter
 
@@ -63,10 +63,8 @@ class MapSubset:
 
 
 class Traversible:
-    traversed: set[int]
-
     def __init__(self) -> None:
-        self.traversed = set()
+        self.traversed: set[int] = set()
 
     def _will_traverse(self, an_obj: Any) -> bool:
         """
@@ -82,11 +80,10 @@ class Traversible:
 class WalkMap(Traversible):
     _KeyType = Hashable | None
     _Walker = Generator[tuple[_KeyType, Mapping], None, None]
-    traversed: set[int]
 
     def __init__(self, a_map: Mapping) -> None:
         self.root = a_map
-        self.traversed = set()
+        self.traversed: set[int] = set()
 
     def _walk(self, key: _KeyType, value: Mapping | Any) -> _Walker:
         if self._will_traverse(value):
