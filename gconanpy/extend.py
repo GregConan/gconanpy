@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2025-05-13
+Updated: 2025-05-15
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
@@ -19,11 +19,11 @@ from makefun import create_function, with_signature
 # Import local custom libraries
 try:
     from metafunc import add_attributes_to, AttributesOf, \
-        combine_maps, nameof, pairs
+        combine_maps, name_of, pairs
     from ToString import ToString
 except ModuleNotFoundError:
     from gconanpy.metafunc import add_attributes_to, AttributesOf, \
-        combine_maps, nameof, pairs
+        combine_maps, name_of, pairs
     from gconanpy.ToString import ToString
 
 
@@ -50,7 +50,7 @@ def classes_in_module(module: ModuleType) -> Generator[tuple[str, type],
         every `class` defined in `module`.
     """
     def is_class_from_module(an_obj: Any) -> bool:
-        return inspect.isclass(an_obj) and an_obj.__module__ == nameof(module)
+        return inspect.isclass(an_obj) and an_obj.__module__ == name_of(module)
     yield from inspect.getmembers(module, is_class_from_module)
 
 
@@ -131,6 +131,8 @@ def initialize(self: Any, *args: Any, **kwargs: Any) -> None:
     :param self: Any, object with a `__slots__: tuple[str, ...]` attribute \
         naming the `__init__` input arguments.
     """
+    if "__slots__" in kwargs:
+        kwargs.pop("__slots__")
     for i in range(len(args)):
         kwargs[self.__slots__[i]] = args[i]
     add_attributes_to(self, **kwargs)
@@ -144,7 +146,7 @@ def make_MRO_for_subclass_of(*types: type) -> Iterator[type]:
     """
     dag_dict = dict()
     for each_class in types:
-        # Remove self (`each_class`) and object class (`object`) from MRO
+        # Exclude self (`each_class`) and object class (`object`) from MRO
         dag_dict[each_class] = inspect.getmro(each_class)[1:-1]
     rev_mro = graphlib.TopologicalSorter(dag_dict).static_order()
     return reversed([each_class for each_class in rev_mro])
@@ -171,9 +173,9 @@ def params_for(a_class: type, *args: inspect.Parameter
         pkwargs = dict(name=name, annotation=annotation, kind=POS_OR_KEY)
         if hasattr(a_class, name):
             pkwargs["default"] = getattr(a_class, name)
-            withdefaults.append(inspect.Parameter(**pkwargs))
+            withdefaults.append(inspect.Parameter(**pkwargs))  # type: ignore
         else:
-            params.append(inspect.Parameter(**pkwargs))
+            params.append(inspect.Parameter(**pkwargs))  # type: ignore
     for arg in args:
         if arg.default is arg.empty:
             params.append(arg)
@@ -193,7 +195,8 @@ def trim_MRO(classes: Iterable[type]) -> tuple[type]:
     :param classes: Iterable[type], all parents/superclasses of a new \
         child/subclass to determine the minimal MRO of.
     :return: tuple[type], all base classes in a correctly-sorted MRO for a \
-        child/subclass of all `classes` specified.
+        child/subclass of all `classes` specified; tuple (instead of list) \
+        to use as 2nd parameter to dynamically define a class using type(...)
     """
     minimal_MRO = list()
     for each_class in classes:
@@ -208,13 +211,15 @@ def trim_MRO(classes: Iterable[type]) -> tuple[type]:
 
 
 class WeakDataclassBase:
+    __slots__: tuple
 
     def __repr__(self) -> str:
         attrs = {x: ToString.from_object(getattr(self, x), max_len=100)
                  for x in self.__slots__}
-        attrs_str = ToString.from_mapping(attrs, quote=None, join_on="=",
-                                          prefix="(", suffix=")")
-        return nameof(self) + attrs_str
+        attrs_str = ToString.from_mapping(attrs, quote="'", join_on="=",
+                                          prefix="(", suffix=")",
+                                          quote_keys=False)
+        return name_of(self) + attrs_str
 
     def __eq__(self, other) -> bool:
         return self.__slots__ == other.__slots__ and \
@@ -225,9 +230,10 @@ class WeakDataclassBase:
 def weak_dataclass(a_class: type, *args: inspect.Parameter) -> type:
     all_params = params_for(a_class, *args)
     init_sig = inspect.Signature(all_params, return_annotation=None)
-    WeakDataclass = type(nameof(a_class), (a_class, WeakDataclassBase),
+    WeakDataclass = type(name_of(a_class), (a_class, WeakDataclassBase),
                          dict())
-    WeakDataclass.__slots__ = tuple([p.name for p in all_params[1:]])
+    WeakDataclass.__slots__ = tuple([p.name for p in all_params[1:]
+                                     if p.name != "__slots__"])
     WeakDataclass.__init__ = create_function(init_sig, initialize,
                                              func_name="__init__",
                                              qualname="__init__")

@@ -4,7 +4,7 @@
 Tools to define, accept, and validate command-line input arguments.
 Greg Conan: gregmconan@gmail.com
 Created: 2024-09-23
-Updated: 2025-05-13
+Updated: 2025-05-15
 """
 # Import standard libraries
 from collections.abc import Callable
@@ -91,7 +91,7 @@ class Valid:
                   # conditions: Iterable[Callable] = list(),
                   err_msg: str = "`{}` is invalid.",
                   first_ensure: Callable | None = None,
-                  final_format: Callable | None = None) -> Callable:
+                  final_format: Callable | None = None) -> Any:
         """
         Parent/base function used by different type validation functions. Raises an
         argparse.ArgumentTypeError if the input object is somehow invalid.

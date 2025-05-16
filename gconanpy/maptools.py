@@ -4,7 +4,7 @@
 Useful/convenient classes to work with Python dicts/Mappings.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-05-12
+Updated: 2025-05-15
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Hashable, Mapping
@@ -57,9 +57,9 @@ class MapSubset:
             keys and values
         """
         if as_type is None:
-            as_type = type(from_map)
+            as_type = type(from_map)  # type: ignore
         return as_type({k: v for k, v in from_map.items()
-                        if self.filter(k, v)})
+                        if self.filter(k, v)})  # type: ignore
 
 
 class Traversible:

@@ -7,15 +7,18 @@ Created: 2025-04-10
 Updated: 2025-04-23
 """
 # Import standard libraries
+import abc
 from typing import Any, Literal, TypeVar
-
-try:
-    from metafunc import SupportsGetItem
-except ModuleNotFoundError:
-    from gconanpy.metafunc import SupportsGetItem
 
 
 T = TypeVar("T")  # For return_self/noop
+
+
+class SupportsGetItem(abc.ABC):
+    """ Any object with a `__getitem__` method is a `SupportsGetItem`. """
+    @abc.abstractmethod
+    def __getitem__(self, name: Any) -> bool:
+        ...
 
 
 def always_false(*_: Any, **_kwargs: Any) -> Literal[False]:

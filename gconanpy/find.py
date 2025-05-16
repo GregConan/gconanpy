@@ -4,7 +4,7 @@
 Classes and functions that iterate and break once they find what they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-05-13
+Updated: 2025-05-15
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -21,8 +21,8 @@ except ModuleNotFoundError:
     from gconanpy.trivial import is_not_none, always_none
 
 
-def iterfind(find_in: Iterable[Typ.I], found_if: Typ.Ready = is_not_none,
-             found_args: Iterable[Typ.R] = list(),
+def iterfind(find_in: Iterable, found_if: Callable = is_not_none,
+             found_args: Iterable = list(),
              found_kwargs: Mapping[str, Any] = dict(),
              default: Typ.D = None, element_is_arg: bool = True
              ) -> Typ.I | Typ.D:
@@ -36,13 +36,13 @@ def iterfind(find_in: Iterable[Typ.I], found_if: Typ.Ready = is_not_none,
     return to_return
 
 
-def modifind(find_in: Iterable[Typ.I],
-             modify: Typ.Modify | None = None,
-             modify_args: Iterable[Typ.X] = list(),
-             found_if: Typ.Ready = is_not_none,
-             found_args: Iterable[Typ.R] = list(),
-             default: Typ.D = None,
-             errs: Iterable[BaseException] = [
+def modifind(find_in: Iterable,
+             modify: Callable | None = None,
+             modify_args: Iterable = list(),
+             found_if: Callable = is_not_none,
+             found_args: Iterable = list(),
+             default: Any = None,
+             errs: Iterable[type[BaseException]] = [
                  *DATA_ERRORS, UnboundLocalError]) -> Typ.I | Typ.D:
     i = 0
     is_found = False
@@ -57,7 +57,7 @@ def modifind(find_in: Iterable[Typ.I],
     return modified if is_found else default
 
 
-def spliterate(parts: Iterable[str], ready_if:
+def spliterate(parts: list[str], ready_if:
                Callable[[str | None], bool] = is_not_none,
                min_len: int = 1, get_target:
                Callable[[str], Any] = always_none,
@@ -85,7 +85,7 @@ def spliterate(parts: Iterable[str], ready_if:
 
 
 class UntilFound(WrapFunction):
-    def check_each(self, find_in: Iterable[Typ.I], default: Typ.D = None,
+    def check_each(self, find_in: Iterable, default: Any = None,
                    element_is_arg: bool = True) -> Typ.I | Typ.D:
         return iterfind(find_in, self.inner, default=default,
                         element_is_arg=element_is_arg)
@@ -94,7 +94,7 @@ class UntilFound(WrapFunction):
 class BasicRange(Iterable):
     """ Iterator like range(); base class for custom iterators to add to. """
 
-    def __init__(self, iter_over: Sequence[Typ.I], start_at: int = 0,
+    def __init__(self, iter_over: Sequence, start_at: int = 0,
                  end_at: int | None = None, step: int = 1) -> None:
         """ 
         :param iter_over: Sequence[Any] to iterate over
@@ -149,7 +149,7 @@ class BasicRange(Iterable):
 
 
 class ErrIterChecker(BasicRange, IgnoreExceptions, KeepSkippingExceptions):
-    def __init__(self, iter_over: Iterable[Typ.I], is_done: bool = False,
+    def __init__(self, iter_over: Iterable, is_done: bool = False,
                  *catch: type[BaseException]):
         BasicRange.__init__(self, list(iter_over))
         KeepSkippingExceptions.__init__(self, catch, is_done)
@@ -167,7 +167,8 @@ class ErrIterChecker(BasicRange, IgnoreExceptions, KeepSkippingExceptions):
 
     def __exit__(self, exc_type: type[BaseException] | None = None,
                  exc_val: BaseException | None = None, _: Any = None) -> bool:
-        self.errors.append(exc_val)
+        if exc_val:
+            self.errors.append(exc_val)
         return super().__exit__(exc_type)  # , exc_val, _)
 
     def is_not_ready(self) -> bool:
@@ -181,8 +182,8 @@ class ReadyChecker(BasicRange):
     """ Context manager class to conveniently check once per iteration \
         whether an item being modified is ready to return. """
 
-    def __init__(self, to_check: Typ.M, iter_over: Iterable[Typ.I],
-                 ready_if: Typ.Ready, *ready_args: Typ.R, **ready_kwargs: Any
+    def __init__(self, to_check: Any, iter_over: Iterable[Typ.I],
+                 ready_if: Callable, *ready_args: Any, **ready_kwargs: Any
                  ) -> None:
         """
         :param to_check: Any, the item to iteratively check the readiness of.

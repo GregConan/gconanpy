@@ -58,7 +58,7 @@ class TestExtend(Tester):
         jim = Parent("Jimothy", [james])
         self.check_result(len(jim.children), 1)
         self.check_result(jim.children[0], james)
-        jamesstr = "Sibling(name=James, description=Description, age=21, " \
-            "and siblings=1)"
+        jamesstr = "Sibling(name='James', description='Description', " \
+            "age=21, and siblings=1)"
         self.check_result(str(james), jamesstr)
         assert jim != james

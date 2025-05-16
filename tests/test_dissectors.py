@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-05-04
+Updated: 2025-05-15
 """
 # Import standard libraries
 from typing import Any
@@ -64,7 +64,7 @@ class TestShredders(Tester):
         soup = self.get_soup()
         cored = Corer().core(soup)
         print(cored)
-        assert cored.strip().startswith("Thank you")
+        assert cored.strip().startswith("Thank you")  # type: ignore
 
     def test_7(self):
         cli_args = self.build_cli_args()
@@ -117,6 +117,7 @@ class TestDifferenceBetween(Tester):
         sub1 = MapSubset(keys=self.alist)
         sub2 = MapSubset(values=self.alist)
         sub_diff = DifferenceBetween(sub1, sub2)
+        assert sub_diff.difference
         assert sub_diff.difference.startswith("unique attribute(s)")
 
 

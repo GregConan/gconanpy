@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-04
+Updated: 2025-05-15
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable, Iterator
@@ -17,7 +17,7 @@ try:
     from debug import Debuggable
     from maptools import MapSubset, Traversible
     from metafunc import are_all_equal, DATA_ERRORS, has_method, \
-        IgnoreExceptions, KeepTryingUntilNoErrors, method, nameof
+        IgnoreExceptions, KeepTryingUntilNoErrors, method, name_of
     from seq import differentiate_sets, get_key_set, uniqs_in
     from ToString import stringify
     from trivial import always_true, get_item_of
@@ -25,7 +25,7 @@ except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
     from gconanpy.maptools import MapSubset, Traversible
     from gconanpy.metafunc import are_all_equal, DATA_ERRORS, has_method, \
-        IgnoreExceptions, KeepTryingUntilNoErrors, method, nameof
+        IgnoreExceptions, KeepTryingUntilNoErrors, method, name_of
     from gconanpy.seq import differentiate_sets, get_key_set, uniqs_in
     from gconanpy.ToString import stringify
     from gconanpy.trivial import always_true, get_item_of
@@ -41,7 +41,7 @@ class DifferenceBetween:
     GetSubcomparator = Callable[[ToCompare, PartName], Diff]
 
     # Instance variables
-    comparables: list[ToCompare]  # The objects to compare/contrast
+    comparables: list  # The objects to compare/contrast
     difference: str | None  # Name classifying the difference
     diffs: list[str | None]  # The differing values themselves
     names: list[str]  # The names of the objects to compare/contrast
@@ -64,7 +64,7 @@ class DifferenceBetween:
             self.comparables.append(arg)
 
             # By default, name unnamed objects their type and insertion order
-            arg_type = nameof(arg)
+            arg_type = name_of(arg)
             arg_name = arg_type
             i = 1
             while arg_name in self.names:
@@ -74,10 +74,10 @@ class DifferenceBetween:
 
         # If objects differ, then discover how; else there's no need
         self.is_different = not are_all_equal(self.comparables)
-        self.diffs = self.find() if self.is_different else list()
+        self.diffs = self.find()
 
     def compare_all_in(self, by: str, get_subcomparator: GetSubcomparator,
-                       comparisons: Iterable[PartName]) -> list[Diff]:
+                       comparisons: Iterable[PartName]) -> list:
         diffs = list()
         get_comparison = iter(comparisons)
         next_name = next(get_comparison, None)
@@ -88,7 +88,7 @@ class DifferenceBetween:
         return diffs
 
     def compare_by(self, by: str, get_comparator: GetComparator
-                   ) -> list[Diff]:
+                   ) -> list:
         """ _summary_
 
         :param by: str, name of the possible difference to find
@@ -101,25 +101,25 @@ class DifferenceBetween:
             self.difference = by
         return comparables
 
-    def compare_elements_0_to(self, end_ix: int) -> list[Diff]:
+    def compare_elements_0_to(self, end_ix: int) -> list:
         return self.compare_all_in("element", get_item_of,
                                    [x for x in range(end_ix)])
 
     def compare_sets(self, by: str, get_comparisons: GetPartNames,
                      get_subcomparator: GetSubcomparator
-                     ) -> list[Diff]:
+                     ) -> list:
         """ _summary_ 
 
         :param by: str, name of the possible difference to find
         :param get_comparisons: Callable[[Any], Iterable[Any]], _description_
         :param get_subcomparator: Callable[[Any, Any], Any], _description_
-        :return: list[Diff], _description_
+        :return: list, _description_
         """
         keys = self.compare_by(by, get_comparisons)
         return differentiate_sets(keys) if self.difference else \
             self.compare_all_in(by, get_subcomparator, next(iter(keys)))
 
-    def find(self) -> list[Diff] | None:
+    def find(self) -> list:
         """ Find the difference(s) between the objects in self.comparables.
             Returns the first difference found, not an exhaustive list.
 
@@ -154,6 +154,8 @@ class DifferenceBetween:
         diff_attrs = self.compare_sets("unique attribute(s)", dir, getattr)
         if self.difference:
             return diff_attrs
+        else:
+            return list()
 
     def __repr__(self) -> str:
         """
@@ -186,12 +188,12 @@ class IteratorFactory:
     def iterate(cls, an_obj: Iterable[_T] | _T) -> Iterator[_T]:
         with KeepTryingUntilNoErrors(*DATA_ERRORS) as next_try:
             with next_try():
-                iterator = iter(an_obj.values())
+                iterator = iter(an_obj.values())  # type: ignore
             with next_try():
-                iterator = iter(an_obj)
+                iterator = iter(an_obj)  # type: ignore
             with next_try():
                 iterator = iter([an_obj])
-        return iterator
+        return iterator  # type: ignore
 
 
 class Peeler(IteratorFactory):
@@ -209,8 +211,7 @@ class Peeler(IteratorFactory):
             is_peelable = False
         return is_peelable
 
-    @classmethod
-    def peel(self, to_peel: Iterable[Iterable[_P]]) -> Iterable[_P] | _P:
+    def peel(self, to_peel: Iterable[_P]) -> Iterable[_P] | _P:
         """ Extract data from redundant nested container data structures.
 
         :param to_peel: Iterable, especially a nested container data structure
@@ -263,7 +264,7 @@ class SimpleShredder(Traversible):
 
             # Shred or save each of an_obj's...
             try:  # ...values if it's a Mapping
-                for v in an_obj.values():
+                for v in an_obj.values():  # type: ignore
                     self._collect(v)
             except self.SHRED_ERRORS:
 
@@ -324,7 +325,7 @@ class Shredder(SimpleShredder, Debuggable):
 
             # Shred or save each of an_obj's...
             try:  # ...values if it's a Mapping
-                for k, v in an_obj.items():
+                for k, v in an_obj.items():  # type: ignore
                     if has_method(v, "items") or self.filter(k, v):
                         self._collect(v)
             except self.SHRED_ERRORS:
@@ -333,7 +334,7 @@ class Shredder(SimpleShredder, Debuggable):
                 for element in an_obj:
                     self._collect(element)
 
-    def shred(self, an_obj: Any, remember: bool = False) -> set:
+    def shred(self, an_obj: Any, remember: bool = False) -> set:  # type: ignore
         """ Recursively collect/save the attributes, items, and/or elements \
             of an_obj regardless of how deeply they are nested. Return only \
             the Hashable data in an_obj, not the Containers they're in.
@@ -474,7 +475,7 @@ class Xray(list):
 
         if not list_its:
             list_its = what_elements_are
-        self.what_elements_are = nameof(an_obj) + \
+        self.what_elements_are = name_of(an_obj) + \
             f" {list_its if list_its else what_elements_are}"
 
         with IgnoreExceptions(TypeError):

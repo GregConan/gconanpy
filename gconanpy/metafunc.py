@@ -4,14 +4,15 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-05-13
+Updated: 2025-05-15
 """
 # Import standard libraries
-from abc import ABC
-from collections.abc import Callable, Generator, Iterable, Mapping
+import abc
+from collections.abc import (Callable, Collection, Generator,
+                             Iterable, Mapping, MutableMapping)
 from functools import reduce
 import itertools
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal, SupportsBytes, TypeVar
 
 # Import local custom libraries
 try:
@@ -22,7 +23,7 @@ except ModuleNotFoundError:
     from gconanpy.ToString import ToString
 
 # Constants: TypeVars for...
-M = TypeVar("M", bound=Mapping)  # ...combine_maps
+M = TypeVar("M", bound=MutableMapping)  # ...combine_maps
 T = TypeVar("T")  # ...add_attributes_to
 
 # Purely "internal" errors only involving local data; ignorable in some cases
@@ -75,7 +76,7 @@ def are_all_equal(comparables: Iterable, equality: str | None = None,
     return are_same
 
 
-def bool_pair_to_cases(cond1, cond2) -> Literal[0, 1, 2, 3]:
+def bool_pair_to_cases(cond1, cond2) -> int:  # Literal[0, 1, 2, 3]:
     return sum(which_of(cond1, cond2))
 
 
@@ -132,7 +133,13 @@ def method(method_name: str) -> Callable:  # TODO move to trivial.py?
     return call_method_of
 
 
-def metaclass_hasmethod(method_name: str, include: bool = True) -> type:
+def make_metaclass(name: str, checker: Callable[[Any, Any], bool]) -> type:
+    return type(name, (type, ), {"__instancecheck__": checker,
+                                 "__subclasscheck__": checker})
+
+
+def metaclass_hasmethod(method_name: str, include: bool = True,
+                        altcond: Callable[[Any], bool] | None = None) -> type:
     """ _summary_ 
 
     :param method_name: str naming the method that the returned metaclass \
@@ -150,15 +157,13 @@ def metaclass_hasmethod(method_name: str, include: bool = True) -> type:
         def _check(cls, thing: Any) -> bool:
             return not has_method(thing, method_name)
         verb = "Lacks"
-    return type(f"{verb}{capitalized}Meta", (type, ),
-                {"__instancecheck__": _check,
-                 "__subclasscheck__": _check})
+    return make_metaclass(f"{verb}{capitalized}Meta", _check)
 
 
-def metaclass_issubclass(is_all_of: Iterable[type] = list(),
-                         isnt_any_of: Iterable[type] = list(),
+def metaclass_issubclass(is_all_of: type | tuple[type, ...] = tuple(),
+                         isnt_any_of: type | tuple[type, ...] = tuple(),
                          name: str | None = None) -> type:
-    def _checker(is_a: Callable[[Any, type], bool]):
+    def _checker(is_a: Callable[[Any, type | tuple[type, ...]], bool]):
         def _check(cls, instance):
             return (not is_all_of or is_a(instance, is_all_of)
                     ) and not is_a(instance, isnt_any_of)
@@ -167,18 +172,6 @@ def metaclass_issubclass(is_all_of: Iterable[type] = list(),
         name = name_type_class(is_all_of, isnt_any_of)
     return type(name, (type, ), {"__instancecheck__": _checker(isinstance),
                                  "__subclasscheck__": _checker(issubclass)})
-
-
-def name_all(objects: Iterable, max_n: int | None = None) -> list[str]:
-    """
-    :param objects: Iterable of things to return the names of
-    :param max_n: int | None, maximum number of names to return; by default, \
-        this function will return all names
-    :return: list[str], names of `max_n` (or all) `objects`
-    """
-    if max_n is None:
-        max_n = len(objects)
-    return [nameof(x) for i, x in enumerate(objects) if i < max_n]
 
 
 def name_attributes_of(*objects: Any) -> set[str]:
@@ -192,30 +185,50 @@ def name_attributes_of(*objects: Any) -> set[str]:
     return attr_names
 
 
-def name_type_class(is_all_of: Iterable[type] = list(),
-                    isnt_any_of: Iterable[type] = list(),
-                    max_n: int = 5, default: str = "NewTypeClass") -> str:
-    str_isall = "And".join(name_all(is_all_of, max_n=max_n))
-    str_isntany = "Or".join(name_all(isnt_any_of, max_n=max_n))
-    match bool_pair_to_cases(str_isall, str_isntany):
-        case 0:
-            name = default
-        case 1:
-            name = "Is" + str_isall
-        case 2:
-            name = "IsNot" + str_isntany
-        case 3:
-            name = f"Is{str_isall}ButNot{str_isntany}"
-    return name
+def tuplify(an_obj: Any) -> tuple:
+    try:
+        return tuple(an_obj)
+    except TypeError:
+        return (an_obj, )
 
 
-def nameof(an_obj: Any) -> str:
+def name_of(an_obj: Any) -> str:
     """ Get the `__name__` of an object or of its type/class.
 
     :param an_obj: Any
     :return: str naming an_obj, usually its type/class name.
     """
     return of_self_or_class(an_obj, "__name__")
+
+
+def names_of(objects: Collection, max_n: int | None = None,
+             get_name: Callable[[Any], str] = name_of) -> list[str]:
+    """
+    :param objects: Iterable of things to return the names of
+    :param max_n: int | None, maximum number of names to return; by default, \
+        this function will return all names
+    :return: list[str], names of `max_n` (or all) `objects`
+    """
+    return [get_name(x) for x in objects] if max_n is None else \
+        [get_name(x) for i, x in enumerate(objects) if i < max_n]
+
+
+def name_type_class(is_all_of: Any = tuple(), isnt_any_of: Any = tuple(),
+                    max_n: int = 5, default: str = "NewTypeClass",
+                    pos_verb: str = "Is", neg_verb: str = "IsNot",
+                    get_name: Callable[[Any], str] = name_of) -> str:
+    str_isall = "And".join(names_of(tuplify(is_all_of), max_n, get_name))
+    str_isntany = "Or".join(names_of(tuplify(isnt_any_of), max_n, get_name))
+    match bool_pair_to_cases(str_isall, str_isntany):
+        case 0:
+            name = default
+        case 1:
+            name = pos_verb + str_isall
+        case 2:
+            name = neg_verb + str_isntany
+        case 3:
+            name = f"{pos_verb}{str_isall}But{neg_verb}{str_isntany}"
+    return name
 
 
 def of_self_or_class(an_obj: Any, attr_name: str) -> Any:
@@ -263,19 +276,10 @@ def which_of(*conditions: bool) -> set[int]:
     return set((i for i, cond in enumerate(conditions) if cond))
 
 
-class WrapFunction(Callable):
+class WrapFunction:  # (Callable):
     """ Function wrapper that also stores some of its input parameters. """
 
-    # Type variables for inner/wrapped/"frozen" function parameters/args
-    Pre = TypeVar("Pre")  # Positional args to inject BEFORE Inner args
-    Inner = TypeVar("Inner")  # Positional args passed when executing
-    Post = TypeVar("Post")  # Positional args to inject AFTER Inner args
-    Kw = TypeVar("Kw")  # Keyword args
-    Ret = TypeVar("Ret")  # Wrapped/"frozen" function's return value
-    Caller = Callable[[tuple[Pre, ...], tuple[Inner, ...],
-                       tuple[Post, ...]], Ret]  # Wrapped function itself
-
-    def __call__(self, *args: Inner, **kwargs: Kw) -> Ret:
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
         """ Call/execute/unwrap/"thaw" the wrapped/"frozen" function.
 
         :return: Any, the output of calling the wrapped/"frozen" function \
@@ -283,8 +287,8 @@ class WrapFunction(Callable):
         """
         return self.inner(*args, **kwargs)
 
-    def __init__(self, call: Caller, pre: Iterable[Pre] = list(),
-                 post: Iterable[Post] = list(), **kwargs: Kw) -> None:
+    def __init__(self, call: Callable, pre: Iterable = list(),
+                 post: Iterable = list(), **kwargs: Any) -> None:
         """ Wrap/"freeze" a function with some parameters already defined \
             to call that function with those parameters later.
 
@@ -308,7 +312,7 @@ class WrapFunction(Callable):
         kwargstrs = [f"{k}={v}" for k, v in kwargs.items()]
         argstr = ToString.from_iterable([*pre, "*args", *post, *kwargstrs],
                                         prefix="[", suffix="]")
-        self.name = f"{nameof(self)}[{nameof(call)}({argstr}, **kwargs)]"
+        self.name = f"{name_of(self)}[{name_of(call)}({argstr}, **kwargs)]"
 
         self.inner = inner
 
@@ -329,7 +333,7 @@ class WrapFunction(Callable):
             return self.inner(*args, **kwargs) == output
         return self.__class__(is_as_expected)
 
-    def foreach(self, *objects: Inner) -> Generator[Ret, None, None]:
+    def foreach(self, *objects: Any) -> Generator[Any, None, None]:
         """ Call the wrapped/"frozen" function with its specified parameters \
             on every object in `objects`. Iterate lazily; only call/execute \
             the wrapped function on each object at the moment of retrieval.
@@ -363,12 +367,11 @@ class FilterAttributes:
             to check whether the returned generator function should include \
             that attribute or skip it
         """
-        self.selectors = dict(names=if_names, values=if_values)
+        self.selectors = {"names": if_names, "values": if_values}
 
-    def add(self, which: _WHICH, func: WrapFunction.Caller,
-            pre: Iterable[WrapFunction.Pre] = list(),
-            post: Iterable[WrapFunction.Post] = list(),
-            **kwargs: WrapFunction.Kw) -> None:
+    def add(self, which: _WHICH, func: Callable,
+            pre: Iterable = list(), post: Iterable = list(),
+            **kwargs: Any) -> None:
         self.selectors[which].append(WrapFunction(func, pre, post,
                                                   **kwargs))
 
@@ -406,7 +409,9 @@ class AttributesOf:
 
     # If an attribute/method name starts with an underscore, then assume
     # that it's private, and vice versa if it doesn't
-    attr_is_private = ToString("_").starts
+    @staticmethod
+    def attr_is_private(name: str, _: Any) -> bool:
+        return ToString("_").starts(name)
 
     def __init__(self, what: Any) -> None:
         """ 
@@ -427,8 +432,8 @@ class AttributesOf:
             of the filter functions return True; else False to EXclude them.
         :return: Any, an_obj with the specified attributes of this object.
         """
-        for attr_name in self.select(filter_if, exclude):
-            setattr(an_obj, attr_name, getattr(self.what, attr_name))
+        for attr_name, attr_value in self.select(filter_if, exclude):
+            setattr(an_obj, attr_name, attr_value)
         return an_obj
 
     def but_not(self, *others: Any) -> set[str]:
@@ -475,7 +480,7 @@ class AttributesOf:
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each selected attribute.
         """
-        yield from self.select()
+        yield from self.select(lambda *_, **_kw: True)  # TODO use trivial.always_true
 
     def methods(self) -> Generator[tuple[str, Callable], None, None]:
         """ Iterate over this object's methods (callable attributes).
@@ -513,7 +518,7 @@ class AttributesOf:
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each private attribute.
         """
-        yield from self.select([self.attr_is_private])
+        yield from self.select(self.attr_is_private)
 
     def public(self) -> _IterAttrPairs:
         """ Iterate over this object's public attributes.
@@ -521,7 +526,7 @@ class AttributesOf:
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each public attribute.
         """
-        yield from self.select([self.attr_is_private], exclude=True)
+        yield from self.select(self.attr_is_private, exclude=True)
 
     def public_names(self) -> list[str]:
         """
@@ -563,6 +568,9 @@ class BoolableMeta(type):  # https://realpython.com/python-interface/
                                                     set(methods)))
 
 
+IsOrSupportsBytes = TypeVar("IsOrSupportsBytes", bytes, SupportsBytes)
+
+
 class Boolable(metaclass=BoolableMeta):
     """ Any object that you can call `bool()` on is a `Boolable`. """
 
@@ -577,11 +585,44 @@ class PureIterable(metaclass=metaclass_issubclass(
     """ Iterables that aren't strings, bytes, or Mappings are "Pure." """
 
 
-class SupportsGetItem(metaclass=metaclass_hasmethod("__getitem__")):
-    """ Any object with a `__getitem__` method is a `SupportsGetItem`. """
+class TypeFactory:
+    @classmethod
+    def _has_all(cls, an_obj: Any, method_names: Collection[str]) -> bool:
+        for method_name in method_names:
+            if not has_method(an_obj, method_name):
+                return False
+        return True
+
+    @classmethod
+    def _lacks_all(cls, an_obj: Any, method_names: Collection[str]) -> bool:
+        for method_name in method_names:
+            if has_method(an_obj, method_name):
+                return False
+        return True
+
+    @classmethod
+    def hasmethods(cls, all_of: Any = (), none_of: Any = (),
+                   altcond: Callable[[Any], bool] | None = None,
+                   **kwargs: Any) -> type:
+        class_name = name_type_class(all_of, none_of,
+                                     get_name=DunderParser().pascalize,
+                                     pos_verb="Supports", neg_verb="Lacks")
+
+        def _check_methods(_, thing: Any) -> bool:
+            return cls._has_all(thing, all_of) and \
+                cls._lacks_all(thing, none_of)
+
+        if altcond:
+            def _check(_, thing: Any) -> bool:
+                return altcond(thing) and _check_methods(_, thing)
+        else:
+            _check = _check_methods
+
+        return type(class_name, (type, ), {"metaclass": make_metaclass(
+            "MethodMetaclass", _check), **kwargs})
 
 
-class FinderTypes(ABC):
+class FinderTypes(abc.ABC):
     # TODO Figure out standard way to centralize, reuse, & document TypeVars?
     """ Type vars to specify which attributes of finders.py classes' methods' \
     input arguments need to be the same type/class as which other(s).
@@ -597,12 +638,6 @@ class FinderTypes(ABC):
     """
     D = TypeVar("D")
     I = TypeVar("I")
-    M = TypeVar("M")
-    R = TypeVar("R")
-    X = TypeVar("X")
-    Modify = Callable[[I, tuple[X, ...]], M]
-    Ready = Callable[[M, tuple[R, ...]], Boolable]
-    Viable = Callable[[M], bool]
 
 
 class SkipException(BaseException):
@@ -649,7 +684,7 @@ class IgnoreExceptions(ErrCatcher):
         return (not self.catch) or (exc_type in self.catch)
 
 
-class SkipOrNot(IgnoreExceptions, ABC):
+class SkipOrNot(IgnoreExceptions, abc.ABC):
     def __init__(self, parent: "KeepTryingUntilNoErrors", *catch) -> None:
         super(SkipOrNot, self).__init__(*catch)
         self.parent = parent
@@ -689,7 +724,7 @@ class KeepSkippingExceptions(ErrCatcher):
             else False to execute them 
         """
         super(KeepSkippingExceptions, self).__init__(*catch)
-        self.errors = list()
+        self.errors: list[BaseException] = list()
         self.is_done = is_done
 
 

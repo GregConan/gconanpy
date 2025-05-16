@@ -4,10 +4,10 @@
 Functions to import/export data from/to remote files/pages/apps on the Web.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-13
-Updated: 2025-04-16
+Updated: 2025-05-15
 """
 # Import standard libraries
-from collections.abc import Hashable, Mapping
+from collections.abc import Mapping
 import datetime as dt
 import pdb
 import requests
@@ -53,7 +53,7 @@ class URL:
     def __repr__(self) -> str:
         return self.urlstr
 
-    def get_params(self) -> dict[Hashable, list]:
+    def get_params(self) -> dict[str, list]:
         return parse_qs(self.parsed.query)
 
     def without_params(self) -> str:

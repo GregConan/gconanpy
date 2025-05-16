@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#  type: ignore
 
 """
 Greg Conan: gregmconan@gmail.com
@@ -36,7 +37,7 @@ class MapTester(Tester):
     def get_custom_dicts(self) -> Generator[Mapping, None, None]:
         self.add_basics()
         for dict_class in self.TEST_CLASSES:
-            yield dict_class(self.adict)
+            yield dict_class(self.adict)  # type: ignore
 
     def map_test(self, map_type: type, in_dict: dict, out_dict: dict,
                  method_to_test: str, *method_args, **method_kwargs) -> None:
@@ -170,27 +171,28 @@ class TestDotDicts(MapTester):
 class TestUpdationary(MapTester):
     TEST_CLASSES = (DotDict, FancyDict, LazyDict, LazyDotDict, Updationary)
 
-    def one_update_test(self, dfty: Updationary, expected_len: int,
+    def one_update_test(self, updty: Updationary, expected_len: int,
                         a_map: Mapping | None = None,
                         **expected: Any) -> Updationary:
         for copy in (False, True):
+            updatefn = updty.copy_update if copy else updty.update
             if a_map is None:
-                newd = dfty.update(**expected, copy=copy)
+                newd = updatefn(**expected)
             else:
-                newd = dfty.update(a_map, **expected, copy=copy)
+                newd = updatefn(a_map, **expected)
                 expected.update(a_map)
             if copy:
-                dfty = newd
-            self.check_result(len(dfty), expected_len)
+                updty = newd
+            self.check_result(len(updty), expected_len)
             for k, v in expected.items():
-                self.check_result(dfty[k], v)
-        return dfty
+                self.check_result(updty[k], v)
+        return updty
 
     def test_update_1(self) -> None:
-        for dfty in self.get_custom_dicts():
-            self.one_update_test(dfty, 4, d=4)
+        for updty in self.get_custom_dicts():
+            self.one_update_test(updty, 4, d=4)
 
     def test_update_2(self) -> None:
-        for dfty in self.get_custom_dicts():
-            dfty = self.one_update_test(dfty, 4, dict(d=4))
-            self.one_update_test(dfty, 4, dict(a=3), c=1)
+        for updty in self.get_custom_dicts():
+            updty = self.one_update_test(updty, 4, dict(d=4))
+            self.one_update_test(updty, 4, dict(a=3), c=1)

@@ -7,7 +7,7 @@ Overlaps significantly with:
     DCAN-Labs:abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-05-04
+Updated: 2025-05-15
 """
 # Import standard libraries
 from collections.abc import (Container, Generator, Hashable,
@@ -75,14 +75,14 @@ def default_pop(poppable: Any, key: Any = None,
     return to_return
 
 
-def differentiate_sets(sets: Iterable[set[S]]) -> list[set[S]]:
+def differentiate_sets(sets: list[set[S]]) -> list[set[S]]:
     """ Remove all shared/non-unique items from sets until they no longer \
     overlap/intersect at all.
 
     :param sets: Iterable[set[T]], _description_
     :return: list[set[T]], unique items in each set
     """
-    to_return = [None] * len(sets)
+    to_return = list()
     for i in range(len(sets)):
         for other_set in sets[:i] + sets[i+1:]:
             to_return[i] = sets[i] - other_set
@@ -134,7 +134,7 @@ class DunderParser:
         if not words:
             matched = regex_parse(self.AnyDunder, dunder_name)
             if matched:
-                words = matched["name"].split("_")
+                words = matched["name"].split("_")  # type: ignore
             else:
                 words = [dunder_name]
 
@@ -144,7 +144,7 @@ class DunderParser:
             if pfxs:
                 words = pfxs.split("_")[:-1] + words
 
-        return words
+        return words  # type: ignore
 
     def pascalize(self, dunder_name: str):
         """ Given a dunder method/attribute name such as `__getitem__`, \
@@ -182,8 +182,8 @@ def insert_into(a_seq: Sequence[I], item: I, at_ix: int) -> list[I]:
 
 
 def link_to_markdown(a_string: str, a_URL: str) -> str:
-    a_string = a_string.replace("[", "\[").replace("]", "\]")
-    a_URL = a_URL.replace("(", "\(").replace(")", "\)")
+    a_string = a_string.replace("[", r"\[").replace("]", r"\]")
+    a_URL = a_URL.replace("(", r"\(").replace(")", r"\)")
     return f"[{a_string}]({a_URL})"
 
 
@@ -198,7 +198,8 @@ def list_to_dict(a_list: list[str], delimiter: str = ": ") -> dict[str, str]:
 def markdown_to_link(md_link_text: str) -> tuple[str, str]:
     md_link_text = md_link_text.strip()
     assert md_link_text[0] == "[" and md_link_text[-1] == ")"
-    return md_link_text[1:-1].split("](")
+    md_link_parts = md_link_text[1:-1].split("](")
+    return md_link_parts[0], md_link_parts[1]
 
 
 def nan_rows_in(a_df: pd.DataFrame) -> pd.DataFrame:
@@ -244,7 +245,7 @@ def regex_parse(pattern: re.Pattern, txt: str, default: Any = None,
                      values=exclude, include_values=False).of(parsed)
 
 
-def search_sequence_numpy(arr: np.array, subseq: np.array) -> list[int]:
+def search_sequence_numpy(arr: np.ndarray, subseq: np.ndarray) -> list[int]:
     """ Find sequence in an array using NumPy only. "Approach #1" of the \
         code at https://stackoverflow.com/a/36535397 with an extra line to \
         mimic `str.find`.
@@ -317,5 +318,5 @@ def uniqs_in(listlike: Iterable[Hashable]) -> list[Hashable]:
              that don't start with an underscore
     """
     uniqs = [*set([v for v in listlike if not startswith(v, "_")])]
-    uniqs.sort()
+    uniqs.sort()  # type: ignore
     return uniqs

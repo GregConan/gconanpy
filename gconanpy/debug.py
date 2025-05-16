@@ -6,7 +6,7 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-07
+Updated: 2025-05-15
 """
 # Import standard libraries
 from abc import ABC
@@ -27,16 +27,16 @@ from pympler.asizeof import asizeof
 
 # Import local custom libraries
 try:
-    from metafunc import nameof
+    from metafunc import name_of
     from seq import uniqs_in
     from ToString import stringify_dt, stringify_iter
 except ModuleNotFoundError:
-    from gconanpy.metafunc import nameof
+    from gconanpy.metafunc import name_of
     from gconanpy.seq import uniqs_in
     from gconanpy.ToString import stringify_dt, stringify_iter
 
 # Constants
-LOGGER_NAME = __package__
+LOGGER_NAME = __package__ if __package__ else __file__
 
 
 # NOTE All classes and functions below are in alphabetical order.
@@ -158,7 +158,7 @@ def print_tb_of(err: BaseException) -> None:
 
     :param err: BaseException to print information about.
     """
-    print(nameof(err), end=": ", file=sys.stderr)
+    print(name_of(err), end=": ", file=sys.stderr)
     traceback.print_tb(err.__traceback__)
     print(err, file=sys.stderr)
 
@@ -247,8 +247,8 @@ class SplitLogger(logging.getLoggerClass()):
         # self.addHandler(logging.Handler(log_level))
         super().__init__(self.NAME, level=log_level)
         # if self.level == 0 or (self.getEffectiveLevel() == 30 and verbosity != 1):
-        self.addSubLogger("out", sys.stdout, out)
-        self.addSubLogger("err", sys.stderr, err)
+        self.addSubLogger("out", sys.stdout, out)  # TODO # type: ignore
+        self.addSubLogger("err", sys.stderr, err)  # TODO # type: ignore
 
         # Force logging.getLogger(name) to return this object, since otherwise
         # it creates a different logging.Logger with the same name!
@@ -308,10 +308,11 @@ def take_snapshot(logger: logging.Logger, how: str = "lineno"
                   ) -> tracemalloc.Snapshot:
     snapshot = tracemalloc.take_snapshot()
     snap_stats = snapshot.statistics(how)
-    snap_df = pd.DataFrame([{"Size": snap.size,
-                             "Filename": snap.traceback._frames[0][0],
-                             "Line No.": snap.traceback._frames[0][1],
-                             "Object": snap} for snap in snap_stats])
+    snap_df = pd.DataFrame([{
+        "Size": snap.size,
+        "Filename": snap.traceback._frames[0][0],  # type: ignore
+        "Line No.": snap.traceback._frames[0][1],  # type: ignore
+        "Object": snap} for snap in snap_stats])
     total_size = HumanBytes.format(int(snap_df['Size'].sum()), precision=2)
     logger.info(f"Total Memory Usage: {total_size}")
     pdb.set_trace()

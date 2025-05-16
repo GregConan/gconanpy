@@ -3,10 +3,10 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-05-07
+Updated: 2025-05-15
 """
 # Import standard libraries
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Collection, Iterable, Mapping
 import datetime as dt
 import os
 import re
@@ -21,10 +21,9 @@ class ToString(str):
     _S = TypeVar("_S")  # for truncate(...) function
     _TIMESPEC = Literal["auto", "hours", "minutes", "seconds", "milliseconds",
                         "microseconds"]  # for datetime.isoformat
-    BLANKS: set[str | None] = {None, ""}  # Objects not to show in strings
     Quotator = Callable[[Any], "ToString"]
 
-    def __add__(self, value: str) -> "ToString":
+    def __add__(self, value: str | None) -> "ToString":
         """ Append `value` to the end of `self`. Implements `self + value`. \
             Defined explicitly so that `ToString() + str() -> ToString` \
             instead of returning a `str` object.
@@ -32,7 +31,7 @@ class ToString(str):
         :param value: str
         :return: ToString, `self` with `value` appended after it.
         """
-        return self.__class__(f"{self}{value}")
+        return self.__class__(f"{self}{value}") if value else self
 
     def enclosed_by(self, affix: str) -> "ToString":
         """
@@ -49,7 +48,7 @@ class ToString(str):
         :return: ToString with `prefix` at the beginning & `suffix` at the end
         """
         return self.that_starts_with(prefix).that_ends_with(suffix) \
-            if len(self) else self.__class__(prefix + suffix)
+            if len(self) else self.__class__(prefix) + suffix
 
     def ends(self, other: str) -> bool:
         """ `x.ends(y)` is `y.endswith(x)`.
@@ -61,7 +60,7 @@ class ToString(str):
 
     @classmethod
     def filepath(cls, dir_path: str, file_name: str, file_ext: str = "",
-                 put_dt_after: str | None = None, max_len: int | None = 255
+                 put_dt_after: str | None = None, max_len: int | None = None
                  ) -> "ToString":
         """
         :param dir_path: str, valid path to directory containing the file
@@ -78,13 +77,17 @@ class ToString(str):
         # Remove special characters not covered by pathvalidate.sanitize_filename
         file_name = re.sub(r"[?:\=\.\&\?]*", '', file_name)
 
-        if put_dt_after is not None:  # Get ISO timestamp to append to file name
-            put_dt_after += cls.from_datetime(dt.datetime.now())
-
         # Get max file name length by subtracting from max file path length
+        if max_len is None:
+            max_len = os.pathconf(dir_path, "PC_NAME_MAX")
+        else:
+            max_len -= len(dir_path)
+            max_len -= len(file_ext)
+        if put_dt_after is not None:
             max_len -= len(put_dt_after)
-        max_len -= len(dir_path)
-        max_len -= len(file_ext)
+
+            # Get ISO timestamp to append to file name
+            put_dt_after += cls.from_datetime(dt.datetime.now())
 
         # Remove any characters illegal in file paths/names and truncate name
         file_name = pathvalidate.sanitize_filename(file_name, max_len=max_len)
@@ -126,14 +129,14 @@ class ToString(str):
         return cls(stringified)
 
     @classmethod
-    def from_iterable(cls, an_obj: Iterable, quote: str | None = "'",
+    def from_iterable(cls, an_obj: Collection, quote: str | None = "'",
                       sep: str = ", ", quote_numbers: bool = False,
                       prefix: str | None = "[", suffix: str | None = "]",
                       max_len: int | None = None, lastly: str = "and "
                       ) -> "ToString":
         """ Convert an Iterable into a ToString object.
 
-        :param an_obj: Iterable to convert ToString
+        :param an_obj: Collection to convert ToString
         :param quote: str to add before and after each element of `an_obj`, \
             or None to insert no quotes; defaults to "'"
         :param sep: str to insert between all of the elements of `an_obj`, \
@@ -174,8 +177,9 @@ class ToString(str):
     @classmethod
     def from_object(cls, an_obj: Any, max_len: int | None = None,
                     quote: str | None = "'", quote_numbers: bool = False,
-                    join_on: str = ": ", sep: str = ",",
-                    prefix: str | None = None, suffix: str | None = None,
+                    quote_keys: bool = True, join_on: str = ": ",
+                    sep: str = ",", prefix: str | None = None,
+                    suffix: str | None = None,
                     dt_sep: str = "_", timespec: _TIMESPEC = "seconds",
                     replace: Mapping[str, str] = {":": "-"},
                     encoding: str = sys.getdefaultencoding(),
@@ -218,8 +222,8 @@ class ToString(str):
                 stringified = cls(an_obj, encoding=encoding, errors=errors)
             case dict():
                 stringified = cls.from_mapping(an_obj, quote, quote_numbers,
-                                               join_on, prefix, suffix, sep,
-                                               max_len, lastly)
+                                               quote_keys, join_on, prefix, suffix,
+                                               sep, max_len, lastly)
             case list() | tuple() | set():
                 stringified = cls.from_iterable(an_obj, quote, sep,
                                                 quote_numbers, prefix, suffix,
@@ -235,7 +239,8 @@ class ToString(str):
 
     @classmethod
     def from_mapping(cls, a_map: Mapping, quote: str | None = "'",
-                     quote_numbers: bool = False, join_on: str = ": ",
+                     quote_numbers: bool = False, quote_keys: bool = True,
+                     join_on: str = ": ",
                      prefix: str | None = "{", suffix: str | None = "}",
                      sep: str = ",", max_len: int | None = None,
                      lastly: str = "and ") -> "ToString":
@@ -265,9 +270,10 @@ class ToString(str):
         quotate = cls.get_quotator(quote, quote_numbers)
         pair_strings = list()
         for k, v in a_map.items():
+            k = quotate(k) if quote_keys else k
             v = quotate(v) if max_len is None else \
                 quotate(v).truncate(max_len, quotate)
-            pair_strings.append(join_on.join(quotate(k), v))
+            pair_strings.append(join_on.join((k, v)))
         return cls.from_iterable(pair_strings, None, sep, prefix=prefix,
                                  suffix=suffix, max_len=max_len,
                                  lastly=lastly)
@@ -278,7 +284,7 @@ class ToString(str):
         quotate = cls.quotate_obj if quote_numbers else cls.quotate_number
         return cls.from_object if not quote else lambda x: quotate(x, quote)
 
-    def join(self, *strings: str) -> "ToString":
+    def join(self, strings: Iterable[str]) -> "ToString":
         """ Concatenate any number of strings. Same as `str.join`, but \
             returns a `ToString` object.
 
@@ -324,8 +330,7 @@ class ToString(str):
         :param suffix: str to append to `self`, or None to do nothing.
         :return: ToString ending with `suffix`.
         """
-        return self if suffix in self.BLANKS or self.endswith(suffix) \
-            else self.__class__(self + suffix)
+        return self if not suffix or self.endswith(suffix) else self + suffix
 
     def that_starts_with(self, prefix: str | None) -> "ToString":
         """ Prepend `suffix` at index 0 of `self` unless it is already there.
@@ -333,8 +338,8 @@ class ToString(str):
         :param prefix: str to prepend to `self`, or None to do nothing.
         :return: ToString beginning with `prefix`.
         """
-        return self if prefix in self.BLANKS or self.startswith(prefix) \
-            else self.__class__(prefix + self)
+        return self if not prefix or self.startswith(prefix) else \
+            self.__class__(prefix) + self
 
     def truncate(self, max_len: int | None = None,
                  quotate: Quotator | None = None,

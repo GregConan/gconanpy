@@ -4,10 +4,10 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-13
+Updated: 2025-05-15
 """
 # Import standard libraries
-from collections.abc import Callable, Container, Hashable, Iterable, Mapping
+from collections.abc import Callable, Collection, Container, Hashable, Iterable, Mapping
 from configparser import ConfigParser
 import sys
 from typing import Any, SupportsBytes, TypeVar
@@ -20,14 +20,15 @@ try:
     from debug import Debuggable
     from extend import combine
     from maptools import MapSubset, Traversible, WalkMap
-    from metafunc import AttributesOf, KeepTryingUntilNoErrors, nameof
+    from metafunc import \
+        AttributesOf, DATA_ERRORS, name_of
     from trivial import always_none
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
     from gconanpy.extend import combine
     from gconanpy.maptools import MapSubset, Traversible, WalkMap
     from gconanpy.metafunc import \
-        AttributesOf, KeepTryingUntilNoErrors, nameof
+        AttributesOf, DATA_ERRORS, name_of
     from gconanpy.trivial import always_none
 
 
@@ -40,7 +41,7 @@ class Explictionary(dict):
         :return: str, string representation of custom dict class including\
                  its class name: "CustomDict({...})"
         """
-        return f"{nameof(self)}({dict.__repr__(self)})"
+        return f"{name_of(self)}({dict.__repr__(self)})"
 
     def copy(self):
         """ `D.copy()` -> a shallow copy of `D`. Return another instance \
@@ -56,10 +57,10 @@ class Defaultionary(Explictionary):
         elements at once via `setdefaults`. `LazyDict` base class.
     """
 
-    def _will_getdefault(self, key: Any, exclude: Container = set()
+    def _will_getdefault(self, key: Hashable, exclude: Container = set()
                          ) -> bool:
         """
-        :param key: Any
+        :param key: Hashable
         :param exclude: Container of values to overlook/ignore such that if \
             `self` maps `key` to one of those values, then this function \
             will return True as if `key is not in self`.
@@ -68,12 +69,12 @@ class Defaultionary(Explictionary):
         """
         return key not in self or self[key] in exclude
 
-    def get(self, key: str, default: Any = None, exclude: Container = set()
-            ) -> Any:
+    def get(self, key: Hashable, default: Any = None,
+            exclude: Container = set()) -> Any:
         """ Return the value mapped to `key` in `self`, if any; else return \
             `default`. Defined to add `exclude` option to `dict.get`.
 
-        :param key: str, key mapped to the value to return
+        :param key: Hashable, key mapped to the value to return
         :param default: Any, object to return `if self.will_getdefault`, \
             i.e. `if key not in self or self[key] in exclude`
         :param exclude: Container of values to overlook/ignore such that if \
@@ -83,12 +84,12 @@ class Defaultionary(Explictionary):
         """
         return default if self._will_getdefault(key, exclude) else self[key]
 
-    def setdefaults(self, exclude: Iterable = set(), **kwargs: Any) -> None:
+    def setdefaults(self, exclude: Collection = set(), **kwargs: Any) -> None:
         """ Fill any missing values in self from kwargs.
             dict.update prefers to overwrite old values with new ones.
             setdefaults is basically dict.update that prefers to keep old values.
 
-        :param exclude: Iterable, values to overlook/ignore such that if \
+        :param exclude: Collection, values to overlook/ignore such that if \
             `self` maps `key` to one of those values, then this function \
             will try to overwrite that value with a value mapped to the \
             same key in `kwargs`, as if `key is not in self`.
@@ -193,10 +194,9 @@ class Subsetionary(Explictionary):
 
 class Updationary(Explictionary):
     # Class type variable: `map`/`iterable` input arg in `dict.__init__`
-    OptionalMap = TypeVar("OptionalMap", Mapping, None,
-                          Iterable[tuple[Hashable, Any]])
+    PreMap = TypeVar("PreMap", Mapping, Iterable[tuple[Hashable, Any]])
 
-    def __init__(self, from_map: OptionalMap = None, **kwargs) -> None:
+    def __init__(self, from_map: PreMap | None = None, **kwargs) -> None:
         """ _summary_ 
 
         :param from_map: Mapping | Iterable[tuple[Hashable, Any]] | None, \
@@ -209,9 +209,13 @@ class Updationary(Explictionary):
             super().update(from_map)
         super().update(kwargs)
 
-    def update(self, a_map: OptionalMap = None, copy: bool = False,
-               **kwargs: Any):
-        # No return type hint so VSCode can infer subclass instances' types
+    def copy_update(self, from_map: PreMap | None = None, **kwargs: Any
+                    ) -> "Updationary":
+        copied = self.copy()
+        copied.update(from_map, **kwargs)
+        return copied
+
+    def update(self, a_map: PreMap | None = None, **kwargs: Any) -> None:
         """ Add or overwrite items in this Mapping from other Mappings.
 
         :param a_map: Mapping | Iterable[tuple[Hashable, Any] ] | None, \
@@ -221,11 +225,8 @@ class Updationary(Explictionary):
         :return: Updationary updated with all values from `a_map` and \
             `kwargs` if `copy=True`; else None
         """
-        updated = self.copy() if copy else self
-        run_update = super(Updationary, updated).update
+        run_update = super(Updationary, self).update
         run_update(**kwargs) if a_map is None else run_update(a_map, **kwargs)
-        if copy:
-            return updated
 
 
 class Walktionary(Explictionary):
@@ -250,12 +251,11 @@ class DotDict(Updationary, Traversible):
     `attrdict` from https://stackoverflow.com/a/45354473 and `dotdict` from \
     https://github.com/dmtlvn/dotdict/blob/main/dotdict/dotdict.py
     """
-
     # Name of set[str] of attributes, methods, and other keywords that should
     # not be accessible/modifiable as keys/values/items
     PROTECTEDS = "__protected_keywords__"
 
-    def __init__(self, from_map: Updationary.OptionalMap = None,
+    def __init__(self, from_map: Updationary.PreMap | None = None,
                  **kwargs: Any) -> None:
         """ 
         :param from_map: Mapping | Iterable[tuple[Hashable, Any]] | None, \
@@ -358,7 +358,7 @@ class DotDict(Updationary, Traversible):
         if hasattr(self, self.PROTECTEDS):
             if attr_name in getattr(self, self.PROTECTEDS):
                 raise err_type(f"Cannot {alter} read-only "
-                               f"'{nameof(self)}' object "
+                               f"'{name_of(self)}' object "
                                f"attribute '{attr_name}'")
             else:
                 is_ready = True
@@ -425,7 +425,7 @@ class DotDict(Updationary, Traversible):
                     retrieved = retrieved[int(key)]
 
         # If value is not found, then return the default value
-        except (KeyError, TypeError, ValueError):
+        except DATA_ERRORS:
             pass
         return default if retrieved is self else retrieved
 
@@ -441,7 +441,7 @@ class LazyDict(Updationary, Defaultionary):
     Keeps most core functionality of the Python `dict` type.
     Extended `LazyButHonestDict` from https://stackoverflow.com/q/17532929 """
 
-    def lazyget(self, key: str, get_if_absent: Callable = always_none,
+    def lazyget(self, key: Hashable, get_if_absent: Callable = always_none,
                 getter_args: Iterable = list(),
                 getter_kwargs: Mapping = dict(),
                 exclude: Container = set()) -> Any:
@@ -450,10 +450,10 @@ class LazyDict(Updationary, Defaultionary):
         & kwargs. Adapted from LazyButHonestDict.lazyget from \
         https://stackoverflow.com/q/17532929
 
-        :param key: str to use as a dict key to map to value
+        :param key: Hashable to use as a dict key to map to value
         :param get_if_absent: function that returns the default value
         :param getter_args: Iterable[Any] of get_if_absent arguments
-        :param getter_kwargs: Mapping[Any] of get_if_absent keyword arguments
+        :param getter_kwargs: Mapping of get_if_absent keyword arguments
         :param exclude: set of possible values which (if they are mapped to \
             `key` in `self`) will not be returned; instead returning \
             `get_if_absent(*getter_args, **getter_kwargs)`
@@ -461,8 +461,8 @@ class LazyDict(Updationary, Defaultionary):
         return get_if_absent(*getter_args, **getter_kwargs) if \
             self._will_getdefault(key, exclude) else self[key]
 
-    def lazysetdefault(self, key: str, get_if_absent: Callable = always_none,
-                       getter_args: Iterable = list(),
+    def lazysetdefault(self, key: Hashable, get_if_absent:
+                       Callable = always_none, getter_args: Iterable = list(),
                        getter_kwargs: Mapping = dict(),
                        exclude: Container = set()) -> Any:
         """ Return the value for key if key is in the dictionary; else add \
@@ -471,7 +471,7 @@ class LazyDict(Updationary, Defaultionary):
         result. Adapted from LazyButHonestDict.lazysetdefault from \
         https://stackoverflow.com/q/17532929
 
-        :param key: str to use as a dict key to map to value
+        :param key: Hashable to use as a dict key to map to value
         :param get_if_absent: Callable, function to set & return default value
         :param getter_args: Iterable[Any] of get_if_absent arguments
         :param getter_kwargs: Mapping[Any] of get_if_absent keyword arguments
@@ -487,9 +487,10 @@ class LazyDict(Updationary, Defaultionary):
 class Promptionary(LazyDict):  # , Debuggable
     """ LazyDict able to interactively prompt the user to fill missing values.
     """
+    _Prompter = Callable[[str], str]  # Prompt function to use as lazy getter
 
-    def get_or_prompt_for(self, key: str, prompt: str,
-                          prompt_fn: Callable = input,
+    def get_or_prompt_for(self, key: Hashable, prompt: str,
+                          prompt_fn: _Prompter = input,
                           exclude: Container = set()) -> Any:
         """ Return the value mapped to key in self if one already exists; \
             else prompt the user to interactively provide it and return that.
@@ -508,8 +509,8 @@ class Promptionary(LazyDict):  # , Debuggable
         return self.lazyget(key, prompt_fn, [prompt],
                             exclude=exclude)
 
-    def setdefault_or_prompt_for(self, key: str, prompt: str,
-                                 prompt_fn: Callable = input,
+    def setdefault_or_prompt_for(self, key: Hashable, prompt: str,
+                                 prompt_fn: _Prompter = input,
                                  exclude: Container = set()) -> Any:
         """ Return the value mapped to key in self if one already exists; \
             otherwise prompt the user to interactively provide it, store the \
@@ -533,6 +534,8 @@ class Promptionary(LazyDict):  # , Debuggable
 class Bytesifier(Debuggable):
     """ Class with a method to convert objects into bytes without knowing \
         what type those things are. """
+    IsOrSupportsBytes = TypeVar("IsOrSupportsBytes", bytes, SupportsBytes)
+
     # Default input parameters for str.encode and int.to_bytes in bytesify.
     # Using Updationary because it can copy and update in one method call.
     DEFAULTS = Updationary(encoding=sys.getdefaultencoding(), length=1,
@@ -547,37 +550,27 @@ class Bytesifier(Debuggable):
         return isinstance(an_object, bytes) or hasattr(an_object, "encode") \
             or hasattr(an_object, "to_bytes")
 
-    def bytesify(self, an_obj: SupportsBytes, **kwargs) -> bytes:
+    def bytesify(self, an_obj: IsOrSupportsBytes, **kwargs) -> bytes:
         """
-        :param an_obj: SupportsBytes, something to convert to bytes
+        :param an_obj: IsOrSupportsBytes, something to convert to bytes
         :raises AttributeError: if an_obj has no 'to_bytes' or 'encode' method
         :return: bytes, an_obj converted to bytes
         """
         # Get default values for encoder methods' input options
-        defaults = self.DEFAULTS.update(kwargs, copy=True)
+        defaults = self.DEFAULTS.copy_update(kwargs)
         encoding = defaults.pop("encoding")
 
-        # Define these outside the context manager to preserve them afterwards
-        bytesified = None
-        errs = None
-
-        # Try to convert to bytes: first from string, and then from int.
-        # If it's already bytes, that's unneeded. If it's some other type,
-        # then raise an error
-        with KeepTryingUntilNoErrors(TypeError) as next_try:
-            with next_try():  # String to bytes
-                bytesified = str.encode(an_obj, encoding=encoding)
-            with next_try():  # Int to bytes
-                bytesified = int.to_bytes(an_obj, **defaults)
-            with next_try():  # Already bytes
-                bytes.decode(an_obj, encoding=encoding)
+        match an_obj:
+            case bytes():
                 bytesified = an_obj
-            with next_try():  # Something else -> error
-                errs = next_try.errors
-        if bytesified is None:
-            self.debug_or_raise(errs[-1], locals())
-        else:
-            return bytesified
+            case int():
+                bytesified = int.to_bytes(an_obj, **defaults)
+            case str():
+                bytesified = str.encode(an_obj, encoding=encoding)
+            case _:
+                ERR_MSG = f"Object {an_obj} cannot be converted to bytes"
+                self.debug_or_raise(AttributeError(ERR_MSG), locals())
+        return bytesified
 
 
 class Cryptionary(Promptionary, Bytesifier):
@@ -586,7 +579,7 @@ class Cryptionary(Promptionary, Bytesifier):
         Created to store user credentials slightly more securely, and to \
         slightly reduce the likelihood of accidentally exposing them. """
 
-    def __init__(self, from_map: Updationary.OptionalMap = None,
+    def __init__(self, from_map: Updationary.PreMap | None = None,
                  debugging: bool = False, **kwargs: Any):
         """ Create a new Cryptionary.
 
@@ -631,7 +624,8 @@ class Cryptionary(Promptionary, Bytesifier):
         except (KeyError, TypeError) as e:
             self.debug_or_raise(e, locals())
 
-    def __setitem__(self, dict_key: str, dict_value: SupportsBytes) -> None:
+    def __setitem__(self, dict_key: str,
+                    dict_value: Bytesifier.IsOrSupportsBytes) -> None:
         """ Set self[dict_key] to dict_value after encrypting dict_value.
 
         :param dict_key: str, key mapped to the value to retrieve.
@@ -646,13 +640,15 @@ class Cryptionary(Promptionary, Bytesifier):
             self.debug_or_raise(err, locals())
 
 
-def custom_dict_class(name: str, *, default: bool = False, dot: bool = False,
+def custom_dict_class(name: str, *, default: bool = False,
+                      debug: bool = False, dot: bool = False,
                       encrypt: bool = False, invert: bool = False,
                       lazy: bool = False, prompt: bool = False,
                       subset: bool = False, update: bool = False,
                       walk: bool = False) -> type[Explictionary]:
     # TODO Use MakeCustomDict to collect classes in this file dynamically?
     all_custom_dicts = ((Cryptionary, encrypt),
+                        (Debuggable, debug),
                         (Defaultionary, default),
                         (DotDict, dot),
                         (Invertionary, invert),
