@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-05-15
+Updated: 2025-05-17
 """
 # Import standard libraries
 import abc
@@ -80,7 +80,7 @@ def bool_pair_to_cases(cond1, cond2) -> int:  # Literal[0, 1, 2, 3]:
     return sum(which_of(cond1, cond2))
 
 
-def combine_maps(maps: Iterable[M]) -> M:
+def combine_maps(maps: Iterable[M]) -> M:  # TODO Move to maptools?
     """ Merge dicts/maps. (NOTE: It's wild that this implementation works.)
 
     :param maps: Iterable[Mapping], maps to combine
@@ -134,6 +134,13 @@ def method(method_name: str) -> Callable:  # TODO move to trivial.py?
 
 
 def make_metaclass(name: str, checker: Callable[[Any, Any], bool]) -> type:
+    """ 
+    :param name: str, name of the metaclass type to return.
+    :param checker: Callable[[Any, Any], bool], function to call from the \
+        `instancecheck`/`subclasscheck` methods of the returned metaclass.
+    :return: type, metaclass with `checker` as its `__instancecheck__` and \
+        `__subclasscheck__` methods.
+    """
     return type(name, (type, ), {"__instancecheck__": checker,
                                  "__subclasscheck__": checker})
 
@@ -185,13 +192,6 @@ def name_attributes_of(*objects: Any) -> set[str]:
     return attr_names
 
 
-def tuplify(an_obj: Any) -> tuple:
-    try:
-        return tuple(an_obj)
-    except TypeError:
-        return (an_obj, )
-
-
 def name_of(an_obj: Any) -> str:
     """ Get the `__name__` of an object or of its type/class.
 
@@ -199,18 +199,6 @@ def name_of(an_obj: Any) -> str:
     :return: str naming an_obj, usually its type/class name.
     """
     return of_self_or_class(an_obj, "__name__")
-
-
-def names_of(objects: Collection, max_n: int | None = None,
-             get_name: Callable[[Any], str] = name_of) -> list[str]:
-    """
-    :param objects: Iterable of things to return the names of
-    :param max_n: int | None, maximum number of names to return; by default, \
-        this function will return all names
-    :return: list[str], names of `max_n` (or all) `objects`
-    """
-    return [get_name(x) for x in objects] if max_n is None else \
-        [get_name(x) for i, x in enumerate(objects) if i < max_n]
 
 
 def name_type_class(is_all_of: Any = tuple(), isnt_any_of: Any = tuple(),
@@ -231,6 +219,18 @@ def name_type_class(is_all_of: Any = tuple(), isnt_any_of: Any = tuple(),
     return name
 
 
+def names_of(objects: Collection, max_n: int | None = None,
+             get_name: Callable[[Any], str] = name_of) -> list[str]:
+    """
+    :param objects: Iterable of things to return the names of
+    :param max_n: int | None, maximum number of names to return; by default, \
+        this function will return all names
+    :return: list[str], names of `max_n` (or all) `objects`
+    """
+    return [get_name(x) for x in objects] if max_n is None else \
+        [get_name(x) for i, x in enumerate(objects) if i < max_n]
+
+
 def of_self_or_class(an_obj: Any, attr_name: str) -> Any:
     """
     :param an_obj: Any, instance of type/class to get the attribute from
@@ -244,7 +244,7 @@ def parents_of(an_obj: Any) -> tuple[type, ...]:
     """ List the inheritance tree from `class object` to `an_obj`.
 
     :param an_obj: Any
-    :return: tuple[type, ...], the method resolution order (`__mro__`) of \
+    :return: tuple[*type], the method resolution order (`__mro__`) of \
         `an_obj` or of `type(an_obj)`.
     """
     return of_self_or_class(an_obj, "__mro__")
@@ -266,6 +266,30 @@ def pairs(*args: Any, **kwargs: Any
         yield (arg, arg)
     for key, value in kwargs.items():
         yield (key, value)
+
+
+def rename_keys(a_dict: dict[str, Any], **renamings: str) -> dict:
+    """
+    :param a_dict: dict with keys to rename
+    :param renamings: Mapping[str, str] of old keys to their replacements
+    :return: dict, `a_dict` after replacing the specified keys with their \
+        new replacements specified in `renamings`
+    """  # TODO Move to maptools?
+    for old_name, new_name in renamings.items():
+        a_dict[new_name] = a_dict.pop(old_name)
+    return a_dict
+
+
+def tuplify(an_obj: Any) -> tuple:
+    """ 
+    :param an_obj: Any, object to convert into a tuple.
+    :return: tuple, either `an_obj` AS a tuple if `tuple(an_obj)` works or \
+        `an_obj` IN a single-item tuple if it doesn't.
+    """
+    try:
+        return tuple(an_obj)
+    except TypeError:
+        return (an_obj, )
 
 
 def which_of(*conditions: bool) -> set[int]:
@@ -420,6 +444,12 @@ class AttributesOf:
         self.names = name_attributes_of(what)  # set(dir(what))
         self.what = what
 
+    def _copy_to(self, an_obj: _T, to_copy: tuple[str, Any] | _IterAttrPairs
+                 ) -> _T:
+        for attr_name, attr_value in to_copy:
+            setattr(an_obj, attr_name, attr_value)
+        return an_obj
+
     def add_to(self, an_obj: _T, filter_if: newFilter.FilterFunction,
                exclude: bool = False) -> _T:
         """ Copy attributes and their values into `an_obj`.
@@ -432,9 +462,7 @@ class AttributesOf:
             of the filter functions return True; else False to EXclude them.
         :return: Any, an_obj with the specified attributes of this object.
         """
-        for attr_name, attr_value in self.select(filter_if, exclude):
-            setattr(an_obj, attr_name, attr_value)
-        return an_obj
+        return self._copy_to(an_obj, self.select(filter_if, exclude))
 
     def but_not(self, *others: Any) -> set[str]:
         """
@@ -566,9 +594,6 @@ class BoolableMeta(type):  # https://realpython.com/python-interface/
         methods = ("__bool__", "__len__")
         return bool(AttributesOf(subclass).first_of(methods, None,
                                                     set(methods)))
-
-
-IsOrSupportsBytes = TypeVar("IsOrSupportsBytes", bytes, SupportsBytes)
 
 
 class Boolable(metaclass=BoolableMeta):

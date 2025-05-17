@@ -4,28 +4,28 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-05-13
+Updated: 2025-05-17
 """
 # Import standard libraries
 from collections.abc import Generator, Mapping
 from typing import Any
 
 # Import local custom libraries
-from gconanpy.maps import (custom_dict_class, Defaultionary, DotDict,
+from gconanpy.maps import (CustomDicts, Defaultionary, DotDict,
                            Invertionary, LazyDict, Updationary)
 from gconanpy.maptools import WalkMap
 from tests.testers import Tester
 
 
-# Create various kinds of custom dicts on-the-fly to test custom_dict_class
+# Create various kinds of custom dicts on-the-fly to test CustomDicts.new_class
 # TODO: Use combinations(...) to test all possible custom dicts?
-DotInvert = custom_dict_class("DotInvert", dot=True, invert=True)
-DotPromptionary = custom_dict_class("DotPromptionary", dot=True, prompt=True)
-FancyDict = custom_dict_class("FancyDict", dot=True, prompt=True,
-                              invert=True, subset=True, walk=True)
-InvertCrypt = custom_dict_class("InvertCrypt", encrypt=True, invert=True)
-LazyDotDict = custom_dict_class("LazyDotDict", dot=True, lazy=True)
-PromptInvert = custom_dict_class("PromptInvert", prompt=True, invert=True)
+DotInvert = CustomDicts.new_class("DotInvert", "dot", "invert")
+DotPromptionary = CustomDicts.new_class("DotPromptionary", "dot", "prompt")
+FancyDict = CustomDicts.new_class("FancyDict", "dot", "prompt",
+                                  "invert", "subset", "walk")
+InvertCrypt = CustomDicts.new_class("InvertCrypt", "encrypt", "invert")
+LazyDotDict = CustomDicts.new_class("LazyDotDict", "dot", "lazy")
+PromptInvert = CustomDicts.new_class("PromptInvert", "prompt", "invert")
 
 
 class MapTester(Tester):
@@ -45,9 +45,9 @@ class MapTester(Tester):
         getattr(a_map, method_to_test)(*method_args, **method_kwargs)
         self.check_result(a_map, map_type(out_dict))
 
-    def cant_call(self, method_name: str, **custom_kwargs):
+    def cant_call(self, method_name: str, *custom_features):
         self.add_basics()
-        CantClass = custom_dict_class("CantClass", **custom_kwargs)
+        CantClass = CustomDicts.new_class("CantClass", *custom_features)
         try:
             getattr(CantClass(self.adict), method_name)()
             assert False
@@ -93,8 +93,8 @@ class TestInvertionary(MapTester):
 
     def test_cant(self):
         # TODO Use combinations(...) of custom_kwargs
-        self.cant_call("invert", update=True)
-        self.cant_call("invert", prompt=True)
+        self.cant_call("invert", "update")
+        self.cant_call("invert", "prompt")
 
 
 class TestDefaultionary(MapTester):  # TODO
@@ -130,7 +130,7 @@ class TestDotDicts(MapTester):
             self.check_result(dd.six, 6)
             assert self.cannot_alter(dd, "get")
 
-    def test_homogenize(self):  # TODO test custom_dict_class(dot=True, walk=True) ?
+    def test_homogenize(self):  # TODO test CustomDicts.new_class("dot", "walk") ?
         for dd in self.get_custom_dicts():
             dd.testdict = dict(hello=dict(q=dd),
                                world=DotDict(foo=dict(bar="baz")))

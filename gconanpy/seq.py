@@ -309,6 +309,10 @@ def truncate(a_seq: Sequence, max_len: int) -> Sequence:
     return a_seq[:max_len] if len(a_seq) > max_len else a_seq
 
 
+def rtruncate(a_seq: Sequence, max_len: int) -> Sequence:
+    return a_seq[-max_len:] if len(a_seq) > max_len else a_seq
+
+
 def uniqs_in(listlike: Iterable[Hashable]) -> list[Hashable]:
     """Alphabetize and list the unique elements of an iterable.
     To list non-private local variables' names, call uniqs_in(locals()).

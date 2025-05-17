@@ -3,10 +3,11 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2025-05-15
+Updated: 2025-05-17
 """
 # Import standard libraries
-from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
+from collections.abc import (Callable, Container, Generator,
+                             Iterable, Iterator, Mapping)
 import graphlib
 import inspect
 import re
@@ -152,14 +153,15 @@ def make_MRO_for_subclass_of(*types: type) -> Iterator[type]:
     return reversed([each_class for each_class in rev_mro])
 
 
-def module_classes_to_args_dict(module: ModuleType, *remove: str
+def module_classes_to_args_dict(module: ModuleType, *suffixes: str,
+                                ignore: Container[type] = set()
                                 ) -> dict[str, type]:
     classes = dict()
     for class_name, each_class in classes_in_module(module):
-        arg_name = class_name
-        for to_remove in remove:
-            arg_name = arg_name.replace(to_remove, "")
-        classes[arg_name] = each_class
+        for suffix in suffixes:
+            if class_name.endswith(suffix) and each_class not in ignore:
+                classes[class_name.removesuffix(suffix).lower()] = each_class
+                break
     return classes
 
 

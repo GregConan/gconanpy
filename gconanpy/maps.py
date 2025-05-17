@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-15
+Updated: 2025-05-17
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Container, Hashable, Iterable, Mapping
@@ -18,17 +18,18 @@ from cryptography.fernet import Fernet
 # Import local custom libraries
 try:
     from debug import Debuggable
-    from extend import combine
+    from extend import combine, module_classes_to_args_dict
+    import maps  # import self to define CustomDicts.CLASSES
     from maptools import MapSubset, Traversible, WalkMap
-    from metafunc import \
-        AttributesOf, DATA_ERRORS, name_of
+    from metafunc import AttributesOf, DATA_ERRORS, name_of, rename_keys
     from trivial import always_none
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
-    from gconanpy.extend import combine
+    from gconanpy.extend import combine, module_classes_to_args_dict
+    from gconanpy import maps  # import self to define CustomDicts.CLASSES
     from gconanpy.maptools import MapSubset, Traversible, WalkMap
-    from gconanpy.metafunc import \
-        AttributesOf, DATA_ERRORS, name_of
+    from gconanpy.metafunc import (AttributesOf, DATA_ERRORS,
+                                   name_of, rename_keys)
     from gconanpy.trivial import always_none
 
 
@@ -640,22 +641,39 @@ class Cryptionary(Promptionary, Bytesifier):
             self.debug_or_raise(err, locals())
 
 
-def custom_dict_class(name: str, *, default: bool = False,
-                      debug: bool = False, dot: bool = False,
-                      encrypt: bool = False, invert: bool = False,
-                      lazy: bool = False, prompt: bool = False,
-                      subset: bool = False, update: bool = False,
-                      walk: bool = False) -> type[Explictionary]:
-    # TODO Use MakeCustomDict to collect classes in this file dynamically?
-    all_custom_dicts = ((Cryptionary, encrypt),
-                        (Debuggable, debug),
-                        (Defaultionary, default),
-                        (DotDict, dot),
-                        (Invertionary, invert),
-                        (LazyDict, lazy),
-                        (Promptionary, prompt),
-                        (Subsetionary, subset),
-                        (Updationary, update),
-                        (Walktionary, walk))
-    return combine(name, [parent for parent, will_include_parent
-                          in all_custom_dicts if will_include_parent])
+class CustomDicts:
+    CLASSES: dict[str, type] = rename_keys(module_classes_to_args_dict(
+        maps, "Dict", "ionary", ignore={Explictionary}),
+        walkt="walk", crypt="encrypt", updat="update")
+
+    @classmethod
+    def new(cls, class_name: str, from_map: Updationary.PreMap = None,
+            features: Iterable[str] = list(), **kwargs: Any
+            ) -> Explictionary:
+        CustomDict = cls.new_class(class_name, *features)
+        return CustomDict(from_map, **kwargs)
+
+    @classmethod
+    def new_class(cls, name: str, *features: str) -> type[Explictionary]:
+        """ Create a custom dictionary class by combining others in this file.
+
+        :param name: str naming the new custom dictionary class.
+        :param features: Iterable[str] listing the features (methods and \
+            attributes) to add to the returned custom dictionary class. All \
+            allowed features are in `CustomDicts.CLASSES`, which maps each \
+            feature's name to the class with those features. The returned \
+            custom dict class will be a subclass of every class mapped to \
+            the indicated features.
+        :raises ValueError: if any of the provided features are not included \
+            in `CustomDicts.CLASSES`.
+        :return: type[Explictionary], new custom dictionary class with the \
+            specified `features`.
+        """
+        parents = list()
+        for feature in features:
+            if feature in cls.CLASSES:
+                parents.append(cls.CLASSES[feature])
+            else:
+                raise ValueError(f"'{feature}' is not a possible feature "
+                                 f"of a {name_of(cls)}")
+        return combine(name, parents)
