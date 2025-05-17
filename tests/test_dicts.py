@@ -11,8 +11,8 @@ from collections.abc import Generator, Mapping
 from typing import Any
 
 # Import local custom libraries
-from gconanpy.maps import (CustomDicts, Defaultionary, DotDict,
-                           Invertionary, LazyDict, Updationary)
+from gconanpy.dicts import (CustomDicts, Defaultionary, DotDict,
+                            Invertionary, LazyDict, Updationary)
 from gconanpy.maptools import WalkMap
 from tests.testers import Tester
 

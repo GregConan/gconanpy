@@ -19,14 +19,14 @@ from cryptography.fernet import Fernet
 try:
     from debug import Debuggable
     from extend import combine, module_classes_to_args_dict
-    import maps  # import self to define CustomDicts.CLASSES
+    import gconanpy.dicts as dicts  # import self to define CustomDicts.CLASSES
     from maptools import MapSubset, Traversible, WalkMap
     from metafunc import AttributesOf, DATA_ERRORS, name_of, rename_keys
     from trivial import always_none
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
     from gconanpy.extend import combine, module_classes_to_args_dict
-    from gconanpy import maps  # import self to define CustomDicts.CLASSES
+    from gconanpy import dicts  # import self to define CustomDicts.CLASSES
     from gconanpy.maptools import MapSubset, Traversible, WalkMap
     from gconanpy.metafunc import (AttributesOf, DATA_ERRORS,
                                    name_of, rename_keys)
@@ -643,7 +643,7 @@ class Cryptionary(Promptionary, Bytesifier):
 
 class CustomDicts:
     CLASSES: dict[str, type] = rename_keys(module_classes_to_args_dict(
-        maps, "Dict", "ionary", ignore={Explictionary}),
+        dicts, "Dict", "ionary", ignore={Explictionary}),
         walkt="walk", crypt="encrypt", updat="update")
 
     @classmethod
