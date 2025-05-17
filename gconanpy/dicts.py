@@ -7,7 +7,8 @@ Created: 2025-01-23
 Updated: 2025-05-17
 """
 # Import standard libraries
-from collections.abc import Callable, Collection, Container, Hashable, Iterable, Mapping
+from collections.abc import (Callable, Collection, Container,
+                             Hashable, Iterable, Mapping)
 from configparser import ConfigParser
 import sys
 from typing import Any, SupportsBytes, TypeVar
@@ -18,15 +19,15 @@ from cryptography.fernet import Fernet
 # Import local custom libraries
 try:
     from debug import Debuggable
+    import dicts  # import self to define CustomDicts.CLASSES
     from extend import combine, module_classes_to_args_dict
-    import gconanpy.dicts as dicts  # import self to define CustomDicts.CLASSES
     from maptools import MapSubset, Traversible, WalkMap
     from metafunc import AttributesOf, DATA_ERRORS, name_of, rename_keys
     from trivial import always_none
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
-    from gconanpy.extend import combine, module_classes_to_args_dict
     from gconanpy import dicts  # import self to define CustomDicts.CLASSES
+    from gconanpy.extend import combine, module_classes_to_args_dict
     from gconanpy.maptools import MapSubset, Traversible, WalkMap
     from gconanpy.metafunc import (AttributesOf, DATA_ERRORS,
                                    name_of, rename_keys)
@@ -40,7 +41,7 @@ class Explictionary(dict):
     def __repr__(self) -> str:
         """
         :return: str, string representation of custom dict class including\
-                 its class name: "CustomDict({...})"
+                 its class name: "Explictionary({...})"
         """
         return f"{name_of(self)}({dict.__repr__(self)})"
 
@@ -154,10 +155,9 @@ class Invertionary(Explictionary):
 class Subsetionary(Explictionary):
 
     @classmethod
-    def from_subset_of(cls, from_map: Mapping,
-                       keys: Container[Hashable] = set(),
-                       values: Container = set(), include_keys: bool = False,
-                       include_values: bool = False):
+    def from_subset_of(cls, from_map: Mapping, keys: Container[Hashable]
+                       = set(), values: Container = set(), include_keys:
+                       bool = False, include_values: bool = False):
         """ Convert a subset of `from_map` into a new `Subsetionary`.
 
         :param from_map: Mapping to create a new Subsetionary from a subset of.
@@ -195,9 +195,9 @@ class Subsetionary(Explictionary):
 
 class Updationary(Explictionary):
     # Class type variable: `map`/`iterable` input arg in `dict.__init__`
-    PreMap = TypeVar("PreMap", Mapping, Iterable[tuple[Hashable, Any]])
+    MapParts = TypeVar("MapParts", Mapping, Iterable[tuple[Hashable, Any]])
 
-    def __init__(self, from_map: PreMap | None = None, **kwargs) -> None:
+    def __init__(self, from_map: MapParts | None = None, **kwargs) -> None:
         """ _summary_ 
 
         :param from_map: Mapping | Iterable[tuple[Hashable, Any]] | None, \
@@ -210,13 +210,13 @@ class Updationary(Explictionary):
             super().update(from_map)
         super().update(kwargs)
 
-    def copy_update(self, from_map: PreMap | None = None, **kwargs: Any
+    def copy_update(self, from_map: MapParts | None = None, **kwargs: Any
                     ) -> "Updationary":
         copied = self.copy()
         copied.update(from_map, **kwargs)
         return copied
 
-    def update(self, a_map: PreMap | None = None, **kwargs: Any) -> None:
+    def update(self, a_map: MapParts | None = None, **kwargs: Any) -> None:
         """ Add or overwrite items in this Mapping from other Mappings.
 
         :param a_map: Mapping | Iterable[tuple[Hashable, Any] ] | None, \
@@ -256,7 +256,7 @@ class DotDict(Updationary, Traversible):
     # not be accessible/modifiable as keys/values/items
     PROTECTEDS = "__protected_keywords__"
 
-    def __init__(self, from_map: Updationary.PreMap | None = None,
+    def __init__(self, from_map: Updationary.MapParts | None = None,
                  **kwargs: Any) -> None:
         """ 
         :param from_map: Mapping | Iterable[tuple[Hashable, Any]] | None, \
@@ -580,7 +580,7 @@ class Cryptionary(Promptionary, Bytesifier):
         Created to store user credentials slightly more securely, and to \
         slightly reduce the likelihood of accidentally exposing them. """
 
-    def __init__(self, from_map: Updationary.PreMap | None = None,
+    def __init__(self, from_map: Updationary.MapParts | None = None,
                  debugging: bool = False, **kwargs: Any):
         """ Create a new Cryptionary.
 
@@ -647,7 +647,7 @@ class CustomDicts:
         walkt="walk", crypt="encrypt", updat="update")
 
     @classmethod
-    def new(cls, class_name: str, from_map: Updationary.PreMap = None,
+    def new(cls, class_name: str, from_map: Updationary.MapParts = None,
             features: Iterable[str] = list(), **kwargs: Any
             ) -> Explictionary:
         CustomDict = cls.new_class(class_name, *features)

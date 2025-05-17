@@ -55,6 +55,78 @@ class MapTester(Tester):
             pass
 
 
+class TestDefaultionary(MapTester):  # TODO
+    TEST_CLASSES = (Defaultionary, FancyDict, LazyDotDict)
+
+    def test_setdefaults_1(self) -> None:
+        for dfty in self.get_custom_dicts():
+            dfty.setdefaults()
+
+
+class TestDotDicts(MapTester):
+    TEST_CLASSES = (DotDict, DotPromptionary, LazyDotDict, FancyDict)
+
+    def test_set(self):
+        for dd in self.get_custom_dicts():
+            self.check_result(dd.a, 1)
+            for k, v in self.adict.items():
+                self.check_result(getattr(dd, k), v)
+
+    def test_len(self):
+        for dd in self.get_custom_dicts():
+            self.check_result(len(dd), 3)
+            del dd.b
+            self.check_result([v for v in dd.values()], [1, 3])
+            self.check_result(len(dd), 2)
+            self.check_result(dd.PROTECTEDS in dd, False)
+
+    def test_get(self):
+        for dd in self.get_custom_dicts():
+            dd.five = 5
+            self.check_result(dd["five"], 5)
+            dd["six"] = 6
+            self.check_result(dd.six, 6)
+            assert self.cannot_alter(dd, "get")
+
+    # TODO test CustomDicts.new_class("DotWalk", "dot", "walk") ?
+    def test_homogenize(self):
+        for dd in self.get_custom_dicts():
+            dd.testdict = dict(hello=dict(q=dd),
+                               world=DotDict(foo=dict(bar="baz")))
+            print(type(dd.testdict["world"]))
+            for a_dict in (dd["testdict"], dd["testdict"]["hello"],
+                           dd.testdict["world"].foo):
+                assert not isinstance(a_dict, type(dd))
+            dd.homogenize()
+            for a_map in WalkMap(dd).values():
+                print(f"a_map: {a_map}")
+                assert isinstance(a_map, type(dd))
+
+    def test_protected(self):
+        self.add_basics()
+        ldd = LazyDotDict(self.adict)
+
+        protected_attrs = getattr(ldd, ldd.PROTECTEDS)
+        assert self.cannot_alter(ldd, *protected_attrs)
+        assert protected_attrs.issuperset({"lazyget", "lazysetdefault",
+                                           ldd.PROTECTEDS})
+        # for attr_name in protected_attrs: self.check_result(ldd[attr_name], getattr(ldd, attr_name))  # TODO?
+
+    def test_subclass(self):
+        self.add_basics()
+        for ddclass in self.TEST_CLASSES:
+            class DotDictSubClass(ddclass):
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, **kwargs)
+
+                def __getattr__(self, name):
+                    return f"sub{super().__getattr__(name)}"
+
+            ddsc = DotDictSubClass(self.adict)
+            self.check_result({x: getattr(ddsc, x) for x in ddsc.keys()},
+                              dict(a="sub1", b="sub2", c="sub3"))
+
+
 class TestInvertionary(MapTester):
     TEST_CLASSES = (DotInvert, FancyDict, InvertCrypt, Invertionary,
                     PromptInvert)
@@ -95,77 +167,6 @@ class TestInvertionary(MapTester):
         # TODO Use combinations(...) of custom_kwargs
         self.cant_call("invert", "update")
         self.cant_call("invert", "prompt")
-
-
-class TestDefaultionary(MapTester):  # TODO
-    TEST_CLASSES = (Defaultionary, FancyDict, LazyDotDict)
-
-    def test_setdefaults_1(self) -> None:
-        for dfty in self.get_custom_dicts():
-            dfty.setdefaults()
-
-
-class TestDotDicts(MapTester):
-    TEST_CLASSES = (DotDict, DotPromptionary, LazyDotDict, FancyDict)
-
-    def test_set(self):
-        for dd in self.get_custom_dicts():
-            self.check_result(dd.a, 1)
-            for k, v in self.adict.items():
-                self.check_result(getattr(dd, k), v)
-
-    def test_len(self):
-        for dd in self.get_custom_dicts():
-            self.check_result(len(dd), 3)
-            del dd.b
-            self.check_result([v for v in dd.values()], [1, 3])
-            self.check_result(len(dd), 2)
-            self.check_result(dd.PROTECTEDS in dd, False)
-
-    def test_get(self):
-        for dd in self.get_custom_dicts():
-            dd.five = 5
-            self.check_result(dd["five"], 5)
-            dd["six"] = 6
-            self.check_result(dd.six, 6)
-            assert self.cannot_alter(dd, "get")
-
-    def test_homogenize(self):  # TODO test CustomDicts.new_class("dot", "walk") ?
-        for dd in self.get_custom_dicts():
-            dd.testdict = dict(hello=dict(q=dd),
-                               world=DotDict(foo=dict(bar="baz")))
-            print(type(dd.testdict["world"]))
-            for a_dict in (dd["testdict"], dd["testdict"]["hello"],
-                           dd.testdict["world"].foo):
-                assert not isinstance(a_dict, type(dd))
-            dd.homogenize()
-            for a_map in WalkMap(dd).values():
-                print(f"a_map: {a_map}")
-                assert isinstance(a_map, type(dd))
-
-    def test_protected(self):
-        self.add_basics()
-        ldd = LazyDotDict(self.adict)
-
-        protected_attrs = getattr(ldd, ldd.PROTECTEDS)
-        assert self.cannot_alter(ldd, *protected_attrs)
-        assert protected_attrs.issuperset({"lazyget", "lazysetdefault",
-                                           ldd.PROTECTEDS})
-        # for attr_name in protected_attrs: self.check_result(ldd[attr_name], getattr(ldd, attr_name))  # TODO?
-
-    def test_subclass(self):
-        self.add_basics()
-        for ddclass in self.TEST_CLASSES:
-            class DotDictSubClass(ddclass):
-                def __init__(self, *args, **kwargs):
-                    super().__init__(*args, **kwargs)
-
-                def __getattr__(self, name):
-                    return f"sub{super().__getattr__(name)}"
-
-            ddsc = DotDictSubClass(self.adict)
-            self.check_result({x: getattr(ddsc, x) for x in ddsc.keys()},
-                              dict(a="sub1", b="sub2", c="sub3"))
 
 
 class TestUpdationary(MapTester):

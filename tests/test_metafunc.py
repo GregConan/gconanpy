@@ -6,8 +6,8 @@ Created: 2025-05-07
 Updated: 2025-05-17
 """
 # Import local custom libraries
-from gconanpy.maps import (CustomDicts, Defaultionary, Cryptionary,
-                           DotDict, Explictionary, LazyDict)
+from gconanpy.dicts import (CustomDicts, Defaultionary, Cryptionary,
+                            DotDict, Explictionary, LazyDict)
 from gconanpy.metafunc import AttributesOf, metaclass_issubclass
 from tests.testers import Tester
 

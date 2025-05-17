@@ -19,12 +19,12 @@ from makefun import create_function, with_signature
 
 # Import local custom libraries
 try:
-    from metafunc import add_attributes_to, AttributesOf, \
-        combine_maps, name_of, pairs
+    from metafunc import (add_attributes_to, AttributesOf,
+                          combine_maps, name_of, pairs)
     from ToString import ToString
 except ModuleNotFoundError:
-    from gconanpy.metafunc import add_attributes_to, AttributesOf, \
-        combine_maps, name_of, pairs
+    from gconanpy.metafunc import (add_attributes_to, AttributesOf,
+                                   combine_maps, name_of, pairs)
     from gconanpy.ToString import ToString
 
 

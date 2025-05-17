@@ -12,15 +12,17 @@ from collections.abc import (Callable, Collection, Generator,
                              Iterable, Mapping, MutableMapping)
 from functools import reduce
 import itertools
-from typing import Any, Literal, SupportsBytes, TypeVar
+from typing import Any, Literal, TypeVar
 
 # Import local custom libraries
 try:
     from seq import DunderParser
     from ToString import ToString
+    from trivial import always_true, call_method_of
 except ModuleNotFoundError:
     from gconanpy.seq import DunderParser
     from gconanpy.ToString import ToString
+    from gconanpy.trivial import always_true, call_method_of
 
 # Constants: TypeVars for...
 M = TypeVar("M", bound=MutableMapping)  # ...combine_maps
@@ -108,31 +110,6 @@ def has_method(an_obj: Any, method_name: str) -> bool:
     return callable(getattr(an_obj, method_name, None))
 
 
-def method(method_name: str) -> Callable:  # TODO move to trivial.py?
-    """ Wrapper to retrieve a specific callable object attribute. 
-    `method(method_name)(something, *args, **kwargs)` is the same as \
-    `getattr(something, method_name)(*args, **kwargs)`.
-
-    :param method_name: str naming the object method for the returned \
-        wrapped function to call
-    :return: Callable that runs the named method of its first input argument \
-        and passes the rest of its input arguments to the method
-    """
-
-    def call_method_of(self, *args, **kwargs):
-        """
-        :param self: Any, object with a method to call
-        :param args: Iterable, positional arguments to call the method with
-        :param kwargs: Mapping[str, Any], keyword arguments to call the \
-            method with
-        :return: Any, the output of calling the method of `self` with the \
-            specified `args` and `kwargs` 
-        """
-        return getattr(self, method_name)(*args, **kwargs)
-
-    return call_method_of
-
-
 def make_metaclass(name: str, checker: Callable[[Any, Any], bool]) -> type:
     """ 
     :param name: str, name of the metaclass type to return.
@@ -145,8 +122,7 @@ def make_metaclass(name: str, checker: Callable[[Any, Any], bool]) -> type:
                                  "__subclasscheck__": checker})
 
 
-def metaclass_hasmethod(method_name: str, include: bool = True,
-                        altcond: Callable[[Any], bool] | None = None) -> type:
+def metaclass_hasmethod(method_name: str, include: bool = True) -> type:
     """ _summary_ 
 
     :param method_name: str naming the method that the returned metaclass \
@@ -179,6 +155,31 @@ def metaclass_issubclass(is_all_of: type | tuple[type, ...] = tuple(),
         name = name_type_class(is_all_of, isnt_any_of)
     return type(name, (type, ), {"__instancecheck__": _checker(isinstance),
                                  "__subclasscheck__": _checker(issubclass)})
+
+
+def method(method_name: str) -> Callable:
+    """ Wrapper to retrieve a specific callable object attribute. 
+    `method(method_name)(something, *args, **kwargs)` is the same as \
+    `getattr(something, method_name)(*args, **kwargs)`.
+
+    :param method_name: str naming the object method for the returned \
+        wrapped function to call
+    :return: Callable that runs the named method of its first input argument \
+        and passes the rest of its input arguments to the method
+    """
+
+    def call_method(self: Any, *args, **kwargs):
+        """
+        :param self: Any, object with a method to call
+        :param args: Iterable, positional arguments to call the method with
+        :param kwargs: Mapping[str, Any], keyword arguments to call the \
+            method with
+        :return: Any, the output of calling the method of `self` with the \
+            specified `args` and `kwargs` 
+        """
+        return call_method_of(self, method_name, *args, **kwargs)
+
+    return call_method
 
 
 def name_attributes_of(*objects: Any) -> set[str]:
@@ -508,7 +509,7 @@ class AttributesOf:
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each selected attribute.
         """
-        yield from self.select(lambda *_, **_kw: True)  # TODO use trivial.always_true
+        yield from self.select(always_true)
 
     def methods(self) -> Generator[tuple[str, Callable], None, None]:
         """ Iterate over this object's methods (callable attributes).
@@ -581,8 +582,7 @@ class AttributesOf:
 
 
 class BoolableMeta(type):  # https://realpython.com/python-interface/
-    """ A metaclass that will be used for Boolable class creation.
-    """
+    """ A metaclass that will be used for Boolable class creation. """
     def __instancecheck__(cls, instance: Any) -> bool:
         try:
             bool(instance)
@@ -591,9 +591,8 @@ class BoolableMeta(type):  # https://realpython.com/python-interface/
             return False
 
     def __subclasscheck__(cls, subclass: type) -> bool:
-        methods = ("__bool__", "__len__")
-        return bool(AttributesOf(subclass).first_of(methods, None,
-                                                    set(methods)))
+        return has_method(subclass, "__bool__") \
+            or has_method(subclass, "__len__")
 
 
 class Boolable(metaclass=BoolableMeta):
@@ -610,7 +609,7 @@ class PureIterable(metaclass=metaclass_issubclass(
     """ Iterables that aren't strings, bytes, or Mappings are "Pure." """
 
 
-class TypeFactory:
+class TypeFactory:  # NOTE: Work-in-progress
     @classmethod
     def _has_all(cls, an_obj: Any, method_names: Collection[str]) -> bool:
         for method_name in method_names:
@@ -654,12 +653,6 @@ class FinderTypes(abc.ABC):
 
     :param D: Any, default value to return if nothing was found
     :param I: Any, element in iter_over Iterable[I]
-    :param M: Any, `modify(thing: I, ...) -> M` function output
-    :param R: Any, `ready_if(..., *args: R)` function extra arguments
-    :param X: Any, `modify(..., *args: X)` function extra arguments
-    :param Modify: Callable[[I, tuple[X, ...]], M], modify function
-    :param Ready: Callable[[M, tuple[R, ...]], bool], ready_if function
-    :param Viable: Callable[[M], bool], is_viable function
     """
     D = TypeVar("D")
     I = TypeVar("I")

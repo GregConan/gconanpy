@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-04-16
+Updated: 2025-04-17
 """
 # Import standard libraries
 from abc import ABC
@@ -16,8 +16,8 @@ from typing import Any
 from bs4 import BeautifulSoup
 
 # Import local custom libraries
+from gconanpy.dicts import Cryptionary, DotDict
 from gconanpy.find import ErrIterChecker
-from gconanpy.maps import Cryptionary, DotDict
 from gconanpy.maptools import MapSubset
 from gconanpy.metafunc import has_method
 
