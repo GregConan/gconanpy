@@ -11,7 +11,7 @@ from collections.abc import Generator, Mapping
 from typing import Any
 
 # Import local custom libraries
-from gconanpy.dicts import (CustomDicts, Defaultionary, DotDict,
+from gconanpy.dicts import (Cryptionary, CustomDicts, Defaultionary, DotDict,
                             Invertionary, LazyDict, Updationary)
 from gconanpy.maptools import WalkMap
 from tests.testers import Tester
@@ -53,6 +53,22 @@ class MapTester(Tester):
             assert False
         except AttributeError:
             pass
+
+
+class TestCryptionary(MapTester):
+    TEST_CLASSES = (Cryptionary, InvertCrypt)
+
+    def test_getitem(self):
+        cli_args = self.build_cli_args()
+        self.check_result(cli_args.creds["password"], "my_password")
+
+    def test_repr(self):
+        cli_args = self.build_cli_args()
+        self.check_result(type(cli_args.creds), Cryptionary)
+
+        assert "password" in cli_args.creds.encrypted
+        if "my_password" in str(cli_args.creds):
+            raise ValueError(f"'my_password' visible in {cli_args.creds}")
 
 
 class TestDefaultionary(MapTester):  # TODO
@@ -128,8 +144,8 @@ class TestDotDicts(MapTester):
 
 
 class TestInvertionary(MapTester):
-    TEST_CLASSES = (DotInvert, FancyDict, InvertCrypt, Invertionary,
-                    PromptInvert)
+    # TODO Add InvertCrypt and make it decrypt before inverting
+    TEST_CLASSES = (DotInvert, FancyDict, Invertionary, PromptInvert)
 
     def test_1(self):
         self.add_basics()

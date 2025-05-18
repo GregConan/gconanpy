@@ -10,8 +10,7 @@ Updated: 2025-05-17
 from collections.abc import (Callable, Collection, Container,
                              Hashable, Iterable, Mapping)
 from configparser import ConfigParser
-import sys
-from typing import Any, SupportsBytes, TypeVar
+from typing import Any, TypeVar
 
 # Import third-party PyPI libraries
 from cryptography.fernet import Fernet
@@ -21,14 +20,14 @@ try:
     from debug import Debuggable
     import dicts  # import self to define CustomDicts.CLASSES
     from extend import combine, module_classes_to_args_dict
-    from maptools import MapSubset, Traversible, WalkMap
+    from maptools import Bytesifier, MapSubset, Traversible, WalkMap
     from metafunc import AttributesOf, DATA_ERRORS, name_of, rename_keys
     from trivial import always_none
 except ModuleNotFoundError:
     from gconanpy.debug import Debuggable
     from gconanpy import dicts  # import self to define CustomDicts.CLASSES
     from gconanpy.extend import combine, module_classes_to_args_dict
-    from gconanpy.maptools import MapSubset, Traversible, WalkMap
+    from gconanpy.maptools import Bytesifier, MapSubset, Traversible, WalkMap
     from gconanpy.metafunc import (AttributesOf, DATA_ERRORS,
                                    name_of, rename_keys)
     from gconanpy.trivial import always_none
@@ -40,7 +39,7 @@ class Explictionary(dict):
 
     def __repr__(self) -> str:
         """
-        :return: str, string representation of custom dict class including\
+        :return: str, string representation of custom dict class including \
                  its class name: "Explictionary({...})"
         """
         return f"{name_of(self)}({dict.__repr__(self)})"
@@ -198,8 +197,7 @@ class Updationary(Explictionary):
     MapParts = TypeVar("MapParts", Mapping, Iterable[tuple[Hashable, Any]])
 
     def __init__(self, from_map: MapParts | None = None, **kwargs) -> None:
-        """ _summary_ 
-
+        """
         :param from_map: Mapping | Iterable[tuple[Hashable, Any]] | None, \
             Mapping to convert into a new instance of this class; `map` or \
             `iterable` in `dict.__init__` method; None by default to create \
@@ -207,11 +205,18 @@ class Updationary(Explictionary):
         :param kwargs: Mapping[str, Any] of values to add to this Updationary.
         """
         if from_map:
-            super().update(from_map)
-        super().update(kwargs)
+            self.update(from_map)
+        self.update(kwargs)
 
     def copy_update(self, from_map: MapParts | None = None, **kwargs: Any
                     ) -> "Updationary":
+        """
+        :param from_map: Mapping | Iterable[tuple[Hashable, Any] ] | None, \
+            `m` in `dict.update` method; defaults to None
+        :param kwargs: Mapping, key-value pairs to include in returned copy.
+        :return: Updationary, a copy of `self` with all key-value pairs \
+            in `from_map` and in `kwargs`
+        """
         copied = self.copy()
         copied.update(from_map, **kwargs)
         return copied
@@ -221,10 +226,6 @@ class Updationary(Explictionary):
 
         :param a_map: Mapping | Iterable[tuple[Hashable, Any] ] | None, \
             `m` in `dict.update` method; defaults to None
-        :param copy: bool, True to return a copy of `self` including all \
-            items in `a_map` and in `kwargs`; else False to return None
-        :return: Updationary updated with all values from `a_map` and \
-            `kwargs` if `copy=True`; else None
         """
         run_update = super(Updationary, self).update
         run_update(**kwargs) if a_map is None else run_update(a_map, **kwargs)
@@ -532,49 +533,7 @@ class Promptionary(LazyDict):  # , Debuggable
                                    exclude=exclude)
 
 
-class Bytesifier(Debuggable):
-    """ Class with a method to convert objects into bytes without knowing \
-        what type those things are. """
-    IsOrSupportsBytes = TypeVar("IsOrSupportsBytes", bytes, SupportsBytes)
-
-    # Default input parameters for str.encode and int.to_bytes in bytesify.
-    # Using Updationary because it can copy and update in one method call.
-    DEFAULTS = Updationary(encoding=sys.getdefaultencoding(), length=1,
-                           byteorder="big", signed=False)
-
-    @staticmethod
-    def can_bytesify(an_object: Any) -> bool:
-        """
-        :return: bool, True if self.bytesify(an_object) will work, else \
-                       False if it will raise an exception
-        """  # TODO No, just use try: self.bytesify(an_object) ?
-        return isinstance(an_object, bytes) or hasattr(an_object, "encode") \
-            or hasattr(an_object, "to_bytes")
-
-    def bytesify(self, an_obj: IsOrSupportsBytes, **kwargs) -> bytes:
-        """
-        :param an_obj: IsOrSupportsBytes, something to convert to bytes
-        :raises AttributeError: if an_obj has no 'to_bytes' or 'encode' method
-        :return: bytes, an_obj converted to bytes
-        """
-        # Get default values for encoder methods' input options
-        defaults = self.DEFAULTS.copy_update(kwargs)
-        encoding = defaults.pop("encoding")
-
-        match an_obj:
-            case bytes():
-                bytesified = an_obj
-            case int():
-                bytesified = int.to_bytes(an_obj, **defaults)
-            case str():
-                bytesified = str.encode(an_obj, encoding=encoding)
-            case _:
-                ERR_MSG = f"Object {an_obj} cannot be converted to bytes"
-                self.debug_or_raise(AttributeError(ERR_MSG), locals())
-        return bytesified
-
-
-class Cryptionary(Promptionary, Bytesifier):
+class Cryptionary(Promptionary, Bytesifier, Debuggable):
     """ Extended Promptionary that automatically encrypts values before \
         storing them and automatically decrypts values before returning them.
         Created to store user credentials slightly more securely, and to \
@@ -584,7 +543,7 @@ class Cryptionary(Promptionary, Bytesifier):
                  debugging: bool = False, **kwargs: Any):
         """ Create a new Cryptionary.
 
-        :param from_map: Mapping to convert into a new Cryptionary.
+        :param from_map: MapParts to convert into a new Cryptionary.
         :param debugging: bool, True to pause and interact on error, else \
             False to raise errors/exceptions; defaults to False.
         """
@@ -597,7 +556,7 @@ class Cryptionary(Promptionary, Bytesifier):
             self.debugging = debugging
 
             # Encrypt every value in the input mapping(s)/dict(s)
-            super(Cryptionary, self).__init__(from_map, **kwargs)
+            self.update(from_map, **kwargs)
 
         except TypeError as err:
             self.debug_or_raise(err, locals())
@@ -610,35 +569,55 @@ class Cryptionary(Promptionary, Bytesifier):
         self.encrypted.discard(key)
         del self[key]
 
-    def __getitem__(self, dict_key: Hashable) -> Any:
+    def __getitem__(self, key: Hashable) -> Any:
         """ `x.__getitem__(y)` <==> `x[y]`
         Explicitly defined to automatically decrypt encrypted values.
 
-        :param dict_key: Hashable, key mapped to the value to retrieve
+        :param key: Hashable, key mapped to the value to retrieve
         :return: Any, the decrypted value mapped to dict_key
         """
         try:
-            retrieved = dict.__getitem__(self, dict_key)
-            if dict_key in self.encrypted and retrieved is not None:
+            retrieved = dict.__getitem__(self, key)
+            if key in self.encrypted and retrieved is not None:
                 retrieved = self.cryptor.decrypt(retrieved).decode("utf-8")
             return retrieved
         except (KeyError, TypeError) as e:
             self.debug_or_raise(e, locals())
 
-    def __setitem__(self, dict_key: str,
-                    dict_value: Bytesifier.IsOrSupportsBytes) -> None:
+    def __repr__(self) -> str:
+        """
+        :return: str, string representation of Cryptionary including its \
+            class name without decrypting the encrypted values first.
+        """
+        return Explictionary({key: dict.__getitem__(self, key)
+                              for key in self.keys()}).__repr__()
+
+    def __setitem__(self, key: str, value: Any) -> None:
         """ Set self[dict_key] to dict_value after encrypting dict_value.
 
-        :param dict_key: str, key mapped to the value to retrieve.
-        :param dict_value: SupportsBytes, value to encrypt and store.
+        :param key: str, key mapped to the value to retrieve.
+        :param value: SupportsBytes, value to encrypt and store.
         """
         try:
-            if self.can_bytesify(dict_value):
-                dict_value = self.cryptor.encrypt(self.bytesify(dict_value))
-                self.encrypted.add(dict_key)
-            return super(Cryptionary, self).__setitem__(dict_key, dict_value)
+            bytesified = self.try_bytesify(value)
+            if value is not bytesified:
+                bytesified = self.cryptor.encrypt(bytesified)
+                self.encrypted.add(key)
+            return super(Cryptionary, self).__setitem__(key, bytesified)
         except AttributeError as err:
             self.debug_or_raise(err, locals())
+
+    def update(self, from_map: Updationary.MapParts | None = None,
+               **kwargs: Any) -> None:
+        """ Add or overwrite items in this Mapping from other Mappings.
+
+        :param from_map: Mapping | Iterable[tuple[Hashable, Any] ] | None, \
+            `m` in `dict.update` method; defaults to None
+        """
+        for each_map in from_map, kwargs:
+            if each_map:
+                for k, v in dict(each_map).items():
+                    self[k] = v
 
 
 class CustomDicts:
@@ -650,6 +629,14 @@ class CustomDicts:
     def new(cls, class_name: str, from_map: Updationary.MapParts = None,
             features: Iterable[str] = list(), **kwargs: Any
             ) -> Explictionary:
+        """
+        :param class_name: str naming the new custom dictionary class.
+        :param from_map: MapParts to convert into a new custom dict.
+        :param features: Iterable[str] listing the features (methods and \
+            attributes) to add to the returned custom dictionary class. All \
+            acceptable `features` options are keys in `CustomDicts.CLASSES`.
+        :return: Explictionary, dict of a new custom class.
+        """
         CustomDict = cls.new_class(class_name, *features)
         return CustomDict(from_map, **kwargs)
 

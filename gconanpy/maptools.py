@@ -4,11 +4,51 @@
 Useful/convenient classes to work with Python dicts/Mappings.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-05-15
+Updated: 2025-05-17
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Hashable, Mapping
-from typing import Any, TypeVar
+import sys
+from typing import Any, SupportsBytes, TypeVar
+
+
+class Bytesifier:
+    """ Class with a method to convert objects into bytes without knowing \
+        what type those things are. """
+    _IsOrSupportsBytes = TypeVar("_IsOrSupportsBytes", bytes, SupportsBytes)
+    _T = TypeVar("_T")
+
+    DEFAULTS = dict(encoding=sys.getdefaultencoding(), length=1,
+                    byteorder="big", signed=False)
+
+    def try_bytesify(self, an_obj: _T, **kwargs) -> bytes | _T:
+        try:
+            return self.bytesify(an_obj, **kwargs)  # type: ignore
+        except TypeError:
+            return an_obj
+
+    def bytesify(self, an_obj: _IsOrSupportsBytes, **kwargs) -> bytes:
+        """
+        :param an_obj: IsOrSupportsBytes, something to convert to bytes
+        :raises TypeError: if an_obj has no 'to_bytes' or 'encode' method
+        :return: bytes, an_obj converted to bytes
+        """
+        # Get default values for encoder methods' input options
+        defaults = self.DEFAULTS.copy()
+        defaults.update(kwargs)
+        encoding = defaults.pop("encoding")
+
+        match an_obj:
+            case bytes():
+                bytesified = an_obj
+            case int():
+                bytesified = int.to_bytes(an_obj, **defaults)
+            case str():
+                bytesified = str.encode(an_obj, encoding=encoding)
+            case _:
+                raise TypeError(f"Object {an_obj} cannot be "
+                                "converted to bytes")
+        return bytesified
 
 
 class MapSubset:
