@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2025-05-17
+Updated: 2025-05-20
 """
 # Import standard libraries
 from collections.abc import (Callable, Container, Generator,
@@ -18,17 +18,17 @@ from typing import Any
 from makefun import create_function, with_signature
 
 # Import local custom libraries
-try:
+try:  # TODO DRY
     from metafunc import (add_attributes_to, AttributesOf,
-                          combine_maps, name_of, pairs)
+                          combine_maps, HasSlots, name_of, pairs)
     from ToString import ToString
 except ModuleNotFoundError:
     from gconanpy.metafunc import (add_attributes_to, AttributesOf,
-                                   combine_maps, name_of, pairs)
+                                   combine_maps, HasSlots, name_of, pairs)
     from gconanpy.ToString import ToString
 
 
-# Constant: Function wrapper type variable
+# Function wrapper type variable
 Wrapper = Callable[[Callable], Callable]
 
 
@@ -125,11 +125,11 @@ def extend1(a_class: type, name: str, wrapper: Wrapper, *methods: str) -> type:
     return extend(a_class, name, {m: wrapper for m in methods})
 
 
-def initialize(self: Any, *args: Any, **kwargs: Any) -> None:
+def initialize(self: HasSlots, *args: Any, **kwargs: Any) -> None:
     """ Generic `__init__` function for `weak_dataclass` to specify by \
         adding a method signature.
 
-    :param self: Any, object with a `__slots__: tuple[str, ...]` attribute \
+    :param self: HasSlots, object with a `__slots__: tuple[str, ...]` attribute \
         naming the `__init__` input arguments.
     """
     if "__slots__" in kwargs:
@@ -168,8 +168,7 @@ def module_classes_to_args_dict(module: ModuleType, *suffixes: str,
 def params_for(a_class: type, *args: inspect.Parameter
                ) -> list[inspect.Parameter]:
     POS_OR_KEY = inspect.Parameter.POSITIONAL_OR_KEYWORD
-    params = [inspect.Parameter(name="self", kind=POS_OR_KEY,
-                                annotation=a_class)]
+    params = [self_param(self_is=a_class)]
     withdefaults: list[inspect.Parameter] = list()
     for name, annotation in all_annotations_of(a_class).items():
         pkwargs = dict(name=name, annotation=annotation, kind=POS_OR_KEY)
@@ -188,6 +187,11 @@ def params_for(a_class: type, *args: inspect.Parameter
 
 RegexSearcher = extend1(re.Match, "RegexSearcher", append_default,
                         "groups", "groupdict")
+
+
+def self_param(self_is: type) -> inspect.Parameter:
+    return inspect.Parameter(name="self", annotation=self_is,
+                             kind=inspect.Parameter.POSITIONAL_ONLY)
 
 
 def trim_MRO(classes: Iterable[type]) -> tuple[type]:

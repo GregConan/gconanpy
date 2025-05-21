@@ -4,7 +4,7 @@
 Tools to define, accept, and validate command-line input arguments.
 Greg Conan: gregmconan@gmail.com
 Created: 2024-09-23
-Updated: 2025-05-15
+Updated: 2025-05-17
 """
 # Import standard libraries
 from collections.abc import Callable
@@ -14,7 +14,7 @@ import pdb
 from typing import Any
 
 # Import local custom libraries
-try:
+try:  # TODO DRY
     from metafunc import WrapFunction
 except ModuleNotFoundError:
     from gconanpy.metafunc import WrapFunction

@@ -26,7 +26,7 @@ import pandas as pd
 from pympler.asizeof import asizeof
 
 # Import local custom libraries
-try:
+try:  # TODO DRY
     from metafunc import name_of
     from seq import uniqs_in
     from ToString import stringify_dt, stringify_iter

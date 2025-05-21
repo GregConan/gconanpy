@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-15
+Updated: 2025-05-17
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable, Iterator
@@ -13,7 +13,7 @@ import pdb
 from typing import Any, SupportsFloat, TypeVar
 
 # Import local custom libraries
-try:
+try:  # TODO DRY
     from debug import Debuggable
     from maptools import MapSubset, Traversible
     from metafunc import are_all_equal, DATA_ERRORS, has_method, \

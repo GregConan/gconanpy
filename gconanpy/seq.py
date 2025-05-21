@@ -7,7 +7,7 @@ Overlaps significantly with:
     DCAN-Labs:abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-05-15
+Updated: 2025-05-17
 """
 # Import standard libraries
 from collections.abc import (Container, Generator, Hashable,
@@ -23,7 +23,7 @@ import pandas as pd
 import regex
 
 # Import local custom libraries
-try:
+try:  # TODO DRY
     from ToString import stringify
     from maptools import MapSubset
 except ModuleNotFoundError:

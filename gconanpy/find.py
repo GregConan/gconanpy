@@ -4,14 +4,14 @@
 Classes and functions that iterate and break once they find what they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-05-15
+Updated: 2025-05-17
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any
 
 # Import remote custom libraries
-try:
+try:  # TODO DRY
     from metafunc import DATA_ERRORS, FinderTypes as Typ, \
         WrapFunction, KeepSkippingExceptions, IgnoreExceptions
     from trivial import is_not_none, always_none

@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-05-17
+Updated: 2025-05-20
 """
 # Import standard libraries
 import abc
@@ -15,7 +15,7 @@ import itertools
 from typing import Any, Literal, TypeVar
 
 # Import local custom libraries
-try:
+try:  # TODO DRY
     from seq import DunderParser
     from ToString import ToString
     from trivial import always_true, call_method_of
@@ -30,12 +30,6 @@ T = TypeVar("T")  # ...add_attributes_to
 
 # Purely "internal" errors only involving local data; ignorable in some cases
 DATA_ERRORS = (AttributeError, IndexError, KeyError, TypeError, ValueError)
-
-# Names of methods not to overwrite when wrapping an object
-ESSENTIALS = {f"__{attr}__" for attr in
-              ("class", "class_getitem", "delattr", "getattribute",  # "doc",
-               "hash", "init", "init_subclass", "new", "reduce",
-               "reduce_ex", "setattr", "subclasshook")}
 
 
 def add_attributes_to(an_obj: T, **attributes: Any) -> T:
@@ -375,12 +369,15 @@ class FilterAttributes:
     _SELECTOR = Callable[[Any], bool]  #
     _SELECTORS = list[_SELECTOR]
     _WHICH = Literal["names", "values"]
-
     FilterFunction = Callable[[str, Any], bool]
+
+    include: dict[_WHICH, bool]
     selectors: dict[_WHICH, _SELECTORS]
 
     def __init__(self, if_names: _SELECTORS = list(),
-                 if_values: _SELECTORS = list()) -> None:
+                 if_values: _SELECTORS = list(),
+                 include_names: bool = True,
+                 include_values: bool = True) -> None:
         """ _summary_ 
 
         :param if_names: list[Callable[[Any], bool]] of \
@@ -392,6 +389,7 @@ class FilterAttributes:
             to check whether the returned generator function should include \
             that attribute or skip it
         """
+        self.include = {"names": include_names, "values": include_values}
         self.selectors = {"names": if_names, "values": if_values}
 
     def add(self, which: _WHICH, func: Callable,
@@ -408,16 +406,14 @@ class FilterAttributes:
         """
         @staticmethod
         def is_filtered(name: str, value: Any) -> bool:
-            passed = True
-            for filterable, filters in ((name, self.selectors["names"]),
-                                        (value, self.selectors["values"])):
-                filterator = iter(filters)
-                next_filter = next(filterator, None)
-                while passed and next_filter is not None:
-                    passed = passed and next_filter(filterable)
-                    next_filter = next(filterator, None)
-            return passed
+            return self.check("names", name) and self.check("values", value)
         return is_filtered
+
+    def check(self, which: _WHICH, to_check: Any) -> bool:
+        for passes_filter in self.selectors[which]:
+            if passes_filter(to_check) is not self.include[which]:
+                return False
+        return True
 
 
 class AttributesOf:
@@ -431,12 +427,6 @@ class AttributesOf:
     newFilter = FilterAttributes
     METHOD_FILTERS: FilterAttributes.FilterFunction = \
         FilterAttributes(if_values=[callable]).build()
-
-    # If an attribute/method name starts with an underscore, then assume
-    # that it's private, and vice versa if it doesn't
-    @staticmethod
-    def attr_is_private(name: str, _: Any) -> bool:
-        return ToString("_").starts(name)
 
     def __init__(self, what: Any) -> None:
         """ 
@@ -464,6 +454,16 @@ class AttributesOf:
         :return: Any, an_obj with the specified attributes of this object.
         """
         return self._copy_to(an_obj, self.select(filter_if, exclude))
+
+    @staticmethod
+    def attr_is_private(name: str, *_: Any) -> bool:
+        """ If an attribute/method name starts with an underscore, then \
+            assume that it's private, and vice versa if it doesn't 
+
+        :param name: str, _description_
+        :return: bool, _description_
+        """
+        return name.startswith("_")
 
     def but_not(self, *others: Any) -> set[str]:
         """
@@ -493,12 +493,10 @@ class AttributesOf:
             case 1:
                 found_attr = getattr(self.what, attrs.pop())
             case _:
-                iter_names = iter(list(attr_names))
-                name = next(iter_names, None)
-                while found_attr is default and name is not None:
+                for name in attr_names:
                     if name in self.names:
                         found_attr = getattr(self.what, name)
-                    name = next(iter_names, None)
+                        break
         if name in method_names and callable(found_attr):
             found_attr = found_attr()
         return found_attr
@@ -597,6 +595,10 @@ class BoolableMeta(type):  # https://realpython.com/python-interface/
 
 class Boolable(metaclass=BoolableMeta):
     """ Any object that you can call `bool()` on is a `Boolable`. """
+
+
+class HasSlots(abc.ABC):
+    __slots__: tuple
 
 
 class NonIterable(metaclass=metaclass_hasmethod("__iter__", include=False)):
