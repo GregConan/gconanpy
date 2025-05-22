@@ -23,7 +23,7 @@ import pandas as pd
 import regex
 
 # Import local custom libraries
-try:  # TODO DRY
+try:  # TODO DRY?
     from ToString import stringify
     from maptools import MapSubset
 except ModuleNotFoundError:
@@ -35,21 +35,6 @@ I = TypeVar("I")  # ...insert_into
 S = TypeVar("S")  # ...differentiate_sets & get_key_set
 
 # NOTE All functions/classes below are in alphabetical order.
-
-
-def as_HTTPS_URL(*parts: str, **url_params: Any) -> str:
-    """ Reusable convenience function to build HTTPS URL strings.
-
-    :param parts: Iterable[str] of slash-separated URL path parts
-    :param url_params: Mapping[str, Any] of variable names and their values \
-                       to pass to the API endpoint as parameters
-    :return: str, full HTTPS URL path
-    """
-    url = f"https://{'/'.join(parts)}"
-    if url_params:
-        str_params = [f"{k}={v}" for k, v in url_params.items()]
-        url += "?" + "&".join(str_params)
-    return url
 
 
 def count_uniqs_in_cols(a_df: pd.DataFrame) -> dict[str, int]:

@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
 
 """
-Functions to import/export data from/to remote files/pages/apps on the Web.
+Functions to import/export data from/to remote files/pages/APIs on the Web.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-13
-Updated: 2025-05-15
+Updated: 2025-05-22
 """
 # Import standard libraries
 from collections.abc import Mapping
-import datetime as dt
-import pdb
 import requests
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 import urllib.request
+
+# Import local custom libraries
+try:  # TODO DRY?
+    from ..ToString import stringify_map
+except ModuleNotFoundError:
+    from gconanpy.ToString import stringify_map
 
 
 def download_GET(path_URL: str, headers: Mapping[str, Any]) -> Any:
@@ -52,6 +56,21 @@ class URL:
 
     def __repr__(self) -> str:
         return self.urlstr
+
+    @classmethod
+    def from_parts(cls, *parts: str, **url_params: Any) -> "URL":
+        """ Reusable convenience function to build HTTPS URL strings.
+
+        :param parts: Iterable[str] of slash-separated URL path parts
+        :param url_params: Mapping[str, Any] of variable names and their values \
+                        to pass to the API endpoint as parameters
+        :return: URL, full HTTPS URL built from parts & url_params
+        """
+        url = f"https://{'/'.join(parts)}"
+        if url_params:
+            url += stringify_map(url_params, quote=None, join_on="=",
+                                 prefix="?", suffix=None, sep="&", lastly="")
+        return cls(url)
 
     def get_params(self) -> dict[str, list]:
         return parse_qs(self.parsed.query)

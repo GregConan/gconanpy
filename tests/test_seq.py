@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-05-07
+Updated: 2025-05-22
 """
 # Import standard libraries
 import datetime as dt
@@ -11,6 +11,7 @@ import random
 
 # Import local custom libraries
 from gconanpy.metafunc import metaclass_hasmethod
+from gconanpy.IO.web import URL
 from gconanpy.seq import DunderParser
 from gconanpy.ToString import stringify, ToString
 from tests.testers import Tester
@@ -24,7 +25,7 @@ class TestDunderParser(Tester):
         new_type = metaclass_hasmethod(method_name, include=False)
         self.check_result(new_type.__name__, f"Lacks{pascalized}Meta")
 
-    def test_pascalize(self):
+    def test_pascalize(self) -> None:
         self.dp = DunderParser()
         for method_name, pascalized in (
             ("__class_instancecheck__", "ClassInstanceCheck"),
@@ -41,22 +42,15 @@ class TestDunderParser(Tester):
 
 
 class TestStringify(Tester):
-    def check_map(self, expected: str, **kwargs):
+    def check_map(self, expected: str, **kwargs) -> None:
         self.add_basics()
         self.check_result(stringify(self.adict, **kwargs), expected)
 
-    def test_bytes(self):
-        bytestring = b"hello"
-        self.check_result(stringify(bytestring), "hello")
-
-    def test_defaults(self):
-        self.check_map("'a': 1, 'b': 2, and 'c': 3")
-
-    def test_add(self):
+    def test_add(self) -> None:
         self.check_result(type(stringify("hi") + " there"), ToString)
         # self.check_result(type("hi" + stringify(" there")), ToString)  # TODO?
 
-    def test_affix(self):
+    def test_affix(self) -> None:
         self.add_basics()
         affixes = ["{", "(", "[", "<",
                    "}", ")", "]", ">", "hello", " "]
@@ -69,30 +63,61 @@ class TestStringify(Tester):
             assert str.startswith(stringified, prefix)
             assert str.endswith(stringified, suffix)
 
-    def test_dt(self):
+    def test_bytes(self) -> None:
+        bytestring = b"hello"
+        self.check_result(stringify(bytestring), "hello")
+
+    def test_defaults(self) -> None:
+        self.check_map("'a': 1, 'b': 2, and 'c': 3")
+
+    def test_dt(self) -> None:
         moment = dt.datetime.now()
         self.check_result(stringify(moment), moment.isoformat(
             sep="_", timespec="seconds").replace(":", "-"))
 
-    def test_join_on(self):
+    def test_filepath(self) -> None:
+        str_fpath = ToString.filepath(
+            "/home/gconan", file_name="delete-this-git-difference",
+            file_ext=".txt", put_date_after="_", max_len=48)
+        expected = "/home/gconan/delete-this-git-diff_" \
+            f"{dt.date.today().isoformat()}.txt"
+        self.check_result(str_fpath, expected)
+
+    def test_join_on(self) -> None:
         self.check_map("'a'=1, 'b'=2, and 'c'=3", join_on="=")
 
-    def test_lastly(self):
+    def test_lastly(self) -> None:
         self.check_map("'a': 1, 'b': 2, 'c': 3", lastly="")
 
-    def test_max_len(self):
+    def test_max_len(self) -> None:
         self.check_map("'a': 1, 'b': 2...", max_len=17)
 
-    def test_none(self):
+    def test_none(self) -> None:
         self.check_result(stringify(None), "")
 
-    def test_quote(self):
+    def test_quote(self) -> None:
         self.check_map('"a": 1, "b": 2, and "c": 3', quote='"')
 
-    def test_quote_nums(self):
+    def test_quote_nums(self) -> None:
         self.check_map("'a': '1', 'b': '2', and 'c': '3'", quote_numbers=True)
         self.check_result(stringify(dict(a=2.5), quote_numbers=True),
                           "'a': '2.5'")
 
-    def test_sep(self):
-        self.check_map("'a': 1; 'b': 2; and 'c': 3", sep=";")
+    def test_sep(self) -> None:
+        self.check_map("'a': 1; 'b': 2; and 'c': 3", sep="; ")
+
+
+class TestURL(Tester):
+    GDOCS_URL = "https://docs.google.com/document/d/a1b2c3/edit" \
+        "?tab=t.abc123&heading=h.def456&key=12345"
+
+    def test_from_parts(self):
+        url = URL.from_parts("docs.google.com", "document",
+                             "d", "a1b2c3", "edit",
+                             tab="t.abc123", heading="h.def456", key=12345)
+        self.check_result(str(url), self.GDOCS_URL)
+
+    def test_without_params(self):
+        url = URL(self.GDOCS_URL)
+        self.check_result(url.without_params(),
+                          self.GDOCS_URL.split("?", 1)[0])

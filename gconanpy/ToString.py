@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-05-15
+Updated: 2025-05-22
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Iterable, Mapping
@@ -60,7 +60,7 @@ class ToString(str):
 
     @classmethod
     def filepath(cls, dir_path: str, file_name: str, file_ext: str = "",
-                 put_dt_after: str | None = None, max_len: int | None = None
+                 put_date_after: str | None = None, max_len: int | None = None
                  ) -> "ToString":
         """
         :param dir_path: str, valid path to directory containing the file
@@ -74,6 +74,9 @@ class ToString(str):
                         the filename length exceeds this value. None means 255.
         :return: str, the new full file path
         """
+        # Ensure that file extension starts with a period
+        file_ext = cls(file_ext).that_starts_with(".")
+
         # Remove special characters not covered by pathvalidate.sanitize_filename
         file_name = re.sub(r"[?:\=\.\&\?]*", '', file_name)
 
@@ -81,13 +84,15 @@ class ToString(str):
         if max_len is None:
             max_len = os.pathconf(dir_path, "PC_NAME_MAX")
         else:
-            max_len -= len(dir_path)
-            max_len -= len(file_ext)
-        if put_dt_after is not None:
-            max_len -= len(put_dt_after)
+            max_len -= len(dir_path) + 1  # +1 for sep char between dir & name
+        if put_date_after is not None:
 
-            # Get ISO timestamp to append to file name
-            put_dt_after += cls.from_datetime(dt.datetime.now())
+            # Get ISO timestamp to append to file name  # dt.datetime.now()
+            put_date_after += cls.from_datetime(dt.date.today())
+
+        # Make max_len take file extension and datetimestamp into account
+            max_len -= len(put_date_after)
+        max_len -= len(file_ext)
 
         # Remove any characters illegal in file paths/names and truncate name
         file_name = pathvalidate.sanitize_filename(file_name, max_len=max_len)
@@ -96,7 +101,7 @@ class ToString(str):
         return cls(os.path.join(dir_path, file_name)
 
                    # Add datetimestamp and file extension
-                   ).that_ends_with(put_dt_after).that_ends_with(file_ext)
+                   ).that_ends_with(put_date_after).that_ends_with(file_ext)
 
     @classmethod
     def from_datetime(cls, moment: dt.date | dt.time | dt.datetime,
@@ -164,10 +169,12 @@ class ToString(str):
             list_with_str_els = cls.quotate_all(an_obj, quote,
                                                 quote_numbers, max_len)
             if len(an_obj) > 2:
-                except_end = (sep + ' ').join(list_with_str_els[:-1])
-                string = f"{except_end}{sep} {lastly}{list_with_str_els[-1]}"
+                except_end = sep.join(list_with_str_els[:-1])
+                string = f"{except_end}{sep}{lastly}{list_with_str_els[-1]}"
+            elif lastly:
+                string = lastly.join(list_with_str_els)
             else:
-                string = f" {lastly}".join(list_with_str_els)
+                string = sep.join(list_with_str_els)
         self = cls(string)
         if max_len is not None:
             affix_len = sum([len(x) if x else 0 for x in (prefix, suffix)])
@@ -178,7 +185,7 @@ class ToString(str):
     def from_object(cls, an_obj: Any, max_len: int | None = None,
                     quote: str | None = "'", quote_numbers: bool = False,
                     quote_keys: bool = True, join_on: str = ": ",
-                    sep: str = ",", prefix: str | None = None,
+                    sep: str = ", ", prefix: str | None = None,
                     suffix: str | None = None,
                     dt_sep: str = "_", timespec: _TIMESPEC = "seconds",
                     replace: Mapping[str, str] = {":": "-"},
@@ -242,7 +249,7 @@ class ToString(str):
                      quote_numbers: bool = False, quote_keys: bool = True,
                      join_on: str = ": ",
                      prefix: str | None = "{", suffix: str | None = "}",
-                     sep: str = ",", max_len: int | None = None,
+                     sep: str = ", ", max_len: int | None = None,
                      lastly: str = "and ") -> "ToString":
         """
         :param a_map: Mapping to convert ToString
@@ -274,8 +281,8 @@ class ToString(str):
             v = quotate(v) if max_len is None else \
                 quotate(v).truncate(max_len, quotate)
             pair_strings.append(join_on.join((k, v)))
-        return cls.from_iterable(pair_strings, None, sep, prefix=prefix,
-                                 suffix=suffix, max_len=max_len,
+        return cls.from_iterable(pair_strings, quote=None, prefix=prefix,
+                                 suffix=suffix, max_len=max_len, sep=sep,
                                  lastly=lastly)
 
     @classmethod
