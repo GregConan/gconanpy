@@ -6,7 +6,7 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-15
+Updated: 2025-05-24
 """
 # Import standard libraries
 from abc import ABC
@@ -26,11 +26,11 @@ import pandas as pd
 from pympler.asizeof import asizeof
 
 # Import local custom libraries
-try:  # TODO DRY
+try:
     from metafunc import name_of
     from seq import uniqs_in
     from ToString import stringify_dt, stringify_iter
-except ModuleNotFoundError:
+except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.metafunc import name_of
     from gconanpy.seq import uniqs_in
     from gconanpy.ToString import stringify_dt, stringify_iter

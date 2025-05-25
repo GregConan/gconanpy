@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2025-05-20
+Updated: 2025-05-24
 """
 # Import standard libraries
 from collections.abc import (Callable, Container, Generator,
@@ -18,17 +18,17 @@ from typing import Any
 from makefun import create_function, with_signature
 
 # Import local custom libraries
-try:  # TODO DRY
+try:
     from metafunc import (add_attributes_to, AttributesOf,
                           combine_maps, HasSlots, name_of, pairs)
     from ToString import ToString
-except ModuleNotFoundError:
+except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.metafunc import (add_attributes_to, AttributesOf,
                                    combine_maps, HasSlots, name_of, pairs)
     from gconanpy.ToString import ToString
 
 
-# Function wrapper type variable
+# Function wrapper type variable  # TODO DRY (can't import it from metafunc?)
 Wrapper = Callable[[Callable], Callable]
 
 
@@ -64,53 +64,6 @@ def combine(name: str, classes: Iterable[type], **kwargs: Any) -> type:
     :return: type, subclass of all specified `classes`.
     """
     return type(name, trim_MRO(make_MRO_for_subclass_of(*classes)), kwargs)
-
-
-def signature_extends(func: Callable,
-                      pre: Iterable[inspect.Parameter] = list(),
-                      post: Iterable[inspect.Parameter] = list(),
-                      default: Any = None, **kwargs) -> Wrapper:
-    """
-    :param func: Callable, function or method to extend the signature of
-    :param pre: Iterable[inspect.Parameter] of new arguments to prepend to \
-        `func`'s signature before its existing input arguments
-    :param post: Iterable[inspect.Parameter] of new arguments to append to \
-        `func`'s signature after its existing input arguments
-    :param default: Any,_description_, defaults to None
-    :return: Callable[[Callable], Callable], Wrapper, function decorator to \
-        add the specified input arguments to a given method/function `func`
-    """
-    for param, attr in pairs("doc", "qualname", func_name="name",
-                             module_name="module"):
-        kwargs.setdefault(param, getattr(func, f"__{attr}__", default))
-
-    old_params = inspect.signature(func).parameters
-    new_sig = inspect.Signature(parameters=[*pre, *old_params.values(), *post])
-
-    return with_signature(new_sig, **kwargs)
-
-
-def append_default(a_func: Callable) -> Callable:
-    """ 
-    :param a_func: Callable, function or method to extend by appending a new \
-        input parameter to its signature called `default_return`, which is \
-        the value for `append_default`'s returned function/method to return \
-        if `a_func` retunrns something falsy
-    :return: Callable, function decorator to add the new `default_return` \
-        input parameter to a given function/method `a_func`
-    """
-    def_ret = inspect.Parameter(
-        "default_return", default=None, annotation=Any,
-        kind=inspect._ParameterKind.POSITIONAL_OR_KEYWORD)
-
-    @signature_extends(a_func, post=[def_ret])
-    def wrapper(self, *args, default_return, **kwargs):
-        try:
-            result = a_func(self, *args, **kwargs)
-            return result if result else default_return
-        except TypeError:
-            return default_return
-    return wrapper
 
 
 def extend(a_class: type, name: str, wrappers: Mapping[str, Wrapper],
@@ -185,10 +138,6 @@ def params_for(a_class: type, *args: inspect.Parameter
     return [*params, *withdefaults]
 
 
-RegexSearcher = extend1(re.Match, "RegexSearcher", append_default,
-                        "groups", "groupdict")
-
-
 def self_param(self_is: type) -> inspect.Parameter:
     return inspect.Parameter(name="self", annotation=self_is,
                              kind=inspect.Parameter.POSITIONAL_ONLY)
@@ -214,6 +163,57 @@ def trim_MRO(classes: Iterable[type]) -> tuple[type]:
         if not is_redundant:
             minimal_MRO.append(each_class)
     return tuple(minimal_MRO)  # type(...) 2nd parameter must be a tuple
+
+
+def signature_extends(func: Callable,
+                      pre: Iterable[inspect.Parameter] = list(),
+                      post: Iterable[inspect.Parameter] = list(),
+                      default: Any = None, **kwargs) -> Wrapper:
+    """
+    :param func: Callable, function or method to extend the signature of
+    :param pre: Iterable[inspect.Parameter] of new arguments to prepend to \
+        `func`'s signature before its existing input arguments
+    :param post: Iterable[inspect.Parameter] of new arguments to append to \
+        `func`'s signature after its existing input arguments
+    :param default: Any,_description_, defaults to None
+    :return: Callable[[Callable], Callable], Wrapper, function decorator to \
+        add the specified input arguments to a given method/function `func`
+    """
+    for param, attr in pairs("doc", "qualname", func_name="name",
+                             module_name="module"):
+        kwargs.setdefault(param, getattr(func, f"__{attr}__", default))
+
+    old_params = inspect.signature(func).parameters
+    new_sig = inspect.Signature(parameters=[*pre, *old_params.values(), *post])
+
+    return with_signature(new_sig, **kwargs)
+
+
+def append_default(a_func: Callable) -> Callable:
+    """ 
+    :param a_func: Callable, function or method to extend by appending a new \
+        input parameter to its signature called `default_return`, which is \
+        the value for `append_default`'s returned function/method to return \
+        if `a_func` retunrns something falsy
+    :return: Callable, function decorator to add the new `default_return` \
+        input parameter to a given function/method `a_func`
+    """
+    def_ret = inspect.Parameter(
+        "default_return", default=None, annotation=Any,
+        kind=inspect._ParameterKind.POSITIONAL_OR_KEYWORD)
+
+    @signature_extends(a_func, post=[def_ret])
+    def wrapper(self, *args, default_return, **kwargs):
+        try:
+            result = a_func(self, *args, **kwargs)
+            return result if result else default_return
+        except TypeError:
+            return default_return
+    return wrapper
+
+
+RegexSearcher = extend1(re.Match, "RegexSearcher", append_default,
+                        "groups", "groupdict")
 
 
 class WeakDataclassBase:

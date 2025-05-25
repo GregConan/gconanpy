@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-17
+Updated: 2025-05-24
 """
 # Import standard libraries
 from collections.abc import (Callable, Collection, Container,
@@ -16,14 +16,14 @@ from typing import Any, TypeVar
 from cryptography.fernet import Fernet
 
 # Import local custom libraries
-try:  # TODO DRY
+try:
     from debug import Debuggable
     import dicts  # import self to define CustomDicts.CLASSES
     from extend import combine, module_classes_to_args_dict
     from maptools import Bytesifier, MapSubset, Traversible, WalkMap
     from metafunc import AttributesOf, DATA_ERRORS, name_of, rename_keys
     from trivial import always_none
-except ModuleNotFoundError:
+except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.debug import Debuggable
     from gconanpy import dicts  # import self to define CustomDicts.CLASSES
     from gconanpy.extend import combine, module_classes_to_args_dict

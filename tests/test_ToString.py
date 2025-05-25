@@ -3,48 +3,26 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-05-22
+Updated: 2025-05-24
 """
 # Import standard libraries
 import datetime as dt
 import random
 
 # Import local custom libraries
-from gconanpy.metafunc import metaclass_hasmethod
 from gconanpy.IO.web import URL
-from gconanpy.seq import DunderParser
 from gconanpy.ToString import stringify, ToString
 from tests.testers import Tester
-
-
-class TestDunderParser(Tester):
-    def pascaltest(self, method_name: str, pascalized: str) -> None:
-        self.check_result(self.dp.pascalize(method_name), pascalized)
-        new_type = metaclass_hasmethod(method_name, include=True)
-        self.check_result(new_type.__name__, f"Supports{pascalized}Meta")
-        new_type = metaclass_hasmethod(method_name, include=False)
-        self.check_result(new_type.__name__, f"Lacks{pascalized}Meta")
-
-    def test_pascalize(self) -> None:
-        self.dp = DunderParser()
-        for method_name, pascalized in (
-            ("__class_instancecheck__", "ClassInstanceCheck"),
-            ("__delattr__", "DelAttr"), ("__delitem__", "DelItem"),
-            ("__getattr__", "GetAttr"), ("__getitem__", "GetItem"),
-            ("__hash__", "Hash"), ("__iter__", "Iter"),
-            ("__init_subclass__", "InitSubclass"),
-            ("__instancecheck__", "InstanceCheck"),
-            ("__next__", "Next"), ("__qualname__", "QualName"),
-            ("__setattr__", "SetAttr"), ("__setitem__", "SetItem"),
-            ("__sizeof__", "SizeOf"), ("__subclasscheck__", "SubclassCheck")
-        ):
-            self.pascaltest(method_name, pascalized)
 
 
 class TestStringify(Tester):
     def check_map(self, expected: str, **kwargs) -> None:
         self.add_basics()
         self.check_result(stringify(self.adict, **kwargs), expected)
+
+    def check_ToString(self, actual_result: ToString, expected_result: str) -> None:
+        self.check_result(actual_result, expected_result)
+        assert type(actual_result) is ToString
 
     def test_add(self) -> None:
         self.check_result(type(stringify("hi") + " there"), ToString)
@@ -65,14 +43,14 @@ class TestStringify(Tester):
 
     def test_bytes(self) -> None:
         bytestring = b"hello"
-        self.check_result(stringify(bytestring), "hello")
+        self.check_ToString(stringify(bytestring), "hello")
 
     def test_defaults(self) -> None:
         self.check_map("'a': 1, 'b': 2, and 'c': 3")
 
     def test_dt(self) -> None:
         moment = dt.datetime.now()
-        self.check_result(stringify(moment), moment.isoformat(
+        self.check_ToString(stringify(moment), moment.isoformat(
             sep="_", timespec="seconds").replace(":", "-"))
 
     def test_filepath(self) -> None:
@@ -81,7 +59,7 @@ class TestStringify(Tester):
             file_ext=".txt", put_date_after="_", max_len=48)
         expected = "/home/gconan/delete-this-git-diff_" \
             f"{dt.date.today().isoformat()}.txt"
-        self.check_result(str_fpath, expected)
+        self.check_ToString(str_fpath, expected)
 
     def test_join_on(self) -> None:
         self.check_map("'a'=1, 'b'=2, and 'c'=3", join_on="=")
@@ -93,15 +71,30 @@ class TestStringify(Tester):
         self.check_map("'a': 1, 'b': 2...", max_len=17)
 
     def test_none(self) -> None:
-        self.check_result(stringify(None), "")
+        self.check_ToString(stringify(None), "")
 
     def test_quote(self) -> None:
         self.check_map('"a": 1, "b": 2, and "c": 3', quote='"')
 
     def test_quote_nums(self) -> None:
         self.check_map("'a': '1', 'b': '2', and 'c': '3'", quote_numbers=True)
-        self.check_result(stringify(dict(a=2.5), quote_numbers=True),
-                          "'a': '2.5'")
+        self.check_ToString(stringify(dict(a=2.5), quote_numbers=True),
+                            "'a': '2.5'")
+
+    def test_replacements(self) -> None:
+        self.add_basics()
+        str_list = stringify(self.alist)
+        replacements = {",": "", "1": "6", "4": "four", " and": ""}
+        self.check_ToString(str_list.replacements(replacements),
+                            "6 2 3 four 5")
+
+    def test_sub(self) -> None:
+        self.add_basics()
+        str_list = stringify(self.alist)
+        self.check_ToString(str_list - "3, 4, and 5", "1, 2, ")
+        self.check_ToString(str_list - "4, and 5", "1, 2, 3, ")
+        self.check_ToString(str_list - "4, and", str_list)
+        self.check_ToString(str_list - None, str_list)
 
     def test_sep(self) -> None:
         self.check_map("'a': 1; 'b': 2; and 'c': 3", sep="; ")

@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-05-20
+Updated: 2025-05-24
 """
 # Import standard libraries
 import abc
@@ -12,21 +12,20 @@ from collections.abc import (Callable, Collection, Generator,
                              Iterable, Mapping, MutableMapping)
 from functools import reduce
 import itertools
-from typing import Any, Literal, TypeVar
+from typing import Any, Concatenate, Literal, ParamSpec, TypeVar
 
 # Import local custom libraries
-try:  # TODO DRY
-    from seq import DunderParser
-    from ToString import ToString
+try:
+    from reg import DunderParser
     from trivial import always_true, call_method_of
-except ModuleNotFoundError:
-    from gconanpy.seq import DunderParser
-    from gconanpy.ToString import ToString
+except ModuleNotFoundError:  # TODO DRY?
+    from gconanpy.reg import DunderParser
     from gconanpy.trivial import always_true, call_method_of
 
 # Constants: TypeVars for...
 M = TypeVar("M", bound=MutableMapping)  # ...combine_maps
 T = TypeVar("T")  # ...add_attributes_to
+WrapperType = Callable[[Callable], Callable]  # ...extend_class
 
 # Purely "internal" errors only involving local data; ignorable in some cases
 DATA_ERRORS = (AttributeError, IndexError, KeyError, TypeError, ValueError)
@@ -295,6 +294,29 @@ def which_of(*conditions: bool) -> set[int]:
     return set((i for i, cond in enumerate(conditions) if cond))
 
 
+class MethodWrapper:
+    _P = ParamSpec("_P")  # _P means (*args, **kwargs)
+    _T = TypeVar("_T")  # _T means self.__class__ means type(self)
+    UnwrappedMethod = Callable[Concatenate[_T, _P], Any]
+    WrappedMethod = Callable[Concatenate[_T, _P], _T]
+
+    @staticmethod
+    def return_as_its_class(meth: UnwrappedMethod) -> WrappedMethod:
+        S = TypeVar("S", bound=HasClass)
+
+        def inner(self: S, *args: Any, **kwargs: Any) -> S:
+            return self.__class__(meth(self, *args, **kwargs))
+        return inner
+
+    @staticmethod
+    def return_self_if_no_value(meth: WrappedMethod) -> WrappedMethod:
+        S = TypeVar("S")
+
+        def inner(self: S, value: Boolable) -> S:
+            return meth(self, value) if value else self
+        return inner
+
+
 class WrapFunction:  # (Callable):
     """ Function wrapper that also stores some of its input parameters. """
 
@@ -328,10 +350,10 @@ class WrapFunction:  # (Callable):
             inner = call
 
         # Put all pre-defined args and kwargs into this instance's str repr
+        # TODO Use stringify_map(kwargs) and stringify_iter(call, pre, post) ?
         kwargstrs = [f"{k}={v}" for k, v in kwargs.items()]
-        argstr = ToString.from_iterable([*pre, "*args", *post, *kwargstrs],
-                                        prefix="[", suffix="]")
-        self.name = f"{name_of(self)}[{name_of(call)}({argstr}, **kwargs)]"
+        self.stringified = f"{name_of(self)}(call={name_of(call)}, " \
+            f"pre={pre}, post={post}, {', '.join(kwargstrs)})"
 
         self.inner = inner
 
@@ -339,7 +361,7 @@ class WrapFunction:  # (Callable):
         """
         :return: str, annotated function header describing this WrapFunction.
         """
-        return self.name
+        return self.stringified
 
     def expect(self, output: Any) -> "WrapFunction":
         """ 
@@ -420,8 +442,10 @@ class AttributesOf:
     """ Select/iterate/copy the attributes of any object. """
     _T = TypeVar("_T")  # Type of object to copy attributes to
 
+    _AttrPair = tuple[str, Any]  # name-value pair
+
     # Generator that iterates over attribute name-value pairs
-    _IterAttrPairs = Generator[tuple[str, Any], None, None]
+    _IterAttrPairs = Generator[_AttrPair, None, None]
 
     # Filters to choose which attributes to copy or iterate over
     newFilter = FilterAttributes
@@ -578,6 +602,11 @@ class AttributesOf:
             if filter_if(name, attr) is not exclude:
                 yield name, attr
 
+    def select_all(self, filter_if: newFilter.FilterFunction,
+                   exclude: bool = False) -> list[_AttrPair]:
+        return [(name, attr) for name, attr in
+                self.select(filter_if, exclude)]
+
 
 class BoolableMeta(type):  # https://realpython.com/python-interface/
     """ A metaclass that will be used for Boolable class creation. """
@@ -595,6 +624,10 @@ class BoolableMeta(type):  # https://realpython.com/python-interface/
 
 class Boolable(metaclass=BoolableMeta):
     """ Any object that you can call `bool()` on is a `Boolable`. """
+
+
+class HasClass(abc.ABC):
+    __class__: Callable[[Any], Any]
 
 
 class HasSlots(abc.ABC):

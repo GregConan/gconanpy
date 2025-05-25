@@ -13,7 +13,7 @@ import pdb
 from typing import Any, SupportsFloat, TypeVar
 
 # Import local custom libraries
-try:  # TODO DRY
+try:
     from debug import Debuggable
     from maptools import MapSubset, Traversible
     from metafunc import are_all_equal, DATA_ERRORS, has_method, \
@@ -21,7 +21,7 @@ try:  # TODO DRY
     from seq import differentiate_sets, get_key_set, uniqs_in
     from ToString import stringify
     from trivial import always_true, get_item_of
-except ModuleNotFoundError:
+except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.debug import Debuggable
     from gconanpy.maptools import MapSubset, Traversible
     from gconanpy.metafunc import are_all_equal, DATA_ERRORS, has_method, \

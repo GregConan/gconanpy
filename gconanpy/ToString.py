@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-05-22
+Updated: 2025-05-24
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Iterable, Mapping
@@ -17,21 +17,58 @@ from typing import Any, Literal, TypeVar
 import pathvalidate
 
 
+# Import local custom libraries
+try:
+    from metafunc import MethodWrapper
+except ModuleNotFoundError:  # TODO DRY?
+    from gconanpy.metafunc import MethodWrapper
+
+
 class ToString(str):
     _S = TypeVar("_S")  # for truncate(...) function
     _TIMESPEC = Literal["auto", "hours", "minutes", "seconds", "milliseconds",
                         "microseconds"]  # for datetime.isoformat
-    Quotator = Callable[[Any], "ToString"]
+    Stringifier = Callable[[Any], "ToString"]
 
-    def __add__(self, value: str | None) -> "ToString":
+    # Wrap string methods so they return a ToString instance
+    # TODO Wrap these methods programmatically, not 1 at a time manually
+    # capitalize = MethodWrapper.return_as_its_class(str.capitalize)  # TODO
+    # expandtabs = MethodWrapper.return_as_its_class(str.expandtabs)  # TODO
+    join = MethodWrapper.return_as_its_class(str.join)
+    ljust = MethodWrapper.return_as_its_class(str.ljust)
+    # lower = MethodWrapper.return_as_its_class(str.lower)  # TODO
+    removeprefix = MethodWrapper.return_as_its_class(str.removeprefix)
+    removesuffix = MethodWrapper.return_as_its_class(str.removesuffix)
+    replace = MethodWrapper.return_as_its_class(str.replace)
+    rjust = MethodWrapper.return_as_its_class(str.rjust)
+    # swapcase = MethodWrapper.return_as_its_class(str.swapcase)  # TODO
+    # title = MethodWrapper.return_as_its_class(str.title)  # TODO
+    translate = MethodWrapper.return_as_its_class(str.translate)
+    # upper = MethodWrapper.return_as_its_class(str.upper)  # TODO
+
+    @MethodWrapper.return_as_its_class  # method returns ToString
+    def __add__(self, value: str | None) -> str:
         """ Append `value` to the end of `self`. Implements `self + value`. \
             Defined explicitly so that `ToString() + str() -> ToString` \
             instead of returning a `str` object.
 
-        :param value: str
-        :return: ToString, `self` with `value` appended after it.
+        :param value: str | None
+        :return: ToString, `self` with `value` appended after it; \
+            `if not value`, then `return self` unchanged.
         """
-        return self.__class__(f"{self}{value}") if value else self
+        return super().__add__(value) if value else self
+
+    @MethodWrapper.return_as_its_class  # method returns ToString
+    def __sub__(self, value: str | None) -> str:
+        """ Remove `value` from the end of `self`. Implements `self - value`. 
+            Defined as a shorter but still intuitive alias for `removesuffix`.
+
+        :param value: str | None
+        :return: ToString, `self` without `value` at the end; if `self` \
+            doesn't end with `value` or `if not value`, then \
+            `return self` unchanged.
+        """
+        return super().removesuffix(value) if value else self
 
     def enclosed_by(self, affix: str) -> "ToString":
         """
@@ -49,14 +86,6 @@ class ToString(str):
         """
         return self.that_starts_with(prefix).that_ends_with(suffix) \
             if len(self) else self.__class__(prefix) + suffix
-
-    def ends(self, other: str) -> bool:
-        """ `x.ends(y)` is `y.endswith(x)`.
-
-        :param other: str, _description_
-        :return: bool, True if other ends with self; else False
-        """
-        return other.endswith(self)
 
     @classmethod
     def filepath(cls, dir_path: str, file_name: str, file_ext: str = "",
@@ -278,8 +307,7 @@ class ToString(str):
         pair_strings = list()
         for k, v in a_map.items():
             k = quotate(k) if quote_keys else k
-            v = quotate(v) if max_len is None else \
-                quotate(v).truncate(max_len, quotate)
+            v = quotate(v).truncate(max_len, quotate)
             pair_strings.append(join_on.join((k, v)))
         return cls.from_iterable(pair_strings, quote=None, prefix=prefix,
                                  suffix=suffix, max_len=max_len, sep=sep,
@@ -287,26 +315,23 @@ class ToString(str):
 
     @classmethod
     def get_quotator(cls, quote: str | None = "'", quote_numbers:
-                     bool = False) -> Quotator:
+                     bool = False) -> Stringifier:
         quotate = cls.quotate_obj if quote_numbers else cls.quotate_number
         return cls.from_object if not quote else lambda x: quotate(x, quote)
 
-    def join(self, strings: Iterable[str]) -> "ToString":
-        """ Concatenate any number of strings. Same as `str.join`, but \
-            returns a `ToString` object.
-
-        :return: ToString, all `strings` concatenated together with this \
-            ToString (`self`) inserted in between them all.
-        """
-        return self.__class__(str.join(self, strings))
+    @MethodWrapper.return_as_its_class
+    def replacements(self, replace: Mapping[str, str], count: int = -1) -> str:
+        string = self  # cls = self.__class__
+        for old, new in replace.items():
+            string = string.replace(old, new, count)
+        return string
 
     @classmethod
     def quotate_all(cls, objects: Iterable, quote: str | None = "'",
                     quote_numbers: bool = False, max_len: int | None = None
                     ) -> list["ToString"]:
         finish = cls.get_quotator(quote, quote_numbers)
-        return [finish(obj) if max_len is None else
-                finish(obj).truncate(max_len) for obj in objects]
+        return [finish(obj).truncate(max_len) for obj in objects]
 
     @classmethod
     def quotate_number(cls, a_num: Any, quote: str = "'") -> "ToString":
@@ -323,14 +348,6 @@ class ToString(str):
         """
         return cls.from_object(an_obj).enclosed_by(quote)
 
-    def starts(self, other: str) -> bool:
-        """ `x.starts(y)` is `y.startswith(x)`.
-
-        :param other: str, _description_
-        :return: bool, True if other starts with self; else False
-        """
-        return other.startswith(self)
-
     def that_ends_with(self, suffix: str | None) -> "ToString":
         """ Append `suffix` to the end of `self` unless it is already there.
 
@@ -339,17 +356,17 @@ class ToString(str):
         """
         return self if not suffix or self.endswith(suffix) else self + suffix
 
-    def that_starts_with(self, prefix: str | None) -> "ToString":
+    @MethodWrapper.return_as_its_class  # method returns ToString
+    def that_starts_with(self, prefix: str | None) -> str:
         """ Prepend `suffix` at index 0 of `self` unless it is already there.
 
         :param prefix: str to prepend to `self`, or None to do nothing.
         :return: ToString beginning with `prefix`.
         """
-        return self if not prefix or self.startswith(prefix) else \
-            self.__class__(prefix) + self
+        return self if not prefix or self.startswith(prefix) else prefix + self
 
     def truncate(self, max_len: int | None = None,
-                 quotate: Quotator | None = None,
+                 quotate: Stringifier | None = None,
                  suffix: str = "...") -> "ToString":
         if max_len is None:
             truncated = self

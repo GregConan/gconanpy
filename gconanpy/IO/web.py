@@ -4,7 +4,7 @@
 Functions to import/export data from/to remote files/pages/APIs on the Web.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-13
-Updated: 2025-05-22
+Updated: 2025-05-24
 """
 # Import standard libraries
 from collections.abc import Mapping
@@ -14,9 +14,9 @@ from urllib.parse import parse_qs, urlparse
 import urllib.request
 
 # Import local custom libraries
-try:  # TODO DRY?
+try:
     from ..ToString import stringify_map
-except ModuleNotFoundError:
+except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.ToString import stringify_map
 
 
