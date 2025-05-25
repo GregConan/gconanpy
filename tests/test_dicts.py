@@ -1,43 +1,26 @@
 #!/usr/bin/env python3
-#  type: ignore
+'''#  type: ignore'''
 
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-05-17
+Updated: 2025-05-25
 """
 # Import standard libraries
-from collections.abc import Generator, Mapping
-from typing import Any
-
-# Import local custom libraries
-from gconanpy.dicts import (Cryptionary, CustomDicts, Defaultionary, DotDict,
-                            Invertionary, LazyDict, Updationary)
 from gconanpy.maptools import WalkMap
 from tests.testers import Tester
-
-
-# Create various kinds of custom dicts on-the-fly to test CustomDicts.new_class
-# TODO: Use combinations(...) to test all possible custom dicts?
-DotInvert = CustomDicts.new_class("DotInvert", "dot", "invert")
-DotPromptionary = CustomDicts.new_class("DotPromptionary", "dot", "prompt")
-FancyDict = CustomDicts.new_class("FancyDict", "dot", "prompt",
-                                  "invert", "subset", "walk")
-InvertCrypt = CustomDicts.new_class("InvertCrypt", "encrypt", "invert")
-LazyDotDict = CustomDicts.new_class("LazyDotDict", "dot", "lazy")
-PromptInvert = CustomDicts.new_class("PromptInvert", "prompt", "invert")
+from gconanpy.dicts import *
+from typing import Any, TypeAlias
+from collections.abc import Generator, Mapping
 
 
 class MapTester(Tester):
-    TEST_CLASSES: tuple[type[Mapping], ...]
+    TEST_CLASSES: tuple[type[Explictionary], ...]
 
     def get_1s_dict(self) -> dict[str, int]:
         return dict(a=1, b=1, c=1, d=1)
 
-    def get_custom_dicts(self) -> Generator[Mapping, None, None]:
-        self.add_basics()
-        for dict_class in self.TEST_CLASSES:
-            yield dict_class(self.adict)  # type: ignore
+    get_custom_dicts: Callable[[], Generator[Explictionary, None, None]]
 
     def map_test(self, map_type: type, in_dict: dict, out_dict: dict,
                  method_to_test: str, *method_args, **method_kwargs) -> None:
@@ -45,18 +28,23 @@ class MapTester(Tester):
         getattr(a_map, method_to_test)(*method_args, **method_kwargs)
         self.check_result(a_map, map_type(out_dict))
 
-    def cant_call(self, method_name: str, *custom_features):
+    def cant_call(self, method_name: str, custom_class: type[Explictionary]):
         self.add_basics()
-        CantClass = CustomDicts.new_class("CantClass", *custom_features)
+        # CantClass = CustomDicts.new_class("CantClass", *custom_features)
         try:
-            getattr(CantClass(self.adict), method_name)()
+            getattr(custom_class(self.adict), method_name)()
             assert False
         except AttributeError:
             pass
 
 
 class TestCryptionary(MapTester):
-    TEST_CLASSES = (Cryptionary, InvertCrypt)
+    TEST_CLASSES: tuple[type[Cryptionary], ...] = (Cryptionary, InvertCrypt)
+
+    def get_custom_dicts(self) -> Generator[Cryptionary, None, None]:
+        self.add_basics()
+        for dict_class in self.TEST_CLASSES:
+            yield dict_class(self.adict)
 
     def test_getitem(self):
         cli_args = self.build_cli_args()
@@ -72,15 +60,27 @@ class TestCryptionary(MapTester):
 
 
 class TestDefaultionary(MapTester):  # TODO
-    TEST_CLASSES = (Defaultionary, FancyDict, LazyDotDict)
+    TEST_CLASSES: tuple[type[Defaultionary], ...] = (
+        Defaultionary, FancyDict, LazyDotDict)
+
+    def get_custom_dicts(self) -> Generator[Defaultionary, None, None]:
+        self.add_basics()
+        for dict_class in self.TEST_CLASSES:
+            yield dict_class(self.adict)
 
     def test_setdefaults_1(self) -> None:
         for dfty in self.get_custom_dicts():
-            dfty.setdefaults()
+            dfty.setdefaults()  # TODO
 
 
 class TestDotDicts(MapTester):
-    TEST_CLASSES = (DotDict, DotPromptionary, LazyDotDict, FancyDict)
+    TEST_CLASSES: tuple[type[DotDict], ...] = (
+        DotDict, DotPromptionary, LazyDotDict, FancyDict)
+
+    def get_custom_dicts(self) -> Generator[DotDict, None, None]:
+        self.add_basics()
+        for dict_class in self.TEST_CLASSES:
+            yield dict_class(self.adict)
 
     def test_set(self):
         for dd in self.get_custom_dicts():
@@ -111,7 +111,7 @@ class TestDotDicts(MapTester):
                                world=DotDict(foo=dict(bar="baz")))
             print(type(dd.testdict["world"]))
             for a_dict in (dd["testdict"], dd["testdict"]["hello"],
-                           dd.testdict["world"].foo):
+                           dd.testdict["world"].foo):  # type: ignore
                 assert not isinstance(a_dict, type(dd))
             dd.homogenize()
             for a_map in WalkMap(dd).values():
@@ -145,7 +145,13 @@ class TestDotDicts(MapTester):
 
 class TestInvertionary(MapTester):
     # TODO Add InvertCrypt and make it decrypt before inverting
-    TEST_CLASSES = (DotInvert, FancyDict, Invertionary, PromptInvert)
+    TEST_CLASSES: tuple[type[Invertionary], ...] = (
+        DotInvert, FancyDict, Invertionary, PromptInvert)
+
+    def get_custom_dicts(self) -> Generator[Invertionary, None, None]:
+        self.add_basics()
+        for dict_class in self.TEST_CLASSES:
+            yield dict_class(self.adict)
 
     def test_1(self):
         self.add_basics()
@@ -181,12 +187,18 @@ class TestInvertionary(MapTester):
 
     def test_cant(self):
         # TODO Use combinations(...) of custom_kwargs
-        self.cant_call("invert", "update")
-        self.cant_call("invert", "prompt")
+        self.cant_call("invert", Updationary)
+        self.cant_call("invert", Promptionary)
 
 
 class TestUpdationary(MapTester):
-    TEST_CLASSES = (DotDict, FancyDict, LazyDict, LazyDotDict, Updationary)
+    TEST_CLASSES: tuple[type[Updationary], ...] = (
+        DotDict, FancyDict, LazyDict, LazyDotDict, Updationary)
+
+    def get_custom_dicts(self) -> Generator[Updationary, None, None]:
+        self.add_basics()
+        for dict_class in self.TEST_CLASSES:
+            yield dict_class(self.adict)
 
     def one_update_test(self, updty: Updationary, expected_len: int,
                         a_map: Mapping | None = None,
@@ -199,7 +211,7 @@ class TestUpdationary(MapTester):
                 newd = updatefn(a_map, **expected)
                 expected.update(a_map)
             if copy:
-                updty = newd
+                updty = newd  # type: ignore
             self.check_result(len(updty), expected_len)
             for k, v in expected.items():
                 self.check_result(updty[k], v)

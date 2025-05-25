@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-05-24
+Updated: 2025-05-25
 """
 # Import standard libraries
 import abc
@@ -25,7 +25,6 @@ except ModuleNotFoundError:  # TODO DRY?
 # Constants: TypeVars for...
 M = TypeVar("M", bound=MutableMapping)  # ...combine_maps
 T = TypeVar("T")  # ...add_attributes_to
-WrapperType = Callable[[Callable], Callable]  # ...extend_class
 
 # Purely "internal" errors only involving local data; ignorable in some cases
 DATA_ERRORS = (AttributeError, IndexError, KeyError, TypeError, ValueError)
@@ -161,7 +160,7 @@ def method(method_name: str) -> Callable:
         and passes the rest of its input arguments to the method
     """
 
-    def call_method(self: Any, *args, **kwargs):
+    def call_method(self: Any, *args: Any, **kwargs: Any):
         """
         :param self: Any, object with a method to call
         :param args: Iterable, positional arguments to call the method with

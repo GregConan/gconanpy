@@ -3,11 +3,11 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-07
-Updated: 2025-05-17
+Updated: 2025-05-25
 """
 # Import local custom libraries
-from gconanpy.dicts import (CustomDicts, Defaultionary, Cryptionary,
-                            DotDict, Explictionary, LazyDict)
+from gconanpy.dicts import (Cryptionary, Defaultionary, DotDict,
+                            Explictionary, LazyDict, LazyDotDict)
 from gconanpy.metafunc import AttributesOf, metaclass_issubclass
 from tests.testers import Tester
 
@@ -23,7 +23,6 @@ class TestMetaclassFunctions(Tester):
 
     def test_metaclass_issubclass(self):
         self.add_basics()
-        LazyDotDict = CustomDicts.new_class("LazyDotDict", "dot", "lazy")
         subclasses = (dict, Explictionary, Defaultionary, DotDict)
         not_subclasses = (LazyDict, LazyDotDict, Cryptionary)
 

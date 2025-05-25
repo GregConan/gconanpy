@@ -620,47 +620,11 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
                     self[k] = v
 
 
-class CustomDicts:
-    CLASSES: dict[str, type] = rename_keys(module_classes_to_args_dict(
-        dicts, "Dict", "ionary", ignore={Explictionary}),
-        walkt="walk", crypt="encrypt", updat="update")
-
-    @classmethod
-    def new(cls, class_name: str, from_map: Updationary.MapParts = None,
-            features: Iterable[str] = list(), **kwargs: Any
-            ) -> Explictionary:
-        """
-        :param class_name: str naming the new custom dictionary class.
-        :param from_map: MapParts to convert into a new custom dict.
-        :param features: Iterable[str] listing the features (methods and \
-            attributes) to add to the returned custom dictionary class. All \
-            acceptable `features` options are keys in `CustomDicts.CLASSES`.
-        :return: Explictionary, dict of a new custom class.
-        """
-        CustomDict = cls.new_class(class_name, *features)
-        return CustomDict(from_map, **kwargs)
-
-    @classmethod
-    def new_class(cls, name: str, *features: str) -> type[Explictionary]:
-        """ Create a custom dictionary class by combining others in this file.
-
-        :param name: str naming the new custom dictionary class.
-        :param features: Iterable[str] listing the features (methods and \
-            attributes) to add to the returned custom dictionary class. All \
-            allowed features are in `CustomDicts.CLASSES`, which maps each \
-            feature's name to the class with those features. The returned \
-            custom dict class will be a subclass of every class mapped to \
-            the indicated features.
-        :raises ValueError: if any of the provided features are not included \
-            in `CustomDicts.CLASSES`.
-        :return: type[Explictionary], new custom dictionary class with the \
-            specified `features`.
-        """
-        parents = list()
-        for feature in features:
-            if feature in cls.CLASSES:
-                parents.append(cls.CLASSES[feature])
-            else:
-                raise ValueError(f"'{feature}' is not a possible feature "
-                                 f"of a {name_of(cls)}")
-        return combine(name, parents)
+LazyDotDict = type("LazyDotDict", (DotDict, LazyDict), dict())
+DotInvert = type("DotInvert", (DotDict, Invertionary), dict())
+DotPromptionary = type("DotPromptionary", (DotDict, Promptionary), dict())
+FancyDict = type("FancyDict", (DotDict, Promptionary, Invertionary,
+                               Subsetionary, Walktionary), dict())
+InvertCrypt = type("InvertCrypt", (Cryptionary, Invertionary), dict())
+LazyDotDict = type("LazyDotDict", (DotDict, LazyDict), dict())
+PromptInvert = type("PromptInvert", (Promptionary, Invertionary), dict())
