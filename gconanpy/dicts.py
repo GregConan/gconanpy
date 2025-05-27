@@ -18,18 +18,13 @@ from cryptography.fernet import Fernet
 # Import local custom libraries
 try:
     from debug import Debuggable
-    import dicts  # import self to define CustomDicts.CLASSES
-    from extend import combine, module_classes_to_args_dict
     from maptools import Bytesifier, MapSubset, Traversible, WalkMap
-    from metafunc import AttributesOf, DATA_ERRORS, name_of, rename_keys
+    from metafunc import AttributesOf, DATA_ERRORS, name_of
     from trivial import always_none
 except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.debug import Debuggable
-    from gconanpy import dicts  # import self to define CustomDicts.CLASSES
-    from gconanpy.extend import combine, module_classes_to_args_dict
     from gconanpy.maptools import Bytesifier, MapSubset, Traversible, WalkMap
-    from gconanpy.metafunc import (AttributesOf, DATA_ERRORS,
-                                   name_of, rename_keys)
+    from gconanpy.metafunc import AttributesOf, DATA_ERRORS, name_of
     from gconanpy.trivial import always_none
 
 
@@ -162,12 +157,12 @@ class Subsetionary(Explictionary):
         :param from_map: Mapping to create a new Subsetionary from a subset of.
         :param keys: Container[Hashable] of keys to (in/ex)clude.
         :param values: Container of values to (in/ex)clude.
-        :param include_keys: bool, True for `filter` to return a subset \
-            with ONLY the provided `keys`; else False to return a subset \
-            with NONE OF the provided `keys`.
-        :param include_values: bool, True for `filter` to return a subset \
-            with ONLY the provided `values`; else False to return a subset \
-            with NONE OF the provided `values`.
+        :param include_keys: bool, True to return a subset of this dict with \
+            ONLY the provided `keys`; else False to return a subset with \
+            NONE OF the provided `keys`.
+        :param include_values: bool, True to return a subset with \
+            ONLY the provided `values`; else False to return a subset with \
+            NONE OF the provided `values`.
         :return: Subsetionary including only the specified keys and values.       
         """
         return MapSubset(keys, values, include_keys, include_values
@@ -180,12 +175,12 @@ class Subsetionary(Explictionary):
 
         :param keys: Container[Hashable] of keys to (in/ex)clude.
         :param values: Container of values to (in/ex)clude.
-        :param include_keys: bool, True for `filter` to return a subset \
-            with ONLY the provided `keys`; else False to return a subset \
-            with NONE OF the provided `keys`.
-        :param include_values: bool, True for `filter` to return a subset \
-            with ONLY the provided `values`; else False to return a subset \
-            with NONE OF the provided `values`.
+        :param include_keys: bool, True to return a subset of this dict with \
+            ONLY the provided `keys`; else False to return a subset with \
+            NONE OF the provided `keys`.
+        :param include_values: bool, True to return a subset with \
+            ONLY the provided `values`; else False to return a subset with \
+            NONE OF the provided `values`.
         :return: Subsetionary including only the specified keys and values.       
         """
         return MapSubset(keys, values, include_keys, include_values
@@ -208,7 +203,7 @@ class Updationary(Explictionary):
             self.update(from_map)
         self.update(kwargs)
 
-    def copy_update(self, from_map: MapParts | None = None, **kwargs: Any
+    def update_copy(self, from_map: MapParts | None = None, **kwargs: Any
                     ) -> "Updationary":
         """
         :param from_map: Mapping | Iterable[tuple[Hashable, Any] ] | None, \
@@ -236,7 +231,7 @@ class Walktionary(Explictionary):
         """ Recursively iterate over this dict and every dict inside it.
 
         :return: WalkMap with `keys`, `values`, and `items` methods to \
-            recursively iterate over this FancyDict.
+            recursively iterate over this Walktionary.
         """
         return WalkMap(self)
 
@@ -310,7 +305,7 @@ class DotDict(Updationary, Traversible):
                 raise err from None  # Only show 1 exception in the traceback
 
     def __getstate__(self):
-        """Required for pickling. From https://stackoverflow.com/a/36968114"""
+        """ Required for pickling per https://stackoverflow.com/a/36968114 """
         return self
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -339,7 +334,7 @@ class DotDict(Updationary, Traversible):
         return super(DotDict, self).__setitem__(key, value)
 
     def __setstate__(self, state: Mapping) -> None:
-        """ Required for pickling. From https://stackoverflow.com/a/36968114
+        """ Required for pickling per https://stackoverflow.com/a/36968114
 
         :param state: _type_, _description_
         """
@@ -347,12 +342,12 @@ class DotDict(Updationary, Traversible):
         self.__dict__ = self
 
     def _is_ready_to(self, alter: str, attr_name: str, err_type:
-                     type[BaseException] = AttributeError) -> bool:
+                     type[BaseException]) -> bool:
         """ Check if an attribute of self is protected or if it's alterable
 
         :param alter: str, verb naming the alteration
         :param attribute_name: str, name of the attribute of self to alter
-        :raises AttributeError: if the attribute is protected
+        :raises AttributeError | KeyError: if the attribute is protected
         :return: bool, True if the attribute is not protected; \
                  else raise error
         """
@@ -394,17 +389,18 @@ class DotDict(Updationary, Traversible):
         return self.__class__({key: self.lookup(path, sep, default)
                                for key, path in to_look_up.items()})
 
-    def homogenize(self, replace: type[dict] = dict):
+    def homogenize(self, replace: type[dict] = dict) -> None:
         """ Recursively transform every dict contained inside this DotDict \
             into a DotDict itself, ensuring nested dot access to attributes.
             From https://gist.github.com/miku/dc6d06ed894bc23dfd5a364b7def5ed8
 
         :param replace: type of element/child/attribute to change to DotDict.
         """
+        cls = self.__class__
         for k, v in self.items():
             if self._will_traverse(v) and isinstance(v, replace):
-                if not isinstance(v, self.__class__):
-                    self[k] = self.__class__(v)
+                if not isinstance(v, cls):
+                    self[k] = cls(v)
                 self[k].homogenize()
 
     def lookup(self, path: str, sep: str = ".", default: Any = None) -> Any:
@@ -621,10 +617,7 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
 
 
 LazyDotDict = type("LazyDotDict", (DotDict, LazyDict), dict())
-DotInvert = type("DotInvert", (DotDict, Invertionary), dict())
 DotPromptionary = type("DotPromptionary", (DotDict, Promptionary), dict())
+SubCryptionary = type("SubCryptionary", (Cryptionary, Subsetionary), dict())
 FancyDict = type("FancyDict", (DotDict, Promptionary, Invertionary,
                                Subsetionary, Walktionary), dict())
-InvertCrypt = type("InvertCrypt", (Cryptionary, Invertionary), dict())
-LazyDotDict = type("LazyDotDict", (DotDict, LazyDict), dict())
-PromptInvert = type("PromptInvert", (Promptionary, Invertionary), dict())

@@ -1,20 +1,33 @@
 #!/usr/bin/env python3
-'''#  type: ignore'''
 
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-05-25
+Updated: 2025-05-26
 """
 # Import standard libraries
+from collections.abc import Callable, Generator, Mapping
+from typing import Any
+
+# Import local custom libraries
+from gconanpy.dicts import \
+    Cryptionary, Defaultionary, DotDict, DotPromptionary, Explictionary, \
+    FancyDict, Invertionary, LazyDict, LazyDotDict, Promptionary, \
+    SubCryptionary, Subsetionary, Updationary, Walktionary
 from gconanpy.maptools import WalkMap
 from tests.testers import Tester
-from gconanpy.dicts import *
-from typing import Any, TypeAlias
-from collections.abc import Generator, Mapping
 
 
-class MapTester(Tester):
+DotInvertionary = type("DotInvertionary", (DotDict, Invertionary), dict())
+DotWalktionary = type("DotWalktionary", (DotDict, Walktionary), dict())
+InvertCryptionary = type("InvertCryptionary",
+                         (Cryptionary, Invertionary), dict())
+InvertPromptionary = type("InvertPromptionary",
+                          (Promptionary, Invertionary), dict())
+SubDotDict = type("SubDotDict", (DotDict, Subsetionary), dict())
+
+
+class DictTester(Tester):
     TEST_CLASSES: tuple[type[Explictionary], ...]
 
     def get_1s_dict(self) -> dict[str, int]:
@@ -38,8 +51,9 @@ class MapTester(Tester):
             pass
 
 
-class TestCryptionary(MapTester):
-    TEST_CLASSES: tuple[type[Cryptionary], ...] = (Cryptionary, InvertCrypt)
+class TestCryptionary(DictTester):
+    TEST_CLASSES: tuple[type[Cryptionary], ...] = (
+        Cryptionary, InvertCryptionary, SubCryptionary)
 
     def get_custom_dicts(self) -> Generator[Cryptionary, None, None]:
         self.add_basics()
@@ -59,9 +73,9 @@ class TestCryptionary(MapTester):
             raise ValueError(f"'my_password' visible in {cli_args.creds}")
 
 
-class TestDefaultionary(MapTester):  # TODO
+class TestDefaultionary(DictTester):  # TODO
     TEST_CLASSES: tuple[type[Defaultionary], ...] = (
-        Defaultionary, FancyDict, LazyDotDict)
+        Defaultionary, FancyDict, LazyDict, LazyDotDict)
 
     def get_custom_dicts(self) -> Generator[Defaultionary, None, None]:
         self.add_basics()
@@ -73,9 +87,10 @@ class TestDefaultionary(MapTester):  # TODO
             dfty.setdefaults()  # TODO
 
 
-class TestDotDicts(MapTester):
+class TestDotDicts(DictTester):
     TEST_CLASSES: tuple[type[DotDict], ...] = (
-        DotDict, DotPromptionary, LazyDotDict, FancyDict)
+        DotDict, DotPromptionary, DotWalktionary, FancyDict,
+        LazyDotDict, SubDotDict)
 
     def get_custom_dicts(self) -> Generator[DotDict, None, None]:
         self.add_basics()
@@ -143,10 +158,10 @@ class TestDotDicts(MapTester):
                               dict(a="sub1", b="sub2", c="sub3"))
 
 
-class TestInvertionary(MapTester):
-    # TODO Add InvertCrypt and make it decrypt before inverting
+class TestInvertionary(DictTester):
+    # TODO Add InvertCryptionary and make it decrypt before inverting
     TEST_CLASSES: tuple[type[Invertionary], ...] = (
-        DotInvert, FancyDict, Invertionary, PromptInvert)
+        DotInvertionary, FancyDict, Invertionary, InvertPromptionary)
 
     def get_custom_dicts(self) -> Generator[Invertionary, None, None]:
         self.add_basics()
@@ -191,9 +206,10 @@ class TestInvertionary(MapTester):
         self.cant_call("invert", Promptionary)
 
 
-class TestUpdationary(MapTester):
+class TestUpdationary(DictTester):
     TEST_CLASSES: tuple[type[Updationary], ...] = (
-        DotDict, FancyDict, LazyDict, LazyDotDict, Updationary)
+        DotDict, DotWalktionary, FancyDict, LazyDict, LazyDotDict,
+        SubDotDict, Updationary)
 
     def get_custom_dicts(self) -> Generator[Updationary, None, None]:
         self.add_basics()
@@ -204,7 +220,7 @@ class TestUpdationary(MapTester):
                         a_map: Mapping | None = None,
                         **expected: Any) -> Updationary:
         for copy in (False, True):
-            updatefn = updty.copy_update if copy else updty.update
+            updatefn = updty.update_copy if copy else updty.update
             if a_map is None:
                 newd = updatefn(**expected)
             else:

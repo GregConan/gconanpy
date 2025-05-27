@@ -4,7 +4,7 @@
 Useful/convenient classes to work with Python dicts/Mappings.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-05-17
+Updated: 2025-05-26
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Hashable, Mapping
@@ -119,11 +119,15 @@ class Traversible:
 
 class WalkMap(Traversible):
     _KeyType = Hashable | None
+    _KeyWalker = Generator[_KeyType, None, None]
     _Walker = Generator[tuple[_KeyType, Mapping], None, None]
 
     def __init__(self, a_map: Mapping) -> None:
         self.root = a_map
         self.traversed: set[int] = set()
+
+    def __iter__(self) -> _KeyWalker:
+        yield from self.keys()
 
     def _walk(self, key: _KeyType, value: Mapping | Any) -> _Walker:
         if self._will_traverse(value):
@@ -137,7 +141,7 @@ class WalkMap(Traversible):
     def items(self) -> _Walker:
         yield from self._walk(None, self.root)
 
-    def keys(self) -> Generator[_KeyType, None, None]:
+    def keys(self) -> _KeyWalker:
         for key, _ in self.items():
             yield key
 

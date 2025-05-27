@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-17
+Updated: 2025-05-26
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable, Iterator
@@ -19,7 +19,7 @@ try:
     from metafunc import are_all_equal, DATA_ERRORS, has_method, \
         IgnoreExceptions, KeepTryingUntilNoErrors, method, name_of
     from seq import differentiate_sets, get_key_set, uniqs_in
-    from ToString import stringify
+    from ToString import stringify_iter, stringify_map
     from trivial import always_true, get_item_of
 except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.debug import Debuggable
@@ -27,7 +27,7 @@ except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.metafunc import are_all_equal, DATA_ERRORS, has_method, \
         IgnoreExceptions, KeepTryingUntilNoErrors, method, name_of
     from gconanpy.seq import differentiate_sets, get_key_set, uniqs_in
-    from gconanpy.ToString import stringify
+    from gconanpy.ToString import stringify_iter, stringify_map
     from gconanpy.trivial import always_true, get_item_of
 
 
@@ -65,8 +65,8 @@ class DifferenceBetween:
 
             # By default, name unnamed objects their type and insertion order
             arg_type = name_of(arg)
-            arg_name = arg_type
-            i = 1
+            i = 1  # TODO try to make a do-while context manager "with-hack"?
+            arg_name = f"{arg_type}{i}"
             while arg_name in self.names:
                 i += 1
                 arg_name = f"{arg_type}{i}"
@@ -75,6 +75,34 @@ class DifferenceBetween:
         # If objects differ, then discover how; else there's no need
         self.is_different = not are_all_equal(self.comparables)
         self.diffs = self.find()
+
+    def to_dict(self) -> dict[str, Any]:  # TODO TEST
+        return {name: value for name, value in
+                zip(self.names, self.comparables)}
+
+    def __repr__(self) -> str:  # TODO TEST
+        kwargstr = stringify_map(self.to_dict(), quote_keys=False,
+                                 join_on="=", lastly="")
+        return f"{name_of(self)}({kwargstr})"
+
+    def __str__(self) -> str:
+        """
+        :return: str, human-readable summary of how self.comparables differ.
+        """
+        if not self.is_different:
+            result = " == ".join(self.names)
+        else:
+            names = stringify_iter(self.names)
+            if self.difference:
+                differences = stringify_iter([
+                    f"{self.difference} of {self.names[i]} == {self.diffs[i]}"
+                    for i in range(len(self.diffs))], quote=None)
+                result = f"{self.difference} differs between {names}:" \
+                    f"\n{differences}."
+            else:
+                result = f"A difference between {names} exists, but it " \
+                    "could not be identified."
+        return result
 
     def compare_all_in(self, by: str, get_subcomparator: GetSubcomparator,
                        comparisons: Iterable[PartName]) -> list:
@@ -156,25 +184,6 @@ class DifferenceBetween:
             return diff_attrs
         else:
             return list()
-
-    def __repr__(self) -> str:
-        """
-        :return: str, human-readable summary of how self.comparables differ.
-        """
-        if not self.is_different:
-            result = " == ".join(self.names)
-        else:
-            names = stringify(self.names)
-            if self.difference:
-                differences = stringify([
-                    f"{self.difference} of {self.names[i]} == {self.diffs[i]}"
-                    for i in range(len(self.diffs))], quote=None)
-                result = f"{self.difference} differs between {names}:" \
-                    f"\n{differences}."
-            else:
-                result = f"A difference between {names} exists, but it " \
-                    "could not be identified."
-        return result
 
 
 class IteratorFactory:
@@ -483,4 +492,4 @@ class Xray(list):
         super().__init__(gotten)
 
     def __repr__(self):
-        return f"{self.what_elements_are}: {stringify(self)}"
+        return f"{self.what_elements_are}: {stringify_iter(self)}"
