@@ -1,31 +1,40 @@
 #!/usr/bin/env python3
 
 """
-Classes and functions that iterate and break once they find what they're looking for.
+Classes and functions that iterate and then break once they find what they're
+    looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-05-26
+Updated: 2025-05-27
 """
 # Import standard libraries
+from abc import ABC
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import Any
+from typing import Any, TypeVar
 
 # Import remote custom libraries
 try:
-    from metafunc import DATA_ERRORS, FinderTypes as Typ, \
-        KeepSkippingExceptions, IgnoreExceptions, WrapFunction
+    from metafunc import DATA_ERRORS, KeepSkippingExceptions, \
+        IgnoreExceptions, WrapFunction
     from trivial import is_not_none, always_none
 except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy.metafunc import DATA_ERRORS, FinderTypes as Typ, \
-        KeepSkippingExceptions, IgnoreExceptions, WrapFunction
+    from gconanpy.metafunc import DATA_ERRORS, KeepSkippingExceptions, \
+        IgnoreExceptions, WrapFunction
     from gconanpy.trivial import is_not_none, always_none
 
 
-def iterfind(find_in: Iterable, found_if: Callable = is_not_none,
+# TODO Figure out standard way to centralize, reuse, & document TypeVars?
+IterfindItem = TypeVar("IterfindItem")
+IterfindDefault = TypeVar("IterfindDefault")
+StrChecker = Callable[[str | None], bool] | Callable[[str], bool]
+
+
+def iterfind(find_in: Iterable[IterfindItem],
+             found_if: Callable = is_not_none,
              found_args: Iterable = list(),
              found_kwargs: Mapping[str, Any] = dict(),
-             default: Typ.D = None, element_is_arg: bool = True
-             ) -> Typ.I | Typ.D:
+             default: IterfindDefault = None, element_is_arg: bool = True
+             ) -> IterfindItem | IterfindDefault:
     for each_item in find_in:
         args = [each_item, *found_args] if element_is_arg else found_args
         if found_if(*args, **found_kwargs):
@@ -43,7 +52,7 @@ def modifind(find_in: Iterable,
              found_args: Iterable = list(),
              default: Any = None,
              errs: Iterable[type[BaseException]] = [
-                 *DATA_ERRORS, UnboundLocalError]) -> Typ.I | Typ.D:
+                 *DATA_ERRORS, UnboundLocalError]) -> Any:
     i = 0
     is_found = False
     iter_over = list(find_in)
@@ -57,17 +66,17 @@ def modifind(find_in: Iterable,
     return modified if is_found else default
 
 
-def spliterate(parts: list[str], ready_if:
-               Callable[[str | None], bool] = is_not_none,
-               min_len: int = 1, get_target:
-               Callable[[str], Any] = always_none,
+def spliterate(parts: list[str],
+               ready_if: StrChecker = is_not_none,
+               min_len: int = 1,
+               get_target: Callable[[str], Any] = always_none,
                pop_ix: int = -1, join_on: str = " ") -> tuple[str, Any]:
     """ _summary_
 
-    :param parts: Iterable[str] to iteratively modify, check, and recombine
-    :param ready_if: Callable[[str], bool], function that returns True \
-        if join_on.join(parts) is ready to return and False if it still \
-        needs to be modified further; defaults to is_not_none
+    :param parts: list[str] to iteratively modify, check, and recombine
+    :param ready_if: Callable[[str | None], bool], function that returns \
+        True if join_on.join(parts) is ready to return and False if it \
+        still needs to be modified further; defaults to `is not None`
     :param pop_ix: int, index of item to remove from parts once per \
         iteration; defaults to -1 (the last item)
     :param join_on: str, delimiter to insert between parts; defaults to " "
@@ -85,17 +94,21 @@ def spliterate(parts: list[str], ready_if:
 
 
 class UntilFound(WrapFunction):
-    def check_each(self, find_in: Iterable, default: Any = None,
-                   element_is_arg: bool = True) -> Typ.I | Typ.D:
+    _D = TypeVar("_D")
+    _I = TypeVar("_I")
+    def check_each(self, find_in: Iterable[_I], default: _D = None,
+                   element_is_arg: bool = True) -> _I | _D:
         return iterfind(find_in, self.inner, default=default,
                         element_is_arg=element_is_arg)
 
 
 class BasicRange(Iterable):
     """ Iterator like range(); base class for custom iterators to add to. """
+    # _I = TypeVar("_I")
 
-    def __init__(self, iter_over: Sequence, start_at: int = 0,
-                 end_at: int | None = None, step: int = 1) -> None:
+    def __init__(self, iter_over: Sequence,  # Sequence[_I],
+                 start_at: int = 0, end_at: int | None = None,
+                 step: int = 1) -> None:
         """ 
         :param iter_over: Sequence[Any] to iterate over
         :param start_at: int, iter_over index to begin at; defaults to 0
@@ -110,7 +123,7 @@ class BasicRange(Iterable):
             self.start > self.end else (abs(step), int.__lt__)
         self.to_iter = iter_over
 
-    def __getitem__(self, ix: int) -> Typ.I:
+    def __getitem__(self, ix: int):  # -> _I:
         return self.to_iter[ix]
 
     def __iter__(self):
@@ -128,7 +141,7 @@ class BasicRange(Iterable):
         """
         return len(self.to_iter)
 
-    def __next__(self) -> Typ.I:
+    def __next__(self):  # -> _I:
         """
         :raises StopIteration: If there are no more items to iterate over.
         :return: Any, the next element of the Sequence being iterated over.
@@ -181,20 +194,23 @@ class ErrIterChecker(BasicRange, IgnoreExceptions, KeepSkippingExceptions):
 class ReadyChecker(BasicRange):
     """ Context manager class to conveniently check once per iteration \
         whether an item being modified is ready to return. """
+    _D = TypeVar("_D")  # Default value to return if nothing was found
+    _I = TypeVar("_I")  # Element in iter_over Iterable
+    _ReadyChecker = Callable[..., bool]
 
-    def __init__(self, to_check: Any, iter_over: Iterable[Typ.I],
-                 ready_if: Callable, *ready_args: Any, **ready_kwargs: Any
-                 ) -> None:
+    def __init__(self, to_check: Any, iter_over: Iterable[_I],
+                 ready_if: _ReadyChecker, *ready_args: Any,
+                 **ready_kwargs: Any) -> None:
         """
         :param to_check: Any, the item to iteratively check the readiness of.
-        :param iter_over: Iterable[Any] to iterate over.
+        :param iter_over: Iterable to iterate over.
         :param ready_if: Callable[[Any, *ready_args, **ready_kwargs], bool], \
-            function that returns either True if to_check is ready to return \
-            or False if it needs further modification.
-        :param ready_args: Iterable[_R] of positional arguments to pass \
-            into the ready_if function
+            function that returns either True if `to_check` is ready to \
+            return or False if it needs further modification.
+        :param ready_args: Iterable of positional arguments to pass \
+            into the `ready_if` function
         :param ready_args: Mapping[str, Any] of keyword arguments to pass \
-            into the ready_if function
+            into the `ready_if` function
         """
         super().__init__(iter_over=list(iter_over))
         self.args = ready_args
@@ -202,7 +218,7 @@ class ReadyChecker(BasicRange):
         self.kwargs = ready_kwargs
         self.to_check = to_check
 
-    def __call__(self, item: Any) -> None:  # next_try
+    def __call__(self, item: Any) -> None:
         """ Save a thing to iteratively modify and check the readiness of.
 
         :param item: Any, object to check the readiness of.

@@ -675,18 +675,6 @@ class TypeFactory:  # NOTE: Work-in-progress
             "MethodMetaclass", _check), **kwargs})
 
 
-class FinderTypes(abc.ABC):
-    # TODO Figure out standard way to centralize, reuse, & document TypeVars?
-    """ Type vars to specify which attributes of finders.py classes' methods' \
-    input arguments need to be the same type/class as which other(s).
-
-    :param D: Any, default value to return if nothing was found
-    :param I: Any, element in iter_over Iterable[I]
-    """
-    D = TypeVar("D")
-    I = TypeVar("I")
-
-
 class SkipException(BaseException):
     """ Exception raised by ErrCatcher subclasses to skip a block of code. """
 
