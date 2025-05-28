@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-05-25
+Updated: 2025-05-27
 """
 # Import standard libraries
 import abc
@@ -17,10 +17,10 @@ from typing import Any, Concatenate, Literal, ParamSpec, TypeVar
 # Import local custom libraries
 try:
     from reg import DunderParser
-    from trivial import always_true, call_method_of
+    from trivial import always_true, call_method_of, equals
 except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.reg import DunderParser
-    from gconanpy.trivial import always_true, call_method_of
+    from gconanpy.trivial import always_true, call_method_of, equals
 
 # Constants: TypeVars for...
 M = TypeVar("M", bound=MutableMapping)  # ...combine_maps
@@ -57,17 +57,12 @@ def are_all_equal(comparables: Iterable, equality: str | None = None,
         item in comparables on every other item always returns True; \
         otherwise False.
     """
-    are_same = None
-    are_both_equal = method(equality) if equality else (lambda x, y: x == y)
+    are_both_equal = method(equality) if equality else equals
     pair_up = itertools.permutations if reflexive else itertools.combinations
-    combos_iter = pair_up(comparables, 2)
-    while are_same is None:
-        next_pair = next(combos_iter, None)
-        if next_pair is None:
-            are_same = True
-        elif not are_both_equal(*next_pair):
-            are_same = False
-    return are_same
+    for pair in pair_up(comparables, 2):
+        if not are_both_equal(*pair):
+            return False
+    return True
 
 
 def bool_pair_to_cases(cond1, cond2) -> int:  # Literal[0, 1, 2, 3]:

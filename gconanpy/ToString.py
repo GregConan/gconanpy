@@ -201,6 +201,8 @@ class ToString(str):
                 except_end = sep.join(list_with_str_els[:-1])
                 string = f"{except_end}{sep}{lastly}{list_with_str_els[-1]}"
             elif lastly:
+                if lastly.endswith(" "):
+                    lastly = cls(lastly).that_starts_with(" ")
                 string = lastly.join(list_with_str_els)
             else:
                 string = sep.join(list_with_str_els)

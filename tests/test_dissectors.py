@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-05-15
+Updated: 2025-05-26
 """
 # Import standard libraries
 from typing import Any
@@ -94,6 +94,9 @@ class TestDifferenceBetween(Tester):
         longerlist = [*self.alist, max(self.alist) + 1]
         list_diff = DifferenceBetween(self.alist, longerlist)
         self.check_diff(list_diff, "length", len(self.alist), len(longerlist))
+        summary = "Length differs between list1 and list2:\nLength of list1" \
+            f" == {len(self.alist)} and length of list2 == {len(longerlist)}"
+        self.check_result(str(list_diff), summary)
         self.check_result(len(list_diff.diffs), 2)
 
     def test_type_diff(self):

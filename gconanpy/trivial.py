@@ -4,7 +4,7 @@ Totally redundant/trivial functions to use as callable default \
 values of optional parameters in other classes' methods.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-10
-Updated: 2025-04-23
+Updated: 2025-05-27
 """
 # Import standard libraries
 import abc
@@ -36,6 +36,11 @@ def always_none(*_: Any, **_kwargs: Any) -> None:
 def always_true(*_: Any, **_kwargs: Any) -> Literal[True]:
     """ :return: True """
     return True
+
+
+def equals(x: Any, y: Any) -> bool:
+    """ :return: bool, x == y """
+    return x == y
 
 
 def call_method_of(an_obj: Any, method_name: str,

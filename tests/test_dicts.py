@@ -28,20 +28,21 @@ SubDotDict = type("SubDotDict", (DotDict, Subsetionary), dict())
 
 
 class DictTester(Tester):
-    TEST_CLASSES: tuple[type[Explictionary], ...]
+    _ExplType = type[Explictionary]
+    TEST_CLASSES: tuple[_ExplType, ...]
 
     def get_1s_dict(self) -> dict[str, int]:
         return dict(a=1, b=1, c=1, d=1)
 
     get_custom_dicts: Callable[[], Generator[Explictionary, None, None]]
 
-    def map_test(self, map_type: type, in_dict: dict, out_dict: dict,
+    def map_test(self, map_type: _ExplType, in_dict: dict, out_dict: dict,
                  method_to_test: str, *method_args, **method_kwargs) -> None:
         a_map = map_type(in_dict)
         getattr(a_map, method_to_test)(*method_args, **method_kwargs)
         self.check_result(a_map, map_type(out_dict))
 
-    def cant_call(self, method_name: str, custom_class: type[Explictionary]):
+    def cant_call(self, method_name: str, custom_class: _ExplType):
         self.add_basics()
         # CantClass = CustomDicts.new_class("CantClass", *custom_features)
         try:

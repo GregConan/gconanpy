@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-24
+Updated: 2025-05-27
 """
 # Import standard libraries
 from collections.abc import (Callable, Collection, Container,
@@ -37,7 +37,7 @@ class Explictionary(dict):
         :return: str, string representation of custom dict class including \
                  its class name: "Explictionary({...})"
         """
-        return f"{name_of(self)}({dict.__repr__(self)})"
+        return f"{name_of(self)}({super()})"
 
     def copy(self):
         """ `D.copy()` -> a shallow copy of `D`. Return another instance \
@@ -203,6 +203,15 @@ class Updationary(Explictionary):
             self.update(from_map)
         self.update(kwargs)
 
+    def update(self, a_map: MapParts | None = None, **kwargs: Any) -> None:
+        """ Add or overwrite items in this Mapping from other Mappings.
+
+        :param a_map: Mapping | Iterable[tuple[Hashable, Any] ] | None, \
+            `m` in `dict.update` method; defaults to None
+        """
+        run_update = super(Updationary, self).update
+        run_update(**kwargs) if a_map is None else run_update(a_map, **kwargs)
+
     def update_copy(self, from_map: MapParts | None = None, **kwargs: Any
                     ) -> "Updationary":
         """
@@ -215,15 +224,6 @@ class Updationary(Explictionary):
         copied = self.copy()
         copied.update(from_map, **kwargs)
         return copied
-
-    def update(self, a_map: MapParts | None = None, **kwargs: Any) -> None:
-        """ Add or overwrite items in this Mapping from other Mappings.
-
-        :param a_map: Mapping | Iterable[tuple[Hashable, Any] ] | None, \
-            `m` in `dict.update` method; defaults to None
-        """
-        run_update = super(Updationary, self).update
-        run_update(**kwargs) if a_map is None else run_update(a_map, **kwargs)
 
 
 class Walktionary(Explictionary):
@@ -261,10 +261,10 @@ class DotDict(Updationary, Traversible):
         :param kwargs: Mapping[str, Any] of values to add to this DotDict.
         """
         # First, add all (non-item) custom methods and attributes
-        super(DotDict, self).__init__(from_map, **kwargs)
+        Updationary.__init__(self, from_map, **kwargs)  # super(DotDict, self)
 
         # Initialize self as a Traversible for self.homogenize() method
-        self.traversed: set[int] = set()
+        Traversible.__init__(self)  # self.traversed: set[int] = set()
 
         # Prevent overwriting method/attributes or treating them like items
         dict.__setattr__(self, self.PROTECTEDS,
@@ -482,7 +482,7 @@ class LazyDict(Updationary, Defaultionary):
         return self[key]
 
 
-class Promptionary(LazyDict):  # , Debuggable
+class Promptionary(LazyDict):
     """ LazyDict able to interactively prompt the user to fill missing values.
     """
     _Prompter = Callable[[str], str]  # Prompt function to use as lazy getter
@@ -504,8 +504,7 @@ class Promptionary(LazyDict):  # , Debuggable
         :return: Any, the value mapped to key if one exists, else the value \
                  that the user interactively provided
         """
-        return self.lazyget(key, prompt_fn, [prompt],
-                            exclude=exclude)
+        return self.lazyget(key, prompt_fn, [prompt], exclude=exclude)
 
     def setdefault_or_prompt_for(self, key: Hashable, prompt: str,
                                  prompt_fn: _Prompter = input,
@@ -525,8 +524,7 @@ class Promptionary(LazyDict):  # , Debuggable
         :return: Any, the value mapped to key if one exists, else the value \
                  that the user interactively provided
         """
-        return self.lazysetdefault(key, prompt_fn, [prompt],
-                                   exclude=exclude)
+        return self.lazysetdefault(key, prompt_fn, [prompt], exclude=exclude)
 
 
 class Cryptionary(Promptionary, Bytesifier, Debuggable):
@@ -616,8 +614,35 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
                     self[k] = v
 
 
-LazyDotDict = type("LazyDotDict", (DotDict, LazyDict), dict())
-DotPromptionary = type("DotPromptionary", (DotDict, Promptionary), dict())
-SubCryptionary = type("SubCryptionary", (Cryptionary, Subsetionary), dict())
-FancyDict = type("FancyDict", (DotDict, Promptionary, Invertionary,
-                               Subsetionary, Walktionary), dict())
+class LazyDotDict(DotDict, LazyDict):
+    """ LazyDict with dot.notation item access. It can get/set items...
+
+    ...as object-attributes: `self.item is self['item']`. Benefit: You can \
+        get/set items by using '.' or by using variable names in brackets.
+
+    ...and ignore the `default=` code until it's needed, ONLY evaluating it \
+        after failing to get/set an existing key. Benefit: The `default=` \
+        code does not need to be valid (yet) if self already has the key.
+
+    Adapted from answers to https://stackoverflow.com/questions/2352181 and \
+    `attrdict` from https://stackoverflow.com/a/45354473 and `dotdict` from \
+    https://github.com/dmtlvn/dotdict/blob/main/dotdict/dotdict.py and then \
+    combined with LazyButHonestDict from https://stackoverflow.com/q/17532929
+
+    Keeps most core functionality of the Python `dict` type. """
+
+
+class DotPromptionary(DotDict, Promptionary):
+    """ Promptionary with dot.notation item access. """
+
+
+class SubCryptionary(Cryptionary, Subsetionary):
+    """ Cryptionary with subset access/creation methods. """
+
+
+class FancyDict(DotDict, Promptionary, Invertionary,
+                Subsetionary, Walktionary):
+    """ Custom dict combining as much functionality from the other classes \
+        defined in this file and in `maptools.py` as possible: lazy methods, \
+        enhanced default/update methods, prompt methods, invert method, \
+        to/from subset methods, walk method, and dot.notation item access. """

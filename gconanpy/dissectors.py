@@ -19,7 +19,7 @@ try:
     from metafunc import are_all_equal, DATA_ERRORS, has_method, \
         IgnoreExceptions, KeepTryingUntilNoErrors, method, name_of
     from seq import differentiate_sets, get_key_set, uniqs_in
-    from ToString import stringify_iter, stringify_map
+    from ToString import stringify_iter
     from trivial import always_true, get_item_of
 except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.debug import Debuggable
@@ -27,7 +27,7 @@ except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.metafunc import are_all_equal, DATA_ERRORS, has_method, \
         IgnoreExceptions, KeepTryingUntilNoErrors, method, name_of
     from gconanpy.seq import differentiate_sets, get_key_set, uniqs_in
-    from gconanpy.ToString import stringify_iter, stringify_map
+    from gconanpy.ToString import stringify_iter
     from gconanpy.trivial import always_true, get_item_of
 
 
@@ -76,29 +76,24 @@ class DifferenceBetween:
         self.is_different = not are_all_equal(self.comparables)
         self.diffs = self.find()
 
-    def to_dict(self) -> dict[str, Any]:  # TODO TEST
-        return {name: value for name, value in
-                zip(self.names, self.comparables)}
-
-    def __repr__(self) -> str:  # TODO TEST
-        kwargstr = stringify_map(self.to_dict(), quote_keys=False,
-                                 join_on="=", lastly="")
-        return f"{name_of(self)}({kwargstr})"
-
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         """
         :return: str, human-readable summary of how self.comparables differ.
         """
         if not self.is_different:
             result = " == ".join(self.names)
         else:
-            names = stringify_iter(self.names)
+            kwargs_stringify: dict[str, Any] = dict(
+                quote=None, prefix=None, suffix=None)
+            names = stringify_iter(self.names, **kwargs_stringify)
             if self.difference:
-                differences = stringify_iter([
+                diffs_list = [
                     f"{self.difference} of {self.names[i]} == {self.diffs[i]}"
-                    for i in range(len(self.diffs))], quote=None)
-                result = f"{self.difference} differs between {names}:" \
-                    f"\n{differences}."
+                    for i in range(len(self.diffs))]
+                diffs_str = stringify_iter(diffs_list, **kwargs_stringify
+                                           ).capitalize()
+                result = f"{self.difference.capitalize()} differs between " \
+                    f"{names}:\n{diffs_str}"
             else:
                 result = f"A difference between {names} exists, but it " \
                     "could not be identified."
