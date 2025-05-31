@@ -3,33 +3,37 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-05-26
+Updated: 2025-05-31
 """
 # Import standard libraries
 from typing import Any
 
 # Import local custom libraries
-from gconanpy.dissectors import Corer, DifferenceBetween, Shredder, \
-    SimpleShredder, Xray
+from gconanpy.dissectors import Corer, DifferenceBetween, SafeCorer, \
+    Shredder, SimpleShredder, Xray
 from gconanpy.maptools import MapSubset
 from tests.testers import Tester
 
 
 class TestShredders(Tester):
-    TEST_CLASSES = (Corer, Shredder, SimpleShredder)
+    TEST_CLASSES: tuple[type[SimpleShredder], ...] = (
+        Corer, SafeCorer, Shredder, SimpleShredder)
 
     def test_1(self):
         self.add_basics()
+        corables = (self.adict, [self.adict, 0, 2])
         corer = Corer()
-        for to_core in (self.adict, [self.adict, 0, 2]):
-            cored = corer.core(to_core)
-            self.check_result(cored, 3)
+        for to_core in corables:
+            self.check_result(corer.core(to_core), 3)
+        corer = SafeCorer()
+        for to_core in corables:
+            self.check_result(corer.core(to_core, int), 3)
 
     def test_2(self):
         self.add_basics()
         for shredder_type in (Shredder, SimpleShredder):
-            rolled = shredder_type().shred(('OK', [self.bytes_nums]))
-            self.check_result(rolled, {'OK', self.bytes_nums.strip()})
+            shredded = shredder_type().shred(('OK', [self.bytes_nums]))
+            self.check_result(shredded, {'OK', self.bytes_nums.strip()})
 
     def test_3(self):
         cli_args = self.build_cli_args()

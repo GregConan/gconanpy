@@ -1,7 +1,7 @@
 
 """
 Totally redundant/trivial functions to use as callable default \
-values of optional parameters in other classes' methods.
+    values of optional parameters in other classes' methods.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-10
 Updated: 2025-05-27

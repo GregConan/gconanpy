@@ -4,7 +4,7 @@
 Useful/convenient classes to work with Python dicts/Mappings.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-05-26
+Updated: 2025-05-31
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Hashable, Mapping
@@ -15,8 +15,8 @@ from typing import Any, SupportsBytes, TypeVar
 class Bytesifier:
     """ Class with a method to convert objects into bytes without knowing \
         what type those things are. """
-    _IsOrSupportsBytes = TypeVar("_IsOrSupportsBytes", bytes, SupportsBytes)
     _T = TypeVar("_T")
+    IsOrSupportsBytes = TypeVar("IsOrSupportsBytes", bytes, SupportsBytes)
 
     DEFAULTS = dict(encoding=sys.getdefaultencoding(), length=1,
                     byteorder="big", signed=False)
@@ -27,7 +27,7 @@ class Bytesifier:
         except TypeError:
             return an_obj
 
-    def bytesify(self, an_obj: _IsOrSupportsBytes, **kwargs) -> bytes:
+    def bytesify(self, an_obj: IsOrSupportsBytes, **kwargs) -> bytes:
         """
         :param an_obj: IsOrSupportsBytes, something to convert to bytes
         :raises TypeError: if an_obj has no 'to_bytes' or 'encode' method
@@ -106,7 +106,7 @@ class Traversible:
     def __init__(self) -> None:
         self.traversed: set[int] = set()
 
-    def _will_traverse(self, an_obj: Any) -> bool:
+    def _will_now_traverse(self, an_obj: Any) -> bool:
         """
         :param an_obj: Any, object to recursively visit while traversing
         :return: bool, False if `an_obj` was already visited, else True
@@ -129,14 +129,16 @@ class WalkMap(Traversible):
     def __iter__(self) -> _KeyWalker:
         yield from self.keys()
 
-    def _walk(self, key: _KeyType, value: Mapping | Any) -> _Walker:
-        if self._will_traverse(value):
+    def _walk(self, key: _KeyType, value: Mapping | Any,
+              yield_non_maps: bool = False) -> _Walker:
+        if self._will_now_traverse(value):
             try:
                 for k, v in value.items():
-                    yield from self._walk(k, v)
+                    yield from self._walk(k, v, yield_non_maps)
                 yield (key, value)
             except AttributeError:
-                pass
+                if yield_non_maps:
+                    yield (key, value)
 
     def items(self) -> _Walker:
         yield from self._walk(None, self.root)

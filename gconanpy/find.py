@@ -5,10 +5,9 @@ Classes and functions that iterate and then break once they find what they're
     looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-05-27
+Updated: 2025-05-31
 """
 # Import standard libraries
-from abc import ABC
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any, TypeVar
 

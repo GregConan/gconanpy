@@ -453,8 +453,7 @@ class AttributesOf:
         self.names = name_attributes_of(what)  # set(dir(what))
         self.what = what
 
-    def _copy_to(self, an_obj: _T, to_copy: tuple[str, Any] | _IterAttrPairs
-                 ) -> _T:
+    def _copy_to(self, an_obj: _T, to_copy: _AttrPair | _IterAttrPairs) -> _T:
         for attr_name, attr_value in to_copy:
             setattr(an_obj, attr_name, attr_value)
         return an_obj

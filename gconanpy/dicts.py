@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-27
+Updated: 2025-05-31
 """
 # Import standard libraries
 from collections.abc import (Callable, Collection, Container,
@@ -398,7 +398,7 @@ class DotDict(Updationary, Traversible):
         """
         cls = self.__class__
         for k, v in self.items():
-            if self._will_traverse(v) and isinstance(v, replace):
+            if self._will_now_traverse(v) and isinstance(v, replace):
                 if not isinstance(v, cls):
                     self[k] = cls(v)
                 self[k].homogenize()

@@ -5,12 +5,12 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-26
+Updated: 2025-05-31
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable, Iterator
 import pdb
-from typing import Any, SupportsFloat, TypeVar
+from typing import Any, no_type_check, SupportsFloat, TypeVar
 
 # Import local custom libraries
 try:
@@ -32,7 +32,7 @@ except ModuleNotFoundError:  # TODO DRY?
 
 
 class DifferenceBetween:
-    # Class type variables
+    # Class type variables for type hints
     Diff = TypeVar("Diff")
     ToCompare = TypeVar("ToCompare")
     PartName = TypeVar("PartName", bound=Hashable)
@@ -74,7 +74,7 @@ class DifferenceBetween:
 
         # If objects differ, then discover how; else there's no need
         self.is_different = not are_all_equal(self.comparables)
-        self.diffs = self.find()
+        self.diffs = self.find() if self.is_different else list()
 
     def __repr__(self) -> str:
         """
@@ -101,6 +101,13 @@ class DifferenceBetween:
 
     def compare_all_in(self, by: str, get_subcomparator: GetSubcomparator,
                        comparisons: Iterable[PartName]) -> list:
+        """ _summary_ 
+
+        :param by: str, name of the possible difference to find
+        :param get_subcomparator: GetSubcomparator, _description_
+        :param comparisons: Iterable[PartName], _description_
+        :return: list, _description_
+        """
         diffs = list()
         get_comparison = iter(comparisons)
         next_name = next(get_comparison, None)
@@ -125,6 +132,11 @@ class DifferenceBetween:
         return comparables
 
     def compare_elements_0_to(self, end_ix: int) -> list:
+        """ _summary_ 
+
+        :param end_ix: int, _description_
+        :return: list, _description_
+        """
         return self.compare_all_in("element", get_item_of,
                                    [x for x in range(end_ix)])
 
@@ -146,8 +158,8 @@ class DifferenceBetween:
         """ Find the difference(s) between the objects in self.comparables.
             Returns the first difference found, not an exhaustive list.
 
-        :return: list | None, the values that differ between the objects, or
-                 None if no difference is found.
+        :return: list, the values that differ between the objects; \
+                 empty if no difference is found.
         """
         types = self.compare_by("type", type)
         if self.difference:
@@ -186,22 +198,35 @@ class IteratorFactory:
 
     @classmethod
     def first_element_of(cls, an_obj: Iterable[_T] | _T) -> _T:
+        """ Get `an_obj`'s first element if `an_obj` is iterable; \
+            else simply return `an_obj` unchanged.
+
+        :param an_obj: Iterable to return the first element of, or Any.
+        :return: Any, the first element of `an_obj` if `an_obj` is iterable; \
+                 else `an_obj`
+        """
         return next(cls.iterate(an_obj))
 
+    @no_type_check
     @classmethod
     def iterate(cls, an_obj: Iterable[_T] | _T) -> Iterator[_T]:
+        """ Iterate `an_obj`.
+
+        :param an_obj: Iterable to iterate over, or Any.
+        :return: Iterator over `an_obj` or its elements/values.
+        """
         with KeepTryingUntilNoErrors(*DATA_ERRORS) as next_try:
             with next_try():
-                iterator = iter(an_obj.values())  # type: ignore
+                iterator = iter(an_obj.values())
             with next_try():
-                iterator = iter(an_obj)  # type: ignore
+                iterator = iter(an_obj)
             with next_try():
                 iterator = iter([an_obj])
-        return iterator  # type: ignore
+        return iterator
 
 
 class Peeler(IteratorFactory):
-    _P = TypeVar("_P")
+    _P = TypeVar("_P")  # Item(s) to extract from a "peeled" container.
 
     @classmethod
     def can_peel(cls, an_obj: Any) -> bool:
@@ -259,7 +284,7 @@ class SimpleShredder(Traversible):
         :param an_obj: Iterable to save the "shreddable" elements of.
         """
         # If we already shredded it, then don't shred it again
-        if self._will_traverse(an_obj):
+        if self._will_now_traverse(an_obj):
 
             try:  # If it has a __dict__, then shred that
                 self._shred_iterable(an_obj.__dict__)
@@ -276,10 +301,12 @@ class SimpleShredder(Traversible):
                 for element in an_obj:
                     self._collect(element)
 
-    def reset(self):
+    def reset(self) -> None:
+        """
+        Remove all previously collected parts and their traversal record.
+        """
         super(SimpleShredder, self).__init__()
         self.parts: set = set()
-        # self.shredded: set[int] = set()
 
     def shred(self, an_obj: Any) -> set:
         """ Recursively collect/save the attributes, items, and/or elements \
@@ -320,8 +347,8 @@ class Shredder(SimpleShredder, Debuggable):
         :param an_obj: Iterable to save the "shreddable" elements of.
         """
         # If we already shredded it, then don't shred it again
-        if self._will_traverse(an_obj) and len(self.traversed
-                                               ) < self.max_shreds:
+        if self._will_now_traverse(an_obj) and len(self.traversed
+                                                   ) < self.max_shreds:
 
             # If it has a __dict__, then shred that
             with IgnoreExceptions(*self.SHRED_ERRORS):
@@ -338,7 +365,7 @@ class Shredder(SimpleShredder, Debuggable):
                 for element in an_obj:
                     self._collect(element)
 
-    def shred(self, an_obj: Any, remember: bool = False) -> set:  # type: ignore
+    def shred(self, an_obj: Any, remember: bool = False) -> set:
         """ Recursively collect/save the attributes, items, and/or elements \
             of an_obj regardless of how deeply they are nested. Return only \
             the Hashable data in an_obj, not the Containers they're in.
@@ -355,17 +382,18 @@ class Shredder(SimpleShredder, Debuggable):
             to_return = super(Shredder, self).shred(an_obj)
             if not remember:
                 self.reset()
-            return to_return
         except RecursionError as err:
             self.debug_or_raise(err, locals())
+        return to_return
 
 
-class Comparer:
-    Comparable = TypeVar("Comparable")
-    Comparee = TypeVar("Comparee")
-    Comparison = Callable[[Comparable, Comparable], bool]
-    ToNumber = Callable[[Comparable], SupportsFloat]
-    ToComparable = Callable[[Comparee], Comparable]
+class Comparer(IteratorFactory):
+    # Class type variables for type hints
+    Comparable = TypeVar("Comparable")  # Comparison function input arg(s)
+    Comparee = TypeVar("Comparee")      # Item being compared to other items
+    Comparison = Callable[[Comparable, Comparable], bool]  # Comparer function
+    ToNumber = Callable[[Comparable], SupportsFloat]  # Sizer function
+    ToComparable = Callable[[Comparee], Comparable]   # Sizer metafunction
 
     @classmethod
     def comparison(cls, smallest: bool = False, earliest: bool = False
@@ -385,8 +413,30 @@ class Comparer:
                       f'{"t" if earliest else "e"}__')
 
     @classmethod
+    def size_of(cls, item: Any, get_size: ToNumber,
+                make_comparable: ToComparable) -> SupportsFloat:
+        """ Get an item's size as a float.
+
+        :param item: Any, item to return the size of
+        :param get_size: Callable[[Any], SupportsFloat], comparison \
+            function that converts an item into a numerical value to return
+        :param make_comparable: Callable[[Any], Any], secondary comparison \
+            function that converts an item into an input acceptable by \
+            `compare_their` to convert to a numerical value to return
+        :return: SupportsFloat, size of `item`
+        """
+        try:
+            item_size = get_size(item)
+        except DATA_ERRORS:
+            try:
+                item_size = get_size(make_comparable(item))
+            except DATA_ERRORS:
+                item_size = 1.0
+        return item_size
+
+    @classmethod
     def compare(cls, items: Iterable[Comparee], compare_their: ToNumber = len,
-                make_comparable: ToComparable = str, default: Comparee = "0",
+                make_comparable: ToComparable = str,
                 smallest: bool = False, earliest: bool = False) -> Comparee:
         """ Get the biggest (or smallest) item in `items`. 
 
@@ -399,17 +449,13 @@ class Comparer:
         :return: Any, item with the largest value returned by calling \
             `compare_their(make_comparable(`item`))`.
         """
+        if not items:
+            raise ValueError("No items for Comparer.compare to compare!")
         compare = cls.comparison(smallest, earliest)
-        biggest = default
-        max_size = compare_their(biggest)
+        biggest = cls.first_element_of(items)
+        max_size = cls.size_of(biggest, compare_their, make_comparable)
         for item in items:
-            try:
-                item_size = compare_their(item)
-            except DATA_ERRORS:
-                try:
-                    item_size = compare_their(make_comparable(item))
-                except DATA_ERRORS:
-                    item_size = 1.0
+            item_size = cls.size_of(item, compare_their, make_comparable)
             if compare(item_size, max_size):  # item_size >= max_size:
                 biggest = item
                 max_size = item_size
@@ -417,19 +463,45 @@ class Comparer:
 
 
 class Corer(Shredder, Comparer):
+    _T = TypeVar("_T")  # .core(...) method return type
 
-    def core(self, to_core: Iterable[Comparer.Comparee],
-             default: Comparer.Comparee = None,
+    def core(self, to_core: Iterable, default: _T | None = None,
              compare_their: Comparer.ToNumber = len,
              make_comparable: Comparer.ToComparable = str
-             ) -> Comparer.Comparee:
-        """ Extract the biggest (longest) datum from a nested data structure.
+             ) -> _T | None:
+        """ Extract the largest datum from a nested data structure.
 
         :param to_core: Iterable, especially a nested container data structure
+        :param default: Any, item to return if nothing is found in `to_core`.
+        :param compare_their: Callable[[Any], SupportsFloat], comparison \
+            function that converts an item into a numerical value that can \
+            be compared to find (and return) the largest; defaults to `len`
+        :param make_comparable: Callable[[Any], Any], secondary comparison \
+            function that converts an item into an input acceptable by \
+            `compare_their` to convert to a numerical value representing \
+            item size to return the largest item; defaults to `str` function
+        :return: Any, the longest datum buried in to_core's nested layers
+        """
+        return self._choose(self.shred(to_core), default, compare_their,
+                            make_comparable)
+
+    def _choose(self, parts: set[_T], default: _T | None = None,
+                compare_their: Comparer.ToNumber = len,
+                make_comparable: Comparer.ToComparable = str) -> _T | None:
+        """ Extract the largest element of a set.
+
+        :param parts: set to return the largest element of
+        :param default: Any, item to return if nothing is found in `to_core`.
+        :param compare_their: Callable[[Any], SupportsFloat], comparison \
+            function that converts an item into a numerical value that can \
+            be compared to find (and return) the largest; defaults to `len`
+        :param make_comparable: Callable[[Any], Any], secondary comparison \
+            function that converts an item into an input acceptable by \
+            `compare_their` to convert to a numerical value representing \
+            item size to return the largest item; defaults to `str` function
         :return: Any, the longest datum buried in to_core's nested layers
         """
         try:
-            parts = self.shred(to_core)
             match len(parts):
                 case 0:
                     biggest = default
@@ -441,6 +513,34 @@ class Corer(Shredder, Comparer):
             return biggest
         except DATA_ERRORS as err:
             self.debug_or_raise(err, locals())
+
+
+class SafeCorer(Corer):
+    _T = TypeVar("_T")  # .core(...) method return type
+
+    def core(self, to_core: Iterable, as_type: type[_T], default:
+             _T | None = None, compare_their: Comparer.ToNumber = len,
+             make_comparable: Comparer.ToComparable = str) -> _T:
+        """ Extract the largest datum of a specific type from a \
+            nested data structure.
+
+        :param to_core: Iterable, especially a nested container data structure
+        :param as_type: type of object to extract from `to_core` and return
+        :param default: Any, item to return if nothing is found in `to_core`.
+        :param compare_their: Callable[[Any], SupportsFloat], comparison \
+            function that converts an item into a numerical value that can \
+            be compared to find (and return) the largest; defaults to `len`
+        :param make_comparable: Callable[[Any], Any], secondary comparison \
+            function that converts an item into an input acceptable by \
+            `compare_their` to convert to a numerical value representing \
+            item size to return the largest item; defaults to `str` function
+        :return: Any, the longest datum buried in to_core's nested layers
+        """
+        parts = {p for p in self.shred(to_core) if isinstance(p, as_type)}
+        cored = self._choose(parts, default, compare_their, make_comparable)
+        if cored is None:
+            raise ValueError(f"Failed to core {name_of(to_core)}")
+        return cored
 
 
 class Xray(list):
