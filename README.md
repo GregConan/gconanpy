@@ -121,4 +121,4 @@ The `test_*.py` files define subclasses of `tests/testers.Tester` with methods t
 
 - Created by @[GregConan](https://github.com/GregConan) on 2025-03-13
 - Updated by @[GregConan](https://github.com/GregConan) on 2025-05-31
-- Current as of `v0.4.11S`
+- Current as of `v0.4.11`
