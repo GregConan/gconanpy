@@ -3,19 +3,20 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-07
-Updated: 2025-05-25
+Updated: 2025-06-02
 """
 # Import local custom libraries
+import gconanpy.attributes as attributes
 from gconanpy.dicts import (Cryptionary, Defaultionary, DotDict,
                             Explictionary, LazyDict, LazyDotDict)
-from gconanpy.metafunc import AttributesOf, metaclass_issubclass
+from gconanpy.metafunc import metaclass_issubclass
 from tests.testers import Tester
 
 
 class TestAttributesOf(Tester):
     def test_but_not(self):
         self.add_basics()
-        self.check_result(AttributesOf(self.alist).but_not(self.adict),
+        self.check_result(attributes.Of(self.alist).but_not(self.adict),
                           set(dir(list)) - set(dir(dict)))
 
 

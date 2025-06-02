@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-05-26
+Updated: 2025-06-02
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Mapping
@@ -138,7 +138,7 @@ class TestDotDicts(DictTester):
         self.add_basics()
         ldd = LazyDotDict(self.adict)
 
-        protected_attrs = getattr(ldd, ldd.PROTECTEDS)
+        protected_attrs: set | Any = getattr(ldd, ldd.PROTECTEDS)
         assert self.cannot_alter(ldd, *protected_attrs)
         assert protected_attrs.issuperset({"lazyget", "lazysetdefault",
                                            ldd.PROTECTEDS})

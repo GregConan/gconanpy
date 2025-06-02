@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-05-24
+Updated: 2025-06-02
 """
 # Import standard libraries
 import datetime as dt
@@ -16,6 +16,8 @@ from tests.testers import Tester
 
 
 class TestStringify(Tester):
+    HELLO_WORLD = ToString("hello world")
+
     def check_map(self, expected: str, **kwargs) -> None:
         self.add_basics()
         self.check_result(stringify(self.adict, **kwargs), expected)
@@ -35,11 +37,12 @@ class TestStringify(Tester):
         for _ in range(5):
             prefix = random.choice(affixes)
             suffix = random.choice(affixes)
-            stringified = stringify(self.alist, prefix=prefix, suffix=suffix)
-            print(f"prefix: {prefix}\nsuffix: {suffix}\n"
-                  f"stringified: {stringified}\n")
-            assert str.startswith(stringified, prefix)
-            assert str.endswith(stringified, suffix)
+            for an_iter in (self.alist, self.adict):
+                stringified = stringify(an_iter, prefix=prefix, suffix=suffix)
+                print(f"prefix: {prefix}\nsuffix: {suffix}\n"
+                      f"stringified: {stringified}\n")
+                assert str.startswith(stringified, prefix)
+                assert str.endswith(stringified, suffix)
 
     def test_bytes(self) -> None:
         bytestring = b"hello"
@@ -61,6 +64,10 @@ class TestStringify(Tester):
             f"{dt.date.today().isoformat()}.txt"
         self.check_ToString(str_fpath, expected)
 
+    def test_join(self) -> None:
+        joined = ToString(" ").join(("hello", "world"))
+        self.check_ToString(joined, "hello world")  # type: ignore # TODO
+
     def test_join_on(self) -> None:
         self.check_map("'a'=1, 'b'=2, and 'c'=3", join_on="=")
 
@@ -80,6 +87,18 @@ class TestStringify(Tester):
         self.check_map("'a': '1', 'b': '2', and 'c': '3'", quote_numbers=True)
         self.check_ToString(stringify(dict(a=2.5), quote_numbers=True),
                             "'a': '2.5'")
+
+    def test_removeprefix(self) -> None:
+        removed = self.HELLO_WORLD.removeprefix("hello ")
+        self.check_ToString(removed, "world")  # type: ignore # TODO
+
+    def test_removesuffix(self) -> None:
+        removed = self.HELLO_WORLD.removesuffix(" world")
+        self.check_ToString(removed, "hello")  # type: ignore # TODO
+
+    def test_replace(self) -> None:
+        replaced = self.HELLO_WORLD.replace("world", "there")
+        self.check_ToString(replaced, "hello there")  # type: ignore # TODO
 
     def test_replacements(self) -> None:
         self.add_basics()

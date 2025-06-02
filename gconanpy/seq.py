@@ -2,12 +2,12 @@
 
 """
 Lower-level utility functions and classes primarily to manipulate Sequences.
-Overlaps significantly with:
+Overlaps with:
     DCAN-Labs:audit-ABCC/src/utilities.py, \
     DCAN-Labs:abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-05-24
+Updated: 2025-06-02
 """
 # Import standard libraries
 from collections.abc import Hashable, Iterable, Mapping, Sequence
@@ -19,9 +19,9 @@ import numpy as np
 import pandas as pd
 
 # Import local custom libraries
-try:  # TODO DRY?
+try:
     from ToString import stringify
-except ModuleNotFoundError:
+except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.ToString import stringify
 
 # Constant: TypeVars for...

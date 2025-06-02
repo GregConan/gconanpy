@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-05-24
+Updated: 2025-06-02
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Iterable, Mapping
@@ -15,7 +15,6 @@ from typing import Any, Literal, TypeVar
 
 # Import third-party PyPI libraries
 import pathvalidate
-
 
 # Import local custom libraries
 try:
@@ -158,9 +157,7 @@ class ToString(str):
                 stringified = dt.date.isoformat(moment)
             case dt.time():
                 stringified = dt.time.isoformat(moment, timespec=timespec)
-        for to_replace, replace_with in replace.items():
-            stringified = stringified.replace(to_replace, replace_with)
-        return cls(stringified)
+        return cls(stringified).replacements(replace)
 
     @classmethod
     def from_iterable(cls, an_obj: Collection, quote: str | None = "'",

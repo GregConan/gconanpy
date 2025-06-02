@@ -19,12 +19,12 @@ from makefun import create_function, with_signature
 
 # Import local custom libraries
 try:
-    from metafunc import (add_attributes_to, AttributesOf,
-                          combine_maps, HasSlots, name_of, pairs)
+    import attributes
+    from metafunc import combine_maps, HasSlots, name_of, pairs
     from ToString import ToString
 except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy.metafunc import (add_attributes_to, AttributesOf,
-                                   combine_maps, HasSlots, name_of, pairs)
+    from gconanpy import attributes
+    from gconanpy.metafunc import combine_maps, HasSlots, name_of, pairs
     from gconanpy.ToString import ToString
 
 
@@ -70,7 +70,7 @@ def extend(a_class: type, name: str, wrappers: Mapping[str, Wrapper],
            **new: Any) -> type:
     wrapped = {meth_name: wrappers[meth_name](meth)
                if meth_name in wrappers else meth
-               for meth_name, meth in AttributesOf(a_class).methods()}
+               for meth_name, meth in attributes.Of(a_class).methods()}
     return type(name, tuple(), {**wrapped, **new})
 
 
@@ -89,7 +89,7 @@ def initialize(self: HasSlots, *args: Any, **kwargs: Any) -> None:
         kwargs.pop("__slots__")
     for i in range(len(args)):
         kwargs[self.__slots__[i]] = args[i]
-    add_attributes_to(self, **kwargs)
+    attributes.add_to(self, **kwargs)
 
 
 def make_MRO_for_subclass_of(*types: type) -> Iterator[type]:

@@ -18,6 +18,7 @@ pytest = "^8.3.5"
 bs4 = "^0.0.2"
 makefun = "^1.15.6"
 inflection = "^0.5.1"
+more-itertools = "^10.7.0"
 
 [tool.pytest.ini_options]
 pythonpath = [

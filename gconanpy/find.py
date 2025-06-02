@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 
 """
-Classes and functions that iterate and then break once they find what they're
-    looking for.
+Classes and functions that iterate and then break once they find what \
+    they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-05-31
+Updated: 2025-06-02
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping, Sequence
+# from more_itertools import iter_except  # TODO?
 from typing import Any, TypeVar
 
 # Import remote custom libraries
@@ -23,7 +24,8 @@ except ModuleNotFoundError:  # TODO DRY?
 
 
 # TODO Figure out standard way to centralize, reuse, & document TypeVars?
-IterfindItem = TypeVar("IterfindItem")
+Item = TypeVar("Item")  # Element in BasicRange/ReadyChecker
+IterfindItem = TypeVar("IterfindItem")  # Element in iterfind
 IterfindDefault = TypeVar("IterfindDefault")
 StrChecker = Callable[[str | None], bool] | Callable[[str], bool]
 
@@ -101,11 +103,11 @@ class UntilFound(WrapFunction):
                         element_is_arg=element_is_arg)
 
 
-class BasicRange(Iterable):
-    """ Iterator like range(); base class for custom iterators to add to. """
+class BasicRange(Iterable[Item]):
+    """ Iterator like range(); base class for custom iterators to extend. """
     # _I = TypeVar("_I")
 
-    def __init__(self, iter_over: Sequence,  # Sequence[_I],
+    def __init__(self, iter_over: Sequence[Item],  # Sequence[_I],
                  start_at: int = 0, end_at: int | None = None,
                  step: int = 1) -> None:
         """ 
@@ -122,7 +124,7 @@ class BasicRange(Iterable):
             self.start > self.end else (abs(step), int.__lt__)
         self.to_iter = iter_over
 
-    def __getitem__(self, ix: int):  # -> _I:
+    def __getitem__(self, ix: int) -> Item:
         return self.to_iter[ix]
 
     def __iter__(self):
@@ -140,7 +142,7 @@ class BasicRange(Iterable):
         """
         return len(self.to_iter)
 
-    def __next__(self):  # -> _I:
+    def __next__(self) -> Item:
         """
         :raises StopIteration: If there are no more items to iterate over.
         :return: Any, the next element of the Sequence being iterated over.
@@ -190,14 +192,12 @@ class ErrIterChecker(BasicRange, IgnoreExceptions, KeepSkippingExceptions):
         return self.is_iterating and not self.is_done
 
 
-class ReadyChecker(BasicRange):
+class ReadyChecker(BasicRange[Item]):
     """ Context manager class to conveniently check once per iteration \
         whether an item being modified is ready to return. """
-    _D = TypeVar("_D")  # Default value to return if nothing was found
-    _I = TypeVar("_I")  # Element in iter_over Iterable
     _ReadyChecker = Callable[..., bool]
 
-    def __init__(self, to_check: Any, iter_over: Iterable[_I],
+    def __init__(self, to_check: Any, iter_over: Iterable[Item],
                  ready_if: _ReadyChecker, *ready_args: Any,
                  **ready_kwargs: Any) -> None:
         """

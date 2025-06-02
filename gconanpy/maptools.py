@@ -4,12 +4,12 @@
 Useful/convenient classes to work with Python dicts/Mappings.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-05-31
+Updated: 2025-06-02
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Hashable, Mapping
 import sys
-from typing import Any, SupportsBytes, TypeVar
+from typing import Any, overload, SupportsBytes, TypeVar
 
 
 class Bytesifier:
@@ -86,7 +86,12 @@ class MapSubset:
 
         self.filter = passes_filter
 
-    def of(self, from_map: _M, as_type: type[_T] | None = None) -> _M | _T:
+    @overload
+    def of(self, from_map: Mapping, as_type: type[_T]) -> _T: ...
+    @overload
+    def of(self, from_map: _M) -> _M: ...
+
+    def of(self, from_map, as_type=None):
         """ Construct an instance of this class by picking a subset of \
             key-value pairs to keep.
 
@@ -96,10 +101,11 @@ class MapSubset:
         :return: Mapping, `from_map` subset including only the specified \
             keys and values
         """
+        filtered = {k: v for k, v in from_map.items()
+                    if self.filter(k, v)}
         if as_type is None:
-            as_type = type(from_map)  # type: ignore
-        return as_type({k: v for k, v in from_map.items()
-                        if self.filter(k, v)})  # type: ignore
+            as_type = type(from_map)
+        return as_type(filtered)
 
 
 class Traversible:

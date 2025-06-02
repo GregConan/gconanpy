@@ -5,10 +5,11 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-31
+Updated: 2025-06-01
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable, Iterator
+from operator import getitem
 import pdb
 from typing import Any, no_type_check, SupportsFloat, TypeVar
 
@@ -20,7 +21,7 @@ try:
         IgnoreExceptions, KeepTryingUntilNoErrors, method, name_of
     from seq import differentiate_sets, get_key_set, uniqs_in
     from ToString import stringify_iter
-    from trivial import always_true, get_item_of
+    from trivial import always_true
 except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.debug import Debuggable
     from gconanpy.maptools import MapSubset, Traversible
@@ -28,7 +29,7 @@ except ModuleNotFoundError:  # TODO DRY?
         IgnoreExceptions, KeepTryingUntilNoErrors, method, name_of
     from gconanpy.seq import differentiate_sets, get_key_set, uniqs_in
     from gconanpy.ToString import stringify_iter
-    from gconanpy.trivial import always_true, get_item_of
+    from gconanpy.trivial import always_true
 
 
 class DifferenceBetween:
@@ -137,7 +138,7 @@ class DifferenceBetween:
         :param end_ix: int, _description_
         :return: list, _description_
         """
-        return self.compare_all_in("element", get_item_of,
+        return self.compare_all_in("element", getitem,
                                    [x for x in range(end_ix)])
 
     def compare_sets(self, by: str, get_comparisons: GetPartNames,
@@ -176,8 +177,7 @@ class DifferenceBetween:
                     diff_keys = differentiate_sets(keys)
                     return diff_keys
                 else:
-                    values = self.compare_all_in(
-                        "value", get_item_of, keys)
+                    values = self.compare_all_in("value", getitem, keys)
                     if self.difference:
                         return values
 

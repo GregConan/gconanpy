@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-31
+Updated: 2025-06-02
 """
 # Import standard libraries
 from collections.abc import (Callable, Collection, Container,
@@ -17,14 +17,16 @@ from cryptography.fernet import Fernet
 
 # Import local custom libraries
 try:
+    import attributes
     from debug import Debuggable
     from maptools import Bytesifier, MapSubset, Traversible, WalkMap
-    from metafunc import AttributesOf, DATA_ERRORS, name_of
+    from metafunc import DATA_ERRORS, name_of
     from trivial import always_none
 except ModuleNotFoundError:  # TODO DRY?
+    from gconanpy import attributes
     from gconanpy.debug import Debuggable
     from gconanpy.maptools import Bytesifier, MapSubset, Traversible, WalkMap
-    from gconanpy.metafunc import AttributesOf, DATA_ERRORS, name_of
+    from gconanpy.metafunc import DATA_ERRORS, name_of
     from gconanpy.trivial import always_none
 
 
@@ -151,7 +153,8 @@ class Subsetionary(Explictionary):
     @classmethod
     def from_subset_of(cls, from_map: Mapping, keys: Container[Hashable]
                        = set(), values: Container = set(), include_keys:
-                       bool = False, include_values: bool = False):
+                       bool = False, include_values: bool = False
+                       ) -> "Subsetionary":
         """ Convert a subset of `from_map` into a new `Subsetionary`.
 
         :param from_map: Mapping to create a new Subsetionary from a subset of.
@@ -170,7 +173,7 @@ class Subsetionary(Explictionary):
 
     def subset(self, keys: Container[Hashable] = set(),
                values: Container = set(), include_keys: bool = False,
-               include_values: bool = False):
+               include_values: bool = False) -> "Subsetionary":
         """ Create a new `Subsetionary` including only a subset of this one.
 
         :param keys: Container[Hashable] of keys to (in/ex)clude.
@@ -268,7 +271,7 @@ class DotDict(Updationary, Traversible):
 
         # Prevent overwriting method/attributes or treating them like items
         dict.__setattr__(self, self.PROTECTEDS,
-                         set(AttributesOf(self.__class__).method_names()
+                         set(attributes.Of(self.__class__).method_names()
                              ).union({self.PROTECTEDS}))
 
     def __delattr__(self, name: str) -> None:

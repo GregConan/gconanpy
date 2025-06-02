@@ -4,7 +4,7 @@
 Classes that use Regex to parse strings and text data.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
-Updated: 2025-05-24
+Updated: 2025-06-02
 """
 # Import standard libraries
 from collections.abc import Container, Generator
@@ -16,9 +16,9 @@ import inflection
 import regex
 
 # Import local custom libraries
-try:  # TODO DRY?
+try:
     from maptools import MapSubset
-except ModuleNotFoundError:
+except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.maptools import MapSubset
 
 
