@@ -42,6 +42,7 @@ class Explictionary(dict):
         return f"{name_of(self)}({super()})"
 
     def copy(self):
+        # No return type hint so VSCode can infer subclass instances' types
         """ `D.copy()` -> a shallow copy of `D`. Return another instance \
             of this same type of custom dictionary. """
         return self.__class__(self)
@@ -110,6 +111,7 @@ class Invertionary(Explictionary):
 
     def invert(self, keep_collisions_in: CollisionHandler | None = None,
                copy: bool = False):  # -> None | "Invertionary":
+        # No return type hint so VSCode can infer subclass instances' types
         """ Swap keys and values. `{1: 2, 3: 4}.invert()` -> `{2: 1, 4: 3}`.
 
         When 2+ keys are mapped to the same value, then that value will be \
@@ -153,8 +155,8 @@ class Subsetionary(Explictionary):
     @classmethod
     def from_subset_of(cls, from_map: Mapping, keys: Container[Hashable]
                        = set(), values: Container = set(), include_keys:
-                       bool = False, include_values: bool = False
-                       ) -> "Subsetionary":
+                       bool = False, include_values: bool = False):
+        # No return type hint so VSCode can infer subclass instances' types
         """ Convert a subset of `from_map` into a new `Subsetionary`.
 
         :param from_map: Mapping to create a new Subsetionary from a subset of.
@@ -173,7 +175,8 @@ class Subsetionary(Explictionary):
 
     def subset(self, keys: Container[Hashable] = set(),
                values: Container = set(), include_keys: bool = False,
-               include_values: bool = False) -> "Subsetionary":
+               include_values: bool = False):
+        # No return type hint so VSCode can infer subclass instances' types
         """ Create a new `Subsetionary` including only a subset of this one.
 
         :param keys: Container[Hashable] of keys to (in/ex)clude.
@@ -215,8 +218,8 @@ class Updationary(Explictionary):
         run_update = super(Updationary, self).update
         run_update(**kwargs) if a_map is None else run_update(a_map, **kwargs)
 
-    def update_copy(self, from_map: MapParts | None = None, **kwargs: Any
-                    ) -> "Updationary":
+    def update_copy(self, from_map: MapParts | None = None, **kwargs: Any):
+        # No return type hint so VSCode can infer subclass instances' types
         """
         :param from_map: Mapping | Iterable[tuple[Hashable, Any] ] | None, \
             `m` in `dict.update` method; defaults to None
@@ -264,10 +267,10 @@ class DotDict(Updationary, Traversible):
         :param kwargs: Mapping[str, Any] of values to add to this DotDict.
         """
         # First, add all (non-item) custom methods and attributes
-        Updationary.__init__(self, from_map, **kwargs)  # super(DotDict, self)
+        Updationary.__init__(self, from_map, **kwargs)
 
         # Initialize self as a Traversible for self.homogenize() method
-        Traversible.__init__(self)  # self.traversed: set[int] = set()
+        Traversible.__init__(self)
 
         # Prevent overwriting method/attributes or treating them like items
         dict.__setattr__(self, self.PROTECTEDS,
@@ -308,6 +311,7 @@ class DotDict(Updationary, Traversible):
                 raise err from None  # Only show 1 exception in the traceback
 
     def __getstate__(self):
+        # No return type hint so VSCode can infer subclass instances' types
         """ Required for pickling per https://stackoverflow.com/a/36968114 """
         return self
 
@@ -366,6 +370,7 @@ class DotDict(Updationary, Traversible):
 
     @classmethod
     def fromConfigParser(cls, config: ConfigParser):
+        # No return type hint so VSCode can infer subclass instances' types
         """
         :param config: ConfigParser to convert into DotDict
         :return: DotDict with the key-value mapping structure of config
@@ -377,6 +382,7 @@ class DotDict(Updationary, Traversible):
 
     def get_subset_from_lookups(self, to_look_up: Mapping[str, str],
                                 sep: str = ".", default: Any = None):
+        # No return type hint so VSCode can infer subclass instances' types
         """ `self.get_subset_from_lookups({"a": "b/c"}, sep="/")` \
             -> `DotDict({"a": self.b.c})`
 
@@ -537,7 +543,7 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
         slightly reduce the likelihood of accidentally exposing them. """
 
     def __init__(self, from_map: Updationary.MapParts | None = None,
-                 debugging: bool = False, **kwargs: Any):
+                 debugging: bool = False, **kwargs: Any) -> None:
         """ Create a new Cryptionary.
 
         :param from_map: MapParts to convert into a new Cryptionary.
