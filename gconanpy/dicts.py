@@ -166,7 +166,7 @@ class Subsetionary(Explictionary):
     @classmethod
     def from_subset_of(cls, from_map: Mapping, keys: Container[Hashable]
                        = set(), values: Container = set(), include_keys:
-                       bool = False, include_values: bool = False):
+                       bool = False, include_values: bool = False) -> Self:
         # No return type hint so VSCode can infer subclass instances' types
         """ Convert a subset of `from_map` into a new `Subsetionary`.
 
@@ -186,7 +186,7 @@ class Subsetionary(Explictionary):
 
     def subset(self, keys: Container[Hashable] = set(),
                values: Container = set(), include_keys: bool = False,
-               include_values: bool = False):
+               include_values: bool = False) -> Self:
         # No return type hint so VSCode can infer subclass instances' types
         """ Create a new `Subsetionary` including only a subset of this one.
 
