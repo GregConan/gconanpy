@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-06-02
+Updated: 2025-06-03
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Mapping
@@ -134,6 +134,12 @@ class TestDotDicts(DictTester):
                 print(f"a_map: {a_map}")
                 assert isinstance(a_map, type(dd))
 
+    def test_lookup(self):
+        cli_args = self.build_cli_args()
+        self.check_result(cli_args.lookup(f"a dict"), self.adict)
+        for k, v in self.adict.items():
+            self.check_result(cli_args.lookup(f"a dict.{k}"), v)
+
     def test_protected(self):
         self.add_basics()
         ldd = LazyDotDict(self.adict)
@@ -221,14 +227,13 @@ class TestUpdationary(DictTester):
                         a_map: Mapping | None = None,
                         **expected: Any) -> Updationary:
         for copy in (False, True):
-            updatefn = updty.update_copy if copy else updty.update
             if a_map is None:
-                newd = updatefn(**expected)
+                newd = updty.update(copy=copy, **expected)
             else:
-                newd = updatefn(a_map, **expected)
+                newd = updty.update(a_map, copy, **expected)
                 expected.update(a_map)
             if copy:
-                updty = newd  # type: ignore
+                updty = newd
             self.check_result(len(updty), expected_len)
             for k, v in expected.items():
                 self.check_result(updty[k], v)

@@ -4,13 +4,14 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-06-02
+Updated: 2025-06-03
 """
 # Import standard libraries
 from collections.abc import (Callable, Collection, Container,
                              Hashable, Iterable, Mapping)
 from configparser import ConfigParser
-from typing import Any, TypeVar
+from typing import Any, overload, TypeVar
+from typing_extensions import Self
 
 # Import third-party PyPI libraries
 from cryptography.fernet import Fernet
@@ -30,6 +31,11 @@ except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.trivial import always_none
 
 
+# Type variables for .__init__(...) and .update(...) method input parameters
+MapParts = Iterable[tuple[Hashable, Any]]
+MapFrom = TypeVar("MapFrom", Mapping, MapParts, None)
+
+
 class Explictionary(dict):
     """ Custom dict base class that explicitly includes its class name in \
         its string representation(s) via __repr__ method. """
@@ -41,8 +47,7 @@ class Explictionary(dict):
         """
         return f"{name_of(self)}({super()})"
 
-    def copy(self):
-        # No return type hint so VSCode can infer subclass instances' types
+    def copy(self) -> Self:
         """ `D.copy()` -> a shallow copy of `D`. Return another instance \
             of this same type of custom dictionary. """
         return self.__class__(self)
@@ -107,11 +112,17 @@ class Defaultionary(Explictionary):
 class Invertionary(Explictionary):
     # Type variables for invert method
     _T = TypeVar("_T")
-    CollisionHandler = Callable[[list[_T]], Iterable[_T]]
+    CollisionHandler = Callable[[list[_T]], Iterable[_T]] | None
 
-    def invert(self, keep_collisions_in: CollisionHandler | None = None,
-               copy: bool = False):  # -> None | "Invertionary":
-        # No return type hint so VSCode can infer subclass instances' types
+    @overload
+    def invert(self, keep_collisions_in: CollisionHandler = None
+               ) -> None: ...
+
+    @overload
+    def invert(self, keep_collisions_in: CollisionHandler = None,
+               copy: bool = True) -> Self: ...
+
+    def invert(self, keep_collisions_in=None, copy=False):
         """ Swap keys and values. `{1: 2, 3: 4}.invert()` -> `{2: 1, 4: 3}`.
 
         When 2+ keys are mapped to the same value, then that value will be \
@@ -189,15 +200,11 @@ class Subsetionary(Explictionary):
             NONE OF the provided `values`.
         :return: Subsetionary including only the specified keys and values.       
         """
-        return MapSubset(keys, values, include_keys, include_values
-                         ).of(self)
+        return MapSubset(keys, values, include_keys, include_values).of(self)
 
 
 class Updationary(Explictionary):
-    # Class type variable: `map`/`iterable` input arg in `dict.__init__`
-    MapParts = TypeVar("MapParts", Mapping, Iterable[tuple[Hashable, Any]])
-
-    def __init__(self, from_map: MapParts | None = None, **kwargs) -> None:
+    def __init__(self, from_map: MapFrom = None, **kwargs) -> None:
         """
         :param from_map: Mapping | Iterable[tuple[Hashable, Any]] | None, \
             Mapping to convert into a new instance of this class; `map` or \
@@ -205,31 +212,37 @@ class Updationary(Explictionary):
             an empty dictionary (or create a dict from `kwargs` alone).
         :param kwargs: Mapping[str, Any] of values to add to this Updationary.
         """
-        if from_map:
-            self.update(from_map)
-        self.update(kwargs)
+        self.update(from_map, **kwargs)
 
-    def update(self, a_map: MapParts | None = None, **kwargs: Any) -> None:
+    @overload
+    def update(self, from_map: MapFrom, **kwargs: Any) -> None: ...
+
+    @overload
+    def update(self, from_map: MapFrom, copy: bool = True,
+               **kwargs: Any) -> Self: ...
+
+    def update(self, from_map=None, copy=False, **kwargs):
         """ Add or overwrite items in this Mapping from other Mappings.
 
-        :param a_map: Mapping | Iterable[tuple[Hashable, Any] ] | None, \
-            `m` in `dict.update` method; defaults to None
+        :param from_map: Mapping | Iterable[tuple[Hashable, Any] ] | None \
+            of key-value pairs to save into this Updationary. Overwrites \
+            existing pairs, but can be overwritten by `kwargs`. Defaults to \
+            None. Effectively the same as `m` in `dict.update` method. 
+        :param copy: bool, True to return an updated copy of this \
+            Updationary instead of updating the original; else False to \
+            update the original and return None.
+        :param kwargs: Mapping[str, Any] of key-value pairs to save into \
+            this Updationary. If `kwargs` and `from_map` map the same key to \
+            different values, then the value in `kwargs` will be saved.
+        :return: None if copy=False; else a dict of the same class as `self`.
         """
-        run_update = super(Updationary, self).update
-        run_update(**kwargs) if a_map is None else run_update(a_map, **kwargs)
-
-    def update_copy(self, from_map: MapParts | None = None, **kwargs: Any):
-        # No return type hint so VSCode can infer subclass instances' types
-        """
-        :param from_map: Mapping | Iterable[tuple[Hashable, Any] ] | None, \
-            `m` in `dict.update` method; defaults to None
-        :param kwargs: Mapping, key-value pairs to include in returned copy.
-        :return: Updationary, a copy of `self` with all key-value pairs \
-            in `from_map` and in `kwargs`
-        """
-        copied = self.copy()
-        copied.update(from_map, **kwargs)
-        return copied
+        updated = self.copy() if copy else self
+        run_update = super(Updationary, updated).update
+        for each_map in from_map, kwargs:  # kwargs can overwrite from_map
+            if each_map:
+                run_update(each_map)
+        if copy:
+            return updated
 
 
 class Walktionary(Explictionary):
@@ -258,8 +271,7 @@ class DotDict(Updationary, Traversible):
     # not be accessible/modifiable as keys/values/items
     PROTECTEDS = "__protected_keywords__"
 
-    def __init__(self, from_map: Updationary.MapParts | None = None,
-                 **kwargs: Any) -> None:
+    def __init__(self, from_map: MapFrom = None, **kwargs: Any) -> None:
         """ 
         :param from_map: Mapping | Iterable[tuple[Hashable, Any]] | None, \
             Mapping to convert into a new instance of this class; `map` or \
@@ -310,8 +322,7 @@ class DotDict(Updationary, Traversible):
             except KeyError:  # Don't raise KeyError; it breaks hasattr
                 raise err from None  # Only show 1 exception in the traceback
 
-    def __getstate__(self):
-        # No return type hint so VSCode can infer subclass instances' types
+    def __getstate__(self) -> Self:
         """ Required for pickling per https://stackoverflow.com/a/36968114 """
         return self
 
@@ -369,8 +380,7 @@ class DotDict(Updationary, Traversible):
         return is_ready
 
     @classmethod
-    def fromConfigParser(cls, config: ConfigParser):
-        # No return type hint so VSCode can infer subclass instances' types
+    def fromConfigParser(cls, config: ConfigParser) -> Self:
         """
         :param config: ConfigParser to convert into DotDict
         :return: DotDict with the key-value mapping structure of config
@@ -381,8 +391,7 @@ class DotDict(Updationary, Traversible):
         return self
 
     def get_subset_from_lookups(self, to_look_up: Mapping[str, str],
-                                sep: str = ".", default: Any = None):
-        # No return type hint so VSCode can infer subclass instances' types
+                                sep: str = ".", default: Any = None) -> Self:
         """ `self.get_subset_from_lookups({"a": "b/c"}, sep="/")` \
             -> `DotDict({"a": self.b.c})`
 
@@ -542,7 +551,7 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
         Created to store user credentials slightly more securely, and to \
         slightly reduce the likelihood of accidentally exposing them. """
 
-    def __init__(self, from_map: Updationary.MapParts | None = None,
+    def __init__(self, from_map: MapFrom = None,
                  debugging: bool = False, **kwargs: Any) -> None:
         """ Create a new Cryptionary.
 
@@ -556,7 +565,7 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
             self.cryptor = Fernet(Fernet.generate_key())
 
             # Define whether to raise any error(s) or pause and interact
-            self.debugging = debugging
+            Debuggable.__init__(self, debugging)
 
             # Encrypt every value in the input mapping(s)/dict(s)
             self.update(from_map, **kwargs)
@@ -564,10 +573,10 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
         except TypeError as err:
             self.debug_or_raise(err, locals())
 
-    def __delitem__(self, key: str) -> None:
+    def __delitem__(self, key: Hashable) -> None:
         """ Delete self[key].
 
-        :param key: str, key to delete and to delete the value of.
+        :param key: Hashable, key to delete and to delete the value of.
         """
         self.encrypted.discard(key)
         del self[key]
@@ -595,10 +604,10 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
         return Explictionary({key: dict.__getitem__(self, key)
                               for key in self.keys()}).__repr__()
 
-    def __setitem__(self, key: str, value: Any) -> None:
+    def __setitem__(self, key: Hashable, value: Any) -> None:
         """ Set self[dict_key] to dict_value after encrypting dict_value.
 
-        :param key: str, key mapped to the value to retrieve.
+        :param key: Hashable, key mapped to the value to retrieve.
         :param value: SupportsBytes, value to encrypt and store.
         """
         try:
@@ -610,17 +619,23 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
         except AttributeError as err:
             self.debug_or_raise(err, locals())
 
-    def update(self, from_map: Updationary.MapParts | None = None,
-               **kwargs: Any) -> None:
+    def update(self, from_map: MapFrom = None, **kwargs: Any) -> None:
         """ Add or overwrite items in this Mapping from other Mappings.
 
         :param from_map: Mapping | Iterable[tuple[Hashable, Any] ] | None, \
             `m` in `dict.update` method; defaults to None
         """
-        for each_map in from_map, kwargs:
-            if each_map:
-                for k, v in dict(each_map).items():
+        match from_map:
+            case None:
+                pass
+            case dict():
+                for k, v in from_map.items():
                     self[k] = v
+            case tuple():
+                for k, v in from_map:
+                    self[k] = v
+        for k, v in kwargs.items():
+            self[k] = v
 
 
 class LazyDotDict(DotDict, LazyDict):

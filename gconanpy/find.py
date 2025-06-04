@@ -5,12 +5,13 @@ Classes and functions that iterate and then break once they find what \
     they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-06-02
+Updated: 2025-06-03
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping, Sequence
 # from more_itertools import iter_except  # TODO?
 from typing import Any, TypeVar
+from typing_extensions import Self
 
 # Import remote custom libraries
 try:
@@ -127,7 +128,7 @@ class BasicRange(Iterable[Item]):
     def __getitem__(self, ix: int) -> Item:
         return self.to_iter[ix]
 
-    def __iter__(self):
+    def __iter__(self) -> Self:
         """ Reset some variables to start iterating.
 
         :return: BasicRange, self
@@ -168,7 +169,7 @@ class ErrIterChecker(BasicRange, IgnoreExceptions, KeepSkippingExceptions):
         BasicRange.__init__(self, list(iter_over))
         KeepSkippingExceptions.__init__(self, catch, is_done)
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         """ Method called when entering the active block of a context manager.
 
         Must be explicitly defined here (not only in a superclass) for \
@@ -224,7 +225,7 @@ class ReadyChecker(BasicRange[Item]):
         """
         self.to_check = item
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         """ Method called when entering the active block of a context manager.
 
         Must be explicitly defined here (not only in a superclass) for \

@@ -4,12 +4,13 @@
 Functions to import/export data from/to remote files/pages/APIs on the Web.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-13
-Updated: 2025-05-24
+Updated: 2025-06-03
 """
 # Import standard libraries
 from collections.abc import Mapping
 import requests
 from typing import Any
+from typing_extensions import Self
 from urllib.parse import parse_qs, urlparse
 import urllib.request
 
@@ -47,7 +48,7 @@ def read_webpage_at(a_URL: str) -> Any:  # -> urllib.request._UrlopenRet:
 class URL:
     """ `urllib.parse.ParseResult` wrapper with extra methods """
 
-    def __init__(self, a_URL: str):
+    def __init__(self, a_URL: str) -> None:
         """
         :param a_URL: str, a valid web URL
         """
@@ -58,7 +59,7 @@ class URL:
         return self.urlstr
 
     @classmethod
-    def from_parts(cls, *parts: str, **url_params: Any) -> "URL":
+    def from_parts(cls, *parts: str, **url_params: Any) -> Self:
         """ Reusable convenience function to build HTTPS URL strings.
 
         :param parts: Iterable[str] of slash-separated URL path parts

@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-06-02
+Updated: 2025-06-03
 """
 # Import standard libraries
 import abc
@@ -15,6 +15,7 @@ import itertools
 import more_itertools
 # from operator import attrgetter, methodcaller  # TODO?
 from typing import Any, Concatenate, ParamSpec, TypeVar
+from typing_extensions import Self
 
 # Import local custom libraries
 try:
@@ -343,7 +344,7 @@ class WrapFunction:  # (Callable):
         """
         return self.stringified
 
-    def expect(self, output: Any) -> "WrapFunction":
+    def expect(self, output: Any) -> Self:
         """ 
         :param output: Any, expected output returned from inner \
             wrapped/"frozen" function.
@@ -458,7 +459,7 @@ class ErrCatcher:
 
 
 class IgnoreExceptions(ErrCatcher):
-    def __enter__(self):
+    def __enter__(self) -> Self:
         return self
 
     # TODO Does this stop SysExit and pdb exit from propagating? It shouldn't!
@@ -544,7 +545,7 @@ class KeepTryingUntilNoErrors(KeepSkippingExceptions):
         skip_or_not = Skip if self.is_done else DontSkip
         return skip_or_not(self, *self.catch)
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         """ Must be explicitly defined here (not only in a superclass) for \
             VSCode to realize that KeepTryingUntilNoErrors(...) returns an \
             instance of the KeepTryingUntilNoErrors class.

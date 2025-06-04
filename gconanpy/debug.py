@@ -6,7 +6,7 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-05-24
+Updated: 2025-06-03
 """
 # Import standard libraries
 from abc import ABC
@@ -20,6 +20,7 @@ import sys
 import traceback
 import tracemalloc
 from typing import Any
+from typing_extensions import Self
 
 # Import third-party PyPI libraries
 import pandas as pd
@@ -66,7 +67,7 @@ class Debuggable:
         implementer classes' `self.debugging` variable to determine whether
         to raise errors/exceptions or pause and interactively debug them. """
 
-    def __init__(self, debugging: bool = False):
+    def __init__(self, debugging: bool = False) -> None:
         """
         :param debugging: bool, True to pause and interact on error, else \
             False to raise errors/exceptions; defaults to False.
@@ -189,7 +190,7 @@ class ShowTimeTaken(ABC):
         self.doing_what = doing_what
         self.show = show
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         """ Log the moment that script execution enters the context manager \
             and what it is about to do.
         """
@@ -197,17 +198,16 @@ class ShowTimeTaken(ABC):
         self.show(f"Started {self.doing_what} at {self.start}")
         return self
 
-    def __exit__(self, exc_type: type | None = None,
-                 exc_val: BaseException | None = None, exc_tb=None):
+    def __exit__(self, exc_type: type | None = None, *_: Any) -> bool:
         """ Log the moment that script execution exits the context manager \
             and what it just finished doing.
 
         :param exc_type: Exception type
-        :param exc_val: Exception value
-        :param exc_tb: Exception traceback
+        :return: bool, True if no exception occurred; else False to raise it
         """
         self.elapsed = dt.datetime.now() - self.start
         self.show(f"\nTime elapsed {self.doing_what}: {self.elapsed}")
+        return not exc_type
 
 
 def sizeof(an_obj: Any, precision: int = 3, metric: bool = True) -> str:
@@ -255,7 +255,7 @@ class SplitLogger(logging.getLoggerClass()):
         self.manager.loggerDict[self.name] = self
 
     @classmethod
-    def from_cli_args(cls, cli_args: Mapping[str, Any]) -> "SplitLogger":
+    def from_cli_args(cls, cli_args: Mapping[str, Any]) -> Self:
         """ Get logger, and prepare it to log to a file if the user said to
 
         :param cli_args: Mapping[str, Any] of command-line input arguments
@@ -269,7 +269,7 @@ class SplitLogger(logging.getLoggerClass()):
         return cls(verbosity=cli_args["verbosity"], **log_to)
 
     def addSubLogger(self, sub_name: str, log_stream: TextIOWrapper,
-                     log_file_path: str | None = None):
+                     log_file_path: str | None = None) -> None:
         """ Make a child Logger to handle 1 kind of message, namely err or out
 
         :param name: String naming the child logger, accessible as

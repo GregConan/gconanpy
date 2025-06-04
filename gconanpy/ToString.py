@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-06-02
+Updated: 2025-06-03
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Iterable, Mapping
@@ -12,6 +12,7 @@ import os
 import re
 import sys
 from typing import Any, Literal, TypeVar
+from typing_extensions import Self
 
 # Import third-party PyPI libraries
 import pathvalidate
@@ -27,7 +28,7 @@ class ToString(str):
     _S = TypeVar("_S")  # for truncate(...) function
     _TIMESPEC = Literal["auto", "hours", "minutes", "seconds", "milliseconds",
                         "microseconds"]  # for datetime.isoformat
-    Stringifier = Callable[[Any], "ToString"]
+    Stringifier = Callable[[Any], Self]
 
     # Wrap string methods so they return a ToString instance
     # TODO Wrap these methods programmatically, not 1 at a time manually
@@ -69,15 +70,14 @@ class ToString(str):
         """
         return super().removesuffix(value) if value else self
 
-    def enclosed_by(self, affix: str) -> "ToString":
+    def enclosed_by(self, affix: str) -> Self:
         """
         :param affix: str to prepend and append to this ToString instance
         :return: ToString with `affix` at the beginning and another at the end
         """
         return self.enclosed_in(affix, affix)
 
-    def enclosed_in(self, prefix: str | None, suffix: str | None
-                    ) -> "ToString":
+    def enclosed_in(self, prefix: str | None, suffix: str | None) -> Self:
         """
         :param prefix: str to prepend to this ToString instance
         :param suffix: str to append to this ToString instance
@@ -89,7 +89,7 @@ class ToString(str):
     @classmethod
     def filepath(cls, dir_path: str, file_name: str, file_ext: str = "",
                  put_date_after: str | None = None, max_len: int | None = None
-                 ) -> "ToString":
+                 ) -> Self:
         """
         :param dir_path: str, valid path to directory containing the file
         :param file_name: str, name of the file excluding path and extension
@@ -134,7 +134,7 @@ class ToString(str):
     @classmethod
     def from_datetime(cls, moment: dt.date | dt.time | dt.datetime,
                       sep: str = "_", timespec: _TIMESPEC = "seconds",
-                      replace: Mapping[str, str] = {":": "-"}) -> "ToString":
+                      replace: Mapping[str, str] = {":": "-"}) -> Self:
         """ Return the time formatted according to ISO as a ToString object.
 
         The full format is 'HH:MM:SS.mmmmmm+zz:zz'. By default, the fractional
@@ -164,7 +164,7 @@ class ToString(str):
                       sep: str = ", ", quote_numbers: bool = False,
                       prefix: str | None = "[", suffix: str | None = "]",
                       max_len: int | None = None, lastly: str = "and "
-                      ) -> "ToString":
+                      ) -> Self:
         """ Convert an Iterable into a ToString object.
 
         :param an_obj: Collection to convert ToString
@@ -218,8 +218,7 @@ class ToString(str):
                     dt_sep: str = "_", timespec: _TIMESPEC = "seconds",
                     replace: Mapping[str, str] = {":": "-"},
                     encoding: str = sys.getdefaultencoding(),
-                    errors: str = "ignore", lastly: str = "and "
-                    ) -> "ToString":
+                    errors: str = "ignore", lastly: str = "and ") -> Self:
         """ Convert an object ToString 
 
         :param an_obj: Any, object to convert ToString
@@ -278,7 +277,7 @@ class ToString(str):
                      join_on: str = ": ",
                      prefix: str | None = "{", suffix: str | None = "}",
                      sep: str = ", ", max_len: int | None = None,
-                     lastly: str = "and ") -> "ToString":
+                     lastly: str = "and ") -> Self:
         """
         :param a_map: Mapping to convert ToString
         :param quote: str to add before and after each key-value pair in \
@@ -313,8 +312,8 @@ class ToString(str):
                                  lastly=lastly)
 
     @classmethod
-    def get_quotator(cls, quote: str | None = "'", quote_numbers:
-                     bool = False) -> Stringifier:
+    def get_quotator(cls, quote: str | None = "'",
+                     quote_numbers: bool = False) -> Stringifier:
         quotate = cls.quotate_obj if quote_numbers else cls.quotate_number
         return cls.from_object if not quote else lambda x: quotate(x, quote)
 
@@ -328,18 +327,18 @@ class ToString(str):
     @classmethod
     def quotate_all(cls, objects: Iterable, quote: str | None = "'",
                     quote_numbers: bool = False, max_len: int | None = None
-                    ) -> list["ToString"]:
+                    ) -> list[Self]:
         finish = cls.get_quotator(quote, quote_numbers)
         return [finish(obj).truncate(max_len) for obj in objects]
 
     @classmethod
-    def quotate_number(cls, a_num: Any, quote: str = "'") -> "ToString":
+    def quotate_number(cls, a_num: Any, quote: str = "'") -> Self:
         stringified = cls.from_object(a_num)
         return stringified if stringified.isnumeric() \
             else stringified.enclosed_by(quote)
 
     @classmethod
-    def quotate_obj(cls, an_obj: Any, quote: str = "'") -> "ToString":
+    def quotate_obj(cls, an_obj: Any, quote: str = "'") -> Self:
         """
         :param an_obj: Any, object to convert ToString.
         :param quote: str to add before and after `an_obj`; defaults to "'"
@@ -347,7 +346,7 @@ class ToString(str):
         """
         return cls.from_object(an_obj).enclosed_by(quote)
 
-    def that_ends_with(self, suffix: str | None) -> "ToString":
+    def that_ends_with(self, suffix: str | None) -> Self:
         """ Append `suffix` to the end of `self` unless it is already there.
 
         :param suffix: str to append to `self`, or None to do nothing.
@@ -366,7 +365,7 @@ class ToString(str):
 
     def truncate(self, max_len: int | None = None,
                  quotate: Stringifier | None = None,
-                 suffix: str = "...") -> "ToString":
+                 suffix: str = "...") -> Self:
         if max_len is None:
             truncated = self
         else:

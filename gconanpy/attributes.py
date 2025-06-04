@@ -73,6 +73,10 @@ def names(an_obj: Any) -> set[str]:
             getattr(an_obj, attr_name)
         except AttributeError:
             to_remove.add(attr_name)
+    # TODO Fix, test & timeit (against block above)
+    # obj_has = WrapFunction(hasattr, pre=[an_obj])
+    # to_remove = {attr_name for attr_name in filter(obj_has, names)}
+
     return names - to_remove
 
 

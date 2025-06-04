@@ -23,11 +23,11 @@ except ModuleNotFoundError:  # TODO DRY?
 
 
 class Regextract:
-    _LETTERS = r"[^a-zA-Z]"
+    _NOT_LETTERS = r"[^a-zA-Z]"
     _PARENTHETICALS = r"""\((  # Get everything after the opening parenthesis
         ?:[^()]+|(?R) # Nested parentheticals don't get their own groups
         )*+  # Match everything possible inside the outermost parentheses
-        \)"""  # Get everything before the closing parenthesis
+        \)  # Get everything before the closing parenthesis"""
     # _PARENTHETICALS = r"\((?:[^()]*(?R)?)*+\)"  # NOTE Functionally same?
 
     @classmethod
@@ -42,7 +42,7 @@ class Regextract:
 
     @classmethod
     def letters_in(cls, txt: str) -> str:
-        return re.sub(cls._LETTERS, "", txt)
+        return re.sub(cls._NOT_LETTERS, "", txt)
 
     @classmethod
     def parentheticals_in(cls, txt: str) -> list:
