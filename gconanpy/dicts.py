@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-06-03
+Updated: 2025-06-05
 """
 # Import standard libraries
 from collections.abc import (Callable, Collection, Container,
@@ -33,7 +33,7 @@ except ModuleNotFoundError:  # TODO DRY?
 
 # Type variables for .__init__(...) and .update(...) method input parameters
 MapParts = Iterable[tuple[Hashable, Any]]
-MapFrom = TypeVar("MapFrom", Mapping, MapParts, None)
+FromMap = TypeVar("FromMap", Mapping, MapParts, None)
 
 
 class Explictionary(dict):
@@ -167,7 +167,6 @@ class Subsetionary(Explictionary):
     def from_subset_of(cls, from_map: Mapping, keys: Container[Hashable]
                        = set(), values: Container = set(), include_keys:
                        bool = False, include_values: bool = False) -> Self:
-        # No return type hint so VSCode can infer subclass instances' types
         """ Convert a subset of `from_map` into a new `Subsetionary`.
 
         :param from_map: Mapping to create a new Subsetionary from a subset of.
@@ -187,7 +186,6 @@ class Subsetionary(Explictionary):
     def subset(self, keys: Container[Hashable] = set(),
                values: Container = set(), include_keys: bool = False,
                include_values: bool = False) -> Self:
-        # No return type hint so VSCode can infer subclass instances' types
         """ Create a new `Subsetionary` including only a subset of this one.
 
         :param keys: Container[Hashable] of keys to (in/ex)clude.
@@ -204,7 +202,7 @@ class Subsetionary(Explictionary):
 
 
 class Updationary(Explictionary):
-    def __init__(self, from_map: MapFrom = None, **kwargs) -> None:
+    def __init__(self, from_map: FromMap = None, **kwargs) -> None:
         """
         :param from_map: Mapping | Iterable[tuple[Hashable, Any]] | None, \
             Mapping to convert into a new instance of this class; `map` or \
@@ -215,10 +213,10 @@ class Updationary(Explictionary):
         self.update(from_map, **kwargs)
 
     @overload
-    def update(self, from_map: MapFrom, **kwargs: Any) -> None: ...
+    def update(self, from_map: FromMap, **kwargs: Any) -> None: ...
 
     @overload
-    def update(self, from_map: MapFrom, copy: bool = True,
+    def update(self, from_map: FromMap, copy: bool = True,
                **kwargs: Any) -> Self: ...
 
     def update(self, from_map=None, copy=False, **kwargs):
@@ -271,7 +269,7 @@ class DotDict(Updationary, Traversible):
     # not be accessible/modifiable as keys/values/items
     PROTECTEDS = "__protected_keywords__"
 
-    def __init__(self, from_map: MapFrom = None, **kwargs: Any) -> None:
+    def __init__(self, from_map: FromMap = None, **kwargs: Any) -> None:
         """ 
         :param from_map: Mapping | Iterable[tuple[Hashable, Any]] | None, \
             Mapping to convert into a new instance of this class; `map` or \
@@ -365,19 +363,17 @@ class DotDict(Updationary, Traversible):
 
         :param alter: str, verb naming the alteration
         :param attribute_name: str, name of the attribute of self to alter
-        :raises AttributeError | KeyError: if the attribute is protected
+        :raises err_type: if the attribute is protected
         :return: bool, True if the attribute is not protected; \
                  else raise error
         """
-        is_ready = False
-        if hasattr(self, self.PROTECTEDS):
-            if attr_name in getattr(self, self.PROTECTEDS):
-                raise err_type(f"Cannot {alter} read-only "
-                               f"'{name_of(self)}' object "
-                               f"attribute '{attr_name}'")
-            else:
-                is_ready = True
-        return is_ready
+        protecteds = getattr(self, self.PROTECTEDS, set())
+        if attr_name in protecteds:
+            raise err_type(f"Cannot {alter} read-only "
+                           f"'{name_of(self)}' object "
+                           f"attribute '{attr_name}'")
+        else:
+            return bool(protecteds)
 
     @classmethod
     def fromConfigParser(cls, config: ConfigParser) -> Self:
@@ -551,7 +547,7 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
         Created to store user credentials slightly more securely, and to \
         slightly reduce the likelihood of accidentally exposing them. """
 
-    def __init__(self, from_map: MapFrom = None,
+    def __init__(self, from_map: FromMap = None,
                  debugging: bool = False, **kwargs: Any) -> None:
         """ Create a new Cryptionary.
 
@@ -619,7 +615,7 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
         except AttributeError as err:
             self.debug_or_raise(err, locals())
 
-    def update(self, from_map: MapFrom = None, **kwargs: Any) -> None:
+    def update(self, from_map: FromMap = None, **kwargs: Any) -> None:
         """ Add or overwrite items in this Mapping from other Mappings.
 
         :param from_map: Mapping | Iterable[tuple[Hashable, Any] ] | None, \
