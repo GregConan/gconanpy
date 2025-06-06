@@ -4,7 +4,7 @@
 Useful/convenient classes to work with Python dicts/Mappings.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-06-02
+Updated: 2025-06-06
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Hashable, Mapping
@@ -124,29 +124,51 @@ class Traversible:
 
 
 class WalkMap(Traversible):
+    """ Recursively iterate over a Mapping and the Mappings nested in it. """
     _KeyType = Hashable | None
     _KeyWalker = Generator[_KeyType, None, None]
     _Walker = Generator[tuple[_KeyType, Mapping], None, None]
 
-    def __init__(self, a_map: Mapping) -> None:
+    def __init__(self, a_map: Mapping, only_yield_maps: bool = False) -> None:
+        """ Initialize iterator that visits every item inside of a Mapping \
+            once, including the items in the nested Mappings it contains.
+
+        :param a_map: Mapping to visit every item of.
+        :param only_yield_maps: bool, True for this iterator to return \
+            key-value pairs only if the value is also a Mapping; else False \
+            to return every item iterated over. Defaults to False.
+        """
+        Traversible.__init__(self)
+        self.only_yield_maps = only_yield_maps
         self.root = a_map
-        self.traversed: set[int] = set()
 
     def __iter__(self) -> _KeyWalker:
         yield from self.keys()
 
-    def _walk(self, key: _KeyType, value: Mapping | Any,
-              yield_non_maps: bool = False) -> _Walker:
+    def _walk(self, key: _KeyType, value: Mapping | Any) -> _Walker:
+        # Only visit each item once; mark each as visited after checking
         if self._will_now_traverse(value):
-            try:
+
+            # Don't yield the initial/root/container/top Mapping itself
+            isnt_root = value is not self.root
+
+            try:  # If value is a dict, then visit each of ITS key-value pairs
                 for k, v in value.items():
-                    yield from self._walk(k, v, yield_non_maps)
-                yield (key, value)
+                    yield from self._walk(k, v)
+                if isnt_root:  # Don't yield root
+                    yield (key, value)
+
+            # Yield non-Mapping items unless otherwise specified
             except AttributeError:
-                if yield_non_maps:
+                if isnt_root and not self.only_yield_maps:
                     yield (key, value)
 
     def items(self) -> _Walker:
+        """ Iterate over the key-value pairings in this Mapping and all of \
+            nested Mappings recursively. 
+
+        :yield: Iterator[tuple[Hashable | None, Any]], _description_
+        """
         yield from self._walk(None, self.root)
 
     def keys(self) -> _KeyWalker:

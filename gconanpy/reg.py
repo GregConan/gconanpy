@@ -4,7 +4,7 @@
 Classes that use Regex to parse strings and text data.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
-Updated: 2025-06-02
+Updated: 2025-06-05
 """
 # Import standard libraries
 from collections.abc import Container, Generator
@@ -27,7 +27,7 @@ class Regextract:
     _PARENTHETICALS = r"""\((  # Get everything after the opening parenthesis
         ?:[^()]+|(?R) # Nested parentheticals don't get their own groups
         )*+  # Match everything possible inside the outermost parentheses
-        \)  # Get everything before the closing parenthesis"""
+        \)"""  # Get everything before the closing parenthesis
     # _PARENTHETICALS = r"\((?:[^()]*(?R)?)*+\)"  # NOTE Functionally same?
 
     @classmethod
@@ -74,13 +74,11 @@ class DunderParser:
 
     # Match the name of core operation dunder methods: getitem, delattr, etc
     _CORE_OP = r"""(?P<verb>[gs]et|del)  # "get", "set", or "del"
-        (?P<noun>[a-zA-Z]+)  # what is being accessed or modified
-        """
+        (?P<noun>[a-zA-Z]+)"""  # what is being accessed or modified
 
     # Match other operation dunder method names: sizeof, subclasscheck, etc.
     _OTHER_OP = r"""(?P<subject>[a-zA-Z]+)
-        (?P<predicate>of|name|check|size|hook)
-        """
+        (?P<predicate>of|name|check|size|hook)"""
 
     def __init__(self) -> None:
         self.CoreOp = self._dundermatch(self._CORE_OP)

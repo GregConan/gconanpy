@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-06-05
+Updated: 2025-06-06
 """
 # Import standard libraries
 from collections.abc import (Callable, Collection, Container,
@@ -30,7 +30,6 @@ except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.metafunc import DATA_ERRORS, name_of
     from gconanpy.trivial import always_none
 
-
 # Type variables for .__init__(...) and .update(...) method input parameters
 MapParts = Iterable[tuple[Hashable, Any]]
 FromMap = TypeVar("FromMap", Mapping, MapParts, None)
@@ -52,6 +51,14 @@ class Explictionary(dict):
             of this same type of custom dictionary. """
         return self.__class__(self)
 
+    def to_dict(self) -> dict:
+        """
+        :return: `dict` with all of the key-value pairings from this custom \
+            dictionary. Retrieves values exclusively using `dict` methods. \
+            Used by (e.g.) `Cryptionary.__repr__` to skip decryption.
+        """
+        return {key: dict.__getitem__(self, key) for key in dict.keys(self)}
+
 
 class Defaultionary(Explictionary):
     """ Custom dict class with extended functionality centered around the \
@@ -65,9 +72,8 @@ class Defaultionary(Explictionary):
                          ) -> bool:
         """
         :param key: Hashable
-        :param exclude: Container of values to overlook/ignore such that if \
-            `self` maps `key` to one of those values, then this function \
-            will return True as if `key is not in self`.
+        :param exclude: Container, values to ignore or overwrite. If `self` \
+            maps `key` to one, then return True as if `key is not in self`.
         :return: bool, True if `key` is not mapped to a value in `self` or \
             is mapped to something in `exclude`
         """
@@ -81,9 +87,8 @@ class Defaultionary(Explictionary):
         :param key: Hashable, key mapped to the value to return
         :param default: Any, object to return `if self.will_getdefault`, \
             i.e. `if key not in self or self[key] in exclude`
-        :param exclude: Container of values to overlook/ignore such that if \
-            `self` maps `key` to one of those values, then this function \
-            will return `default` as if `key is not in self`.
+        :param exclude: Container, values to ignore or overwrite. If `self` \
+            maps `key` to one, then return True as if `key is not in self`.
         :return: Any, value mapped to `key` in `self` if any, else `default`
         """
         return default if self._will_getdefault(key, exclude) else self[key]
@@ -123,7 +128,7 @@ class Invertionary(Explictionary):
                copy: bool = True) -> Self: ...
 
     def invert(self, keep_collisions_in=None, copy=False):
-        """ Swap keys and values. `{1: 2, 3: 4}.invert()` -> `{2: 1, 4: 3}`.
+        """ Swap keys and values. Inverting {1: 2, 3: 4} returns {2: 1, 4: 3}.
 
         When 2+ keys are mapped to the same value, then that value will be \
         mapped either to a `keep_collisions_in` container of all of those \
@@ -143,6 +148,7 @@ class Invertionary(Explictionary):
             collided = set()  # Keep track of which values collide
 
             # If values don't collide, just swap them with keys
+            # TODO Instead, contain every new value so dict has 1 value type?
             for key, value in self.items():
                 if value not in inverted:
                     inverted[value] = key
@@ -244,13 +250,16 @@ class Updationary(Explictionary):
 
 
 class Walktionary(Explictionary):
-    def walk(self) -> WalkMap:
+    def walk(self, only_yield_maps: bool = True) -> WalkMap:
         """ Recursively iterate over this dict and every dict inside it.
 
+        :param only_yield_maps: bool, True for this iterator to return \
+            key-value pairs only if the value is also a Mapping; else False \
+            to return every item iterated over. Defaults to True.
         :return: WalkMap with `keys`, `values`, and `items` methods to \
             recursively iterate over this Walktionary.
         """
-        return WalkMap(self)
+        return WalkMap(self, only_yield_maps)
 
 
 class DotDict(Updationary, Traversible):
@@ -276,7 +285,7 @@ class DotDict(Updationary, Traversible):
             `iterable` in `dict.__init__` method; defaults to None.
         :param kwargs: Mapping[str, Any] of values to add to this DotDict.
         """
-        # First, add all (non-item) custom methods and attributes
+        # Fill this DotDict by initializing as an Updationary
         Updationary.__init__(self, from_map, **kwargs)
 
         # Initialize self as a Traversible for self.homogenize() method
@@ -352,7 +361,7 @@ class DotDict(Updationary, Traversible):
     def __setstate__(self, state: Mapping) -> None:
         """ Required for pickling per https://stackoverflow.com/a/36968114
 
-        :param state: _type_, _description_
+        :param state: Mapping, _description_
         """
         self.update(state)
         self.__dict__ = self
@@ -369,9 +378,8 @@ class DotDict(Updationary, Traversible):
         """
         protecteds = getattr(self, self.PROTECTEDS, set())
         if attr_name in protecteds:
-            raise err_type(f"Cannot {alter} read-only "
-                           f"'{name_of(self)}' object "
-                           f"attribute '{attr_name}'")
+            raise err_type(f"Cannot {alter} read-only '{name_of(self)}' "
+                           f"object attribute '{attr_name}'")
         else:
             return bool(protecteds)
 
@@ -395,7 +403,7 @@ class DotDict(Updationary, Traversible):
             returned DotDict to the path to its value in this DotDict (self)
         :param sep: str, separator between subkeys in to_look_up.values(), \
             defaults to "."
-        :param default: Any, value to map to any keys not found in self; \
+        :param default: Any, value to use map to any keys not found in self; \
             defaults to None
         :return: self.__class__ mapping every key in to_look_up to the value \
             at its mapped path in self
@@ -439,7 +447,7 @@ class DotDict(Updationary, Traversible):
         # If value is not found, then return the default value
         except DATA_ERRORS:
             pass
-        return default if retrieved is self else retrieved
+        return default if keypath else retrieved
 
 
 class LazyDict(Updationary, Defaultionary):
@@ -459,7 +467,7 @@ class LazyDict(Updationary, Defaultionary):
                 exclude: Container = set()) -> Any:
         """ Return the value for key if key is in the dictionary, else \
         return the result of calling the `get_if_absent` parameter with args \
-        & kwargs. Adapted from LazyButHonestDict.lazyget from \
+        & kwargs. Adapted from `LazyButHonestDict.lazyget` from \
         https://stackoverflow.com/q/17532929
 
         :param key: Hashable to use as a dict key to map to value
@@ -480,7 +488,7 @@ class LazyDict(Updationary, Defaultionary):
         """ Return the value for key if key is in the dictionary; else add \
         that key to the dictionary, set its value to the result of calling \
         the `get_if_absent` parameter with args & kwargs, then return that \
-        result. Adapted from LazyButHonestDict.lazysetdefault from \
+        result. Adapted from `LazyButHonestDict.lazysetdefault` from \
         https://stackoverflow.com/q/17532929
 
         :param key: Hashable to use as a dict key to map to value
@@ -509,12 +517,10 @@ class Promptionary(LazyDict):
 
         :param key: str mapped to the value to retrieve
         :param prompt: str to display when prompting the user.
-        :param prompt_fn: Callable, function to interactively prompt the \
-                          user to provide the value, such as `input` or \
-                          `getpass.getpass`
-        :param exclude: Container, True to return `prompt_fn(prompt)` if \
-            key is mapped to None in self; else (by default) False to return \
-            the mapped value instead
+        :param prompt_fn: Callable that interactively prompts the user to \
+                          get a string, like `input` or `getpass.getpass`.
+        :param exclude: Container, values to ignore or overwrite. If `self` \
+            maps `key` to one, prompt the user as if `key is not in self`.
         :return: Any, the value mapped to key if one exists, else the value \
                  that the user interactively provided
         """
@@ -529,12 +535,10 @@ class Promptionary(LazyDict):
 
         :param key: str mapped to the value to retrieve
         :param prompt: str to display when prompting the user.
-        :param prompt_fn: Callable, function to interactively prompt the \
-                          user to provide the value, such as `input` or \
-                          `getpass.getpass`
-        :param exclude: Container, True to replace None mapped to key in \
-            self with prompt_fn(prompt) and return that; else (by default) \
-            False to return the mapped value instead
+        :param prompt_fn: Callable that interactively prompts the user to \
+                          get a string, like `input` or `getpass.getpass`.
+        :param exclude: Container, values to ignore or overwrite. If `self` \
+            maps `key` to one, prompt the user as if `key is not in self`.
         :return: Any, the value mapped to key if one exists, else the value \
                  that the user interactively provided
         """
@@ -555,8 +559,7 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
         :param debugging: bool, True to pause and interact on error, else \
             False to raise errors/exceptions; defaults to False.
         """
-        try:
-            # Create encryption mechanism
+        try:  # Create encryption mechanism
             self.encrypted = set()
             self.cryptor = Fernet(Fernet.generate_key())
 
@@ -597,8 +600,7 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
         :return: str, string representation of Cryptionary including its \
             class name without decrypting the encrypted values first.
         """
-        return Explictionary({key: dict.__getitem__(self, key)
-                              for key in self.keys()}).__repr__()
+        return f"{name_of(self)}({self.to_dict()})"
 
     def __setitem__(self, key: Hashable, value: Any) -> None:
         """ Set self[dict_key] to dict_value after encrypting dict_value.
@@ -621,17 +623,15 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
         :param from_map: Mapping | Iterable[tuple[Hashable, Any] ] | None, \
             `m` in `dict.update` method; defaults to None
         """
+        map_iters: list[Iterable] = [kwargs.items()]
         match from_map:
-            case None:  # TODO Redundant/unneeded case?
-                pass
             case dict():
-                for k, v in from_map.items():
-                    self[k] = v
+                map_iters.append(from_map.items())
             case tuple():
-                for k, v in from_map:
-                    self[k] = v
-        for k, v in kwargs.items():
-            self[k] = v
+                map_iters.append(from_map)
+        for each_map_iter in map_iters:
+            for k, v in each_map_iter:
+                self[k] = v
 
 
 class LazyDotDict(DotDict, LazyDict):

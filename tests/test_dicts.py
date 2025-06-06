@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-06-03
+Updated: 2025-06-06
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Mapping
@@ -120,7 +120,6 @@ class TestDotDicts(DictTester):
             self.check_result(dd.six, 6)
             assert self.cannot_alter(dd, "get")
 
-    # TODO test CustomDicts.new_class("DotWalk", "dot", "walk") ?
     def test_homogenize(self):
         for dd in self.get_custom_dicts():
             dd.testdict = dict(hello=dict(q=dd),
@@ -130,7 +129,7 @@ class TestDotDicts(DictTester):
                            dd.testdict["world"].foo):  # type: ignore
                 assert not isinstance(a_dict, type(dd))
             dd.homogenize()
-            for a_map in WalkMap(dd).values():
+            for a_map in WalkMap(dd, only_yield_maps=True).values():
                 print(f"a_map: {a_map}")
                 assert isinstance(a_map, type(dd))
 
@@ -247,3 +246,27 @@ class TestUpdationary(DictTester):
         for updty in self.get_custom_dicts():
             updty = self.one_update_test(updty, 4, dict(d=4))
             self.one_update_test(updty, 4, dict(a=3), c=1)
+
+
+class TestWalktionary(DictTester):
+    TEST_CLASSES: tuple[type[Walktionary], ...] = (
+        DotWalktionary, FancyDict, Walktionary)
+
+    def get_custom_dicts(self) -> Generator[Walktionary, None, None]:
+        self.add_basics()
+        for dict_class in self.TEST_CLASSES:
+            yield dict_class(self.adict)
+
+    def test_walk_keys_1(self) -> None:
+        """ Test that `d.walk(False).keys()` reduces to `d.keys()` for a \
+            dict `d` that contains no `Mappings` nested inside of it. """
+        for adict in self.get_custom_dicts():
+            self.check_result([k for k in adict.walk(False).keys()],
+                              [k for k in adict.keys()])
+
+    def test_walk_keys_2(self) -> None:
+        cli_args = DotWalktionary(self.build_cli_args())
+        keys = {k for k in cli_args.walk(only_yield_maps=False)}
+        self.check_result(keys, {"a", "a dict", "a list", "address", "b",
+                                 "bytes_nums", "c", "creds", "debugging",
+                                 "password"})
