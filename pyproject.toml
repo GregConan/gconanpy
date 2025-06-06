@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gconanpy"
-version = "0.5.3"
+version = "0.5.4"
 description = "Basic Python tools reused by Greg Conan across multiple projects."
 
 authors = ["Greg Conan <gregmconan@gmail.com>"]
