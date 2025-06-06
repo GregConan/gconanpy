@@ -622,7 +622,7 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
             `m` in `dict.update` method; defaults to None
         """
         match from_map:
-            case None:
+            case None:  # TODO Redundant/unneeded case?
                 pass
             case dict():
                 for k, v in from_map.items():

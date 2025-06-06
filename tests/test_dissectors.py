@@ -6,10 +6,11 @@ Created: 2025-03-28
 Updated: 2025-05-31
 """
 # Import standard libraries
+from collections.abc import Callable, Generator
 from typing import Any
 
 # Import local custom libraries
-from gconanpy.dissectors import Corer, DifferenceBetween, SafeCorer, \
+from gconanpy.dissectors import Corer, DifferenceBetween, \
     Shredder, SimpleShredder, Xray
 from gconanpy.maptools import MapSubset
 from tests.testers import Tester
@@ -17,31 +18,53 @@ from tests.testers import Tester
 
 class TestShredders(Tester):
     TEST_CLASSES: tuple[type[SimpleShredder], ...] = (
-        Corer, SafeCorer, Shredder, SimpleShredder)
+        Corer, Shredder, SimpleShredder)
+
+    def test_1(self):
+        self.add_basics()
+        for shredder_type in self.TEST_CLASSES:  # (Shredder, SimpleShredder):
+            shredded = shredder_type().shred(('OK', [self.bytes_nums]))
+            self.check_result(shredded, {'OK', self.bytes_nums.strip()})
+
+    def test_2(self):
+        shreddables = [list, dict, set, tuple]
+        soup = self.get_soup()
+        for shredder_type in self.TEST_CLASSES:
+            for chunk in shredder_type().shred(soup):
+                for shreddable in shreddables:
+                    assert not isinstance(chunk, shreddable)
+
+
+class TestCorers(Tester):
+    TEST_CLASSES: tuple[type[Corer], ...] = (Corer, )
+
+    def core_tests(self, to_core: Any, expected_result: Any,
+
+                   **corer_kwargs: Any):
+        as_type = type(expected_result)
+        for corer_type in self.TEST_CLASSES:
+            corer = corer_type(**corer_kwargs)
+            for cored in (corer.core(to_core),
+                          corer.safe_core(to_core, as_type=as_type)):
+                self.check_result(cored, expected_result)
+
+    def check_excluder(self, subsetter: MapSubset, expected_result: Any,
+                       **corer_kwargs: Any):
+        self.core_tests(self.build_cli_args(), expected_result,
+                        map_filter=subsetter.filter, **corer_kwargs)
 
     def test_1(self):
         self.add_basics()
         corables = (self.adict, [self.adict, 0, 2])
-        corer = Corer()
         for to_core in corables:
-            self.check_result(corer.core(to_core), 3)
-        corer = SafeCorer()
-        for to_core in corables:
-            self.check_result(corer.core(to_core, int), 3)
+            self.core_tests(to_core, 3)
 
     def test_2(self):
         self.add_basics()
-        for shredder_type in (Shredder, SimpleShredder):
-            shredded = shredder_type().shred(('OK', [self.bytes_nums]))
-            self.check_result(shredded, {'OK', self.bytes_nums.strip()})
+        self.check_excluder(MapSubset(keys={"__doc__"}, include_keys=False),
+                            self.bytes_nums.strip())
 
     def test_3(self):
-        cli_args = self.build_cli_args()
-        excluder = MapSubset(keys={"__doc__"}, include_keys=False).filter
-        cored = Corer(map_filter=excluder).core(cli_args)
-        self.check_result(cored, self.bytes_nums.strip())
-
-    def test_4(self):
         emailmsg = ['OK', [(  # Same structure as an IMAP message received
             b"12345 (RFC822 {123456}", b"Delivered-To: test@test.com\r\n"
             b"Received: by 1234:a01:1234:321a:a7:123:abcd:wxyz with SMTP id "
@@ -53,29 +76,25 @@ class TestShredders(Tester):
             b"Apr 2069 04:44:52 -0700 (PDT)\r\nARC-Seal: i=1; a=rsa-sha256; "
             b"t=1234567890; cv=none;\r\n        d=googl"), b")"]]
         for to_core in (emailmsg, [0, emailmsg]):
-            cored = Corer().core(to_core)  # exclude={"__doc__"}
-            self.check_result(cored, emailmsg[1][0][1])
+            self.core_tests(to_core, emailmsg[1][0][1])
+
+    def test_4(self):
+        soup = self.get_soup()
+        for corer_type in self.TEST_CLASSES:
+            corer = corer_type()
+            for cored in (corer.core(soup), corer.safe_core(soup, as_type=str)):
+                print(cored)
+                assert cored.strip().startswith("Thank you")  # type: ignore
 
     def test_5(self):
-        shreddables = [list, dict, set, tuple]
-        soup = self.get_soup()
-        for shredder_type in self.TEST_CLASSES:
-            for chunk in shredder_type().shred(soup):
-                for shreddable in shreddables:
-                    assert not isinstance(chunk, shreddable)
-
-    def test_6(self):
-        soup = self.get_soup()
-        cored = Corer().core(soup)
-        print(cored)
-        assert cored.strip().startswith("Thank you")  # type: ignore
-
-    def test_7(self):
         cli_args = self.build_cli_args()
         excluder = MapSubset(keys={"b"}, include_keys=True).filter
-        cored = Corer(map_filter=excluder).core(cli_args)
-        print(cored)
-        self.check_result(cored, 2)
+        self.core_tests(cli_args, 2, map_filter=excluder)
+
+    def test_6(self):
+        emailIDs = b'17781 17785 18051 18052'
+        id_container = ('OK', [emailIDs])
+        self.core_tests(id_container, emailIDs)
 
 
 class TestDifferenceBetween(Tester):

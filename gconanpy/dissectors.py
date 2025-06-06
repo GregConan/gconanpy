@@ -11,7 +11,7 @@ Updated: 2025-06-01
 from collections.abc import Callable, Hashable, Iterable, Iterator
 from operator import getitem
 import pdb
-from typing import Any, no_type_check, SupportsFloat, TypeVar
+from typing import Any, no_type_check, overload, SupportsFloat, TypeVar
 
 # Import local custom libraries
 try:
@@ -465,26 +465,6 @@ class Comparer(IteratorFactory):
 class Corer(Shredder, Comparer):
     _T = TypeVar("_T")  # .core(...) method return type
 
-    def core(self, to_core: Iterable, default: _T | None = None,
-             compare_their: Comparer.ToNumber = len,
-             make_comparable: Comparer.ToComparable = str
-             ) -> _T | None:
-        """ Extract the largest datum from a nested data structure.
-
-        :param to_core: Iterable, especially a nested container data structure
-        :param default: Any, item to return if nothing is found in `to_core`.
-        :param compare_their: Callable[[Any], SupportsFloat], comparison \
-            function that converts an item into a numerical value that can \
-            be compared to find (and return) the largest; defaults to `len`
-        :param make_comparable: Callable[[Any], Any], secondary comparison \
-            function that converts an item into an input acceptable by \
-            `compare_their` to convert to a numerical value representing \
-            item size to return the largest item; defaults to `str` function
-        :return: Any, the longest datum buried in to_core's nested layers
-        """
-        return self._choose(self.shred(to_core), default, compare_their,
-                            make_comparable)
-
     def _choose(self, parts: set[_T], default: _T | None = None,
                 compare_their: Comparer.ToNumber = len,
                 make_comparable: Comparer.ToComparable = str) -> _T | None:
@@ -514,13 +494,29 @@ class Corer(Shredder, Comparer):
         except DATA_ERRORS as err:
             self.debug_or_raise(err, locals())
 
+    def core(self, to_core: Iterable, default: _T | None = None,
+             compare_their: Comparer.ToNumber = len,
+             make_comparable: Comparer.ToComparable = str
+             ) -> _T | None:
+        """ Extract the largest datum from a nested data structure.
 
-class SafeCorer(Corer):
-    _T = TypeVar("_T")  # .core(...) method return type
+        :param to_core: Iterable, especially a nested container data structure
+        :param default: Any, item to return if nothing is found in `to_core`.
+        :param compare_their: Callable[[Any], SupportsFloat], comparison \
+            function that converts an item into a numerical value that can \
+            be compared to find (and return) the largest; defaults to `len`
+        :param make_comparable: Callable[[Any], Any], secondary comparison \
+            function that converts an item into an input acceptable by \
+            `compare_their` to convert to a numerical value representing \
+            item size to return the largest item; defaults to `str` function
+        :return: Any, the longest datum buried in to_core's nested layers
+        """
+        return self._choose(self.shred(to_core), default, compare_their,
+                            make_comparable)
 
-    def core(self, to_core: Iterable, as_type: type[_T], default:
-             _T | None = None, compare_their: Comparer.ToNumber = len,
-             make_comparable: Comparer.ToComparable = str) -> _T:
+    def safe_core(self, to_core: Iterable, as_type: type[_T], default:
+                  _T | None = None, compare_their: Comparer.ToNumber = len,
+                  make_comparable: Comparer.ToComparable = str) -> _T:
         """ Extract the largest datum of a specific type from a \
             nested data structure.
 

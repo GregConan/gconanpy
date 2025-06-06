@@ -4,7 +4,7 @@
 Functions/classes to access and/or modify the attributes of any object(s).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-02
-Updated: 2025-06-02
+Updated: 2025-06-05
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Iterable
@@ -32,18 +32,18 @@ def add_to(an_obj: T, **attributes: Any) -> T:
     return an_obj
 
 
-def all_names(*objects: Any) -> set[str]:
+def get_all_names(*objects: Any) -> set[str]:
     """
     :param objects: Iterable of objects to return the attribute names of
     :return: set[str], the name of every attribute of everything in `objects`
     """
     attr_names = set()
     for an_obj in objects:
-        attr_names.update(names(an_obj))
+        attr_names.update(get_names(an_obj))
     return attr_names
 
 
-def names(an_obj: Any) -> set[str]:
+def get_names(an_obj: Any) -> set[str]:
     """
     :param an_obj: Any, object to return the attribute names of
     :return: set[str], the name of every attribute of `an_obj`
@@ -151,7 +151,7 @@ class Of:
         :param what: Any, the object to select/iterate/copy attributes of. \
             "Attributes of what?" <==> `attributes.Of(what)`
         """
-        self.names = names(what)  # set(dir(what))
+        self.names = get_names(what)  # set(dir(what))
         self.what = what
 
     def _copy_to(self, an_obj: _T, to_copy: _AttrPair | _IterAttrPairs) -> _T:
@@ -189,7 +189,7 @@ class Of:
         :return: set[str] naming all attributes that are in this object but \
             not in any of the `others`
         """
-        return set(self.names) - all_names(*others)
+        return set(self.names) - get_all_names(*others)
 
     def first_of(self, attr_names: Iterable[str], default: Any = None,
                  method_names: set[str] = set()) -> Any:
