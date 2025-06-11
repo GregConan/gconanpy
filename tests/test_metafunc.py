@@ -3,12 +3,12 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-07
-Updated: 2025-06-02
+Updated: 2025-06-10
 """
 # Import local custom libraries
 import gconanpy.attributes as attributes
-from gconanpy.dicts import (Cryptionary, Defaultionary, DotDict,
-                            Explictionary, LazyDict, LazyDotDict)
+from gconanpy.mapping.dicts import Cryptionary, Defaultionary, DotDict, \
+    Explictionary, LazyDict, LazyDotDict
 from gconanpy.metafunc import metaclass_issubclass
 from tests.testers import Tester
 

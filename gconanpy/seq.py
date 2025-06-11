@@ -107,6 +107,10 @@ def nan_rows_in(a_df: pd.DataFrame) -> pd.DataFrame:
     return a_df[a_df.isna().any(axis=1)]
 
 
+def powers_of_ten(orders_of_magnitude: int = 4) -> list[int]:
+    return [10 ** i for i in range(orders_of_magnitude + 1)]
+
+
 def pprint_val_lens(a_map: Mapping) -> None:
     """ Pretty-print each key in a_map and the length of its mapped value.
 

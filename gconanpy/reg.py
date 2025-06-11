@@ -4,7 +4,7 @@
 Classes that use Regex to parse strings and text data.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
-Updated: 2025-06-05
+Updated: 2025-06-10
 """
 # Import standard libraries
 from collections.abc import Container, Generator
@@ -17,9 +17,9 @@ import regex
 
 # Import local custom libraries
 try:
-    from maptools import MapSubset
+    import mapping
 except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy.maptools import MapSubset
+    from gconanpy import mapping
 
 
 class Regextract:
@@ -61,8 +61,8 @@ class Regextract:
         """
         parsed = pattern.search(txt)
         parsed = parsed.groupdict(default=default) if parsed else dict()
-        return MapSubset(keys=parsed.keys(), include_keys=True,
-                         values=exclude, include_values=False).of(parsed)
+        return mapping.Subset(keys=parsed.keys(), include_keys=True,
+                              values=exclude, include_values=False).of(parsed)
 
 
 class DunderParser:

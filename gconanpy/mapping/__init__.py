@@ -4,7 +4,7 @@
 Useful/convenient classes to work with Python dicts/Mappings.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-06-06
+Updated: 2025-06-09
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Hashable, Mapping
@@ -51,7 +51,26 @@ class Bytesifier:
         return bytesified
 
 
-class MapSubset:
+class IterableMap:
+    _KeyType = Hashable | None
+    _KeyWalker = Generator[_KeyType, None, None]
+    _Walker = Generator[tuple[_KeyType, Any], None, None]
+
+    def __iter__(self) -> _KeyWalker:
+        yield from self.keys()
+
+    items: Callable[[], _Walker]
+
+    def keys(self) -> _KeyWalker:
+        for k, _ in self.items():
+            yield k
+
+    def values(self) -> Generator[Any, None, None]:
+        for _, v in self.items():
+            yield v
+
+
+class Subset:
     """ Filter object that can take a specific subset from any Mapping. """
     _M = TypeVar("_M", bound=Mapping)  # Type of Mapping to get subset(s) of
     _T = TypeVar("_T", bound=Mapping)  # Type of Mapping to return
@@ -123,27 +142,24 @@ class Traversible:
         return not_traversed
 
 
-class WalkMap(Traversible):
+class Walk(Traversible, IterableMap):
     """ Recursively iterate over a Mapping and the Mappings nested in it. """
     _KeyType = Hashable | None
-    _KeyWalker = Generator[_KeyType, None, None]
     _Walker = Generator[tuple[_KeyType, Mapping], None, None]
 
-    def __init__(self, a_map: Mapping, only_yield_maps: bool = False) -> None:
+    def __init__(self, from_map: Mapping,
+                 only_yield_maps: bool = False) -> None:
         """ Initialize iterator that visits every item inside of a Mapping \
             once, including the items in the nested Mappings it contains.
 
-        :param a_map: Mapping to visit every item of.
+        :param from_map: Mapping to visit every item of.
         :param only_yield_maps: bool, True for this iterator to return \
             key-value pairs only if the value is also a Mapping; else False \
             to return every item iterated over. Defaults to False.
         """
         Traversible.__init__(self)
         self.only_yield_maps = only_yield_maps
-        self.root = a_map
-
-    def __iter__(self) -> _KeyWalker:
-        yield from self.keys()
+        self.root = from_map
 
     def _walk(self, key: _KeyType, value: Mapping | Any) -> _Walker:
         # Only visit each item once; mark each as visited after checking
@@ -170,11 +186,3 @@ class WalkMap(Traversible):
         :yield: Iterator[tuple[Hashable | None, Any]], _description_
         """
         yield from self._walk(None, self.root)
-
-    def keys(self) -> _KeyWalker:
-        for key, _ in self.items():
-            yield key
-
-    def values(self) -> Generator[Mapping, None, None]:
-        for _, value in self.items():
-            yield value

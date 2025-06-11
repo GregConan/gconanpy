@@ -5,18 +5,17 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-06-01
+Updated: 2025-06-10
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable, Iterator
 from operator import getitem
-import pdb
-from typing import Any, no_type_check, overload, SupportsFloat, TypeVar
+from typing import Any, no_type_check, SupportsFloat, TypeVar
 
 # Import local custom libraries
 try:
     from debug import Debuggable
-    from maptools import MapSubset, Traversible
+    import mapping
     from metafunc import are_all_equal, DATA_ERRORS, has_method, \
         IgnoreExceptions, KeepTryingUntilNoErrors, method, name_of
     from seq import differentiate_sets, get_key_set, uniqs_in
@@ -24,7 +23,7 @@ try:
     from trivial import always_true
 except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.debug import Debuggable
-    from gconanpy.maptools import MapSubset, Traversible
+    from gconanpy import mapping
     from gconanpy.metafunc import are_all_equal, DATA_ERRORS, has_method, \
         IgnoreExceptions, KeepTryingUntilNoErrors, method, name_of
     from gconanpy.seq import differentiate_sets, get_key_set, uniqs_in
@@ -253,7 +252,7 @@ class Peeler(IteratorFactory):
         return to_peel
 
 
-class SimpleShredder(Traversible):
+class SimpleShredder(mapping.Traversible):
     SHRED_ERRORS = (AttributeError, TypeError)
 
     def __init__(self) -> None:
@@ -324,13 +323,13 @@ class Shredder(SimpleShredder, Debuggable):
     _T = TypeVar("_T")
 
     def __init__(self, max_shreds: int = 500, debugging: bool = False,
-                 map_filter: MapSubset.Filter = always_true) -> None:
+                 map_filter: mapping.Subset.Filter = always_true) -> None:
         """ 
         :param max_shreds: int, the maximum number of times to "shred" a \
             data container to collect the data inside; defaults to 500
         :param debugging: bool, True to pause and interact on error, else \
             False to raise errors/exceptions; defaults to False.
-        :param map_filter: Callable[[str, Any], bool], MapSubset.Filter \
+        :param map_filter: Callable[[str, Any], bool], mapping.Subset.Filter \
             function to exclude certain keys and/or values from the returned \
             result; by default, no keys/values will be excluded.
         """

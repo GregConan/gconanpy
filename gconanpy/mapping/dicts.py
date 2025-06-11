@@ -4,10 +4,10 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-06-06
+Updated: 2025-06-10
 """
 # Import standard libraries
-from collections.abc import (Callable, Collection, Container,
+from collections.abc import (Callable, Collection, Container, Generator,
                              Hashable, Iterable, Mapping)
 from configparser import ConfigParser
 from typing import Any, overload, TypeVar
@@ -18,15 +18,13 @@ from cryptography.fernet import Fernet
 
 # Import local custom libraries
 try:
-    import attributes
-    from debug import Debuggable
-    from maptools import Bytesifier, MapSubset, Traversible, WalkMap
-    from metafunc import DATA_ERRORS, name_of
-    from trivial import always_none
+    from .. import attributes, mapping
+    from ..debug import Debuggable
+    from ..metafunc import DATA_ERRORS, name_of
+    from ..trivial import always_none
 except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy import attributes
+    from gconanpy import attributes, mapping
     from gconanpy.debug import Debuggable
-    from gconanpy.maptools import Bytesifier, MapSubset, Traversible, WalkMap
     from gconanpy.metafunc import DATA_ERRORS, name_of
     from gconanpy.trivial import always_none
 
@@ -67,6 +65,7 @@ class Defaultionary(Explictionary):
         in its `get` method. It can also use `setdefault` on many different \
         elements at once via `setdefaults`. `LazyDict` base class.
     """
+    _K = TypeVar("_K", bound=Hashable)
 
     def _will_getdefault(self, key: Hashable, exclude: Container = set()
                          ) -> bool:
@@ -93,7 +92,47 @@ class Defaultionary(Explictionary):
         """
         return default if self._will_getdefault(key, exclude) else self[key]
 
-    def setdefaults(self, exclude: Collection = set(), **kwargs: Any) -> None:
+    def has_all(self, keys: Iterable, exclude: Collection = set()) -> bool:
+        """
+        :param keys: Iterable[_K], keys to find in this Defaultionary.
+        :param exclude: Collection, values to overlook/ignore such that if \
+            `self` maps a key to one of those values, then this function \
+            will return False as if `key is not in self`.
+        :return: bool, True if every key in `keys` is mapped to a value that \
+            is not in `exclude`; else False.
+        """
+        try:
+            next(self.missing_keys(keys, exclude))
+            return False
+        except StopIteration:
+            return True
+
+    def missing_keys(self, keys: Iterable[_K], exclude: Collection = set()
+                     ) -> Generator[_K, None, None]:
+        """
+        :param keys: Iterable[_K], keys to find in this Defaultionary.
+        :param exclude: Collection, values to overlook/ignore such that if \
+            `self` maps a key to one of those values, then this function \
+            will yield that key as if `key is not in self`.
+        :yield: Generator[_K, None, None], all `keys` that either are not in \
+            this Defaultionary or are mapped to a value in `exclude`.
+        """
+        if exclude:
+            example_exclude = next(iter(exclude))
+            for key in keys:
+                if self.get(key, example_exclude, exclude) is example_exclude:
+                    yield key
+        else:
+            for key in keys:
+                if key not in self:
+                    yield key
+
+    @overload
+    def setdefaults(self, **kwargs: Any) -> None: ...
+    @overload
+    def setdefaults(self, exclude: Collection, **kwargs: Any) -> None: ...
+
+    def setdefaults(self, exclude=set(), **kwargs) -> None:
         """ Fill any missing values in self from kwargs.
             dict.update prefers to overwrite old values with new ones.
             setdefaults is basically dict.update that prefers to keep old values.
@@ -104,14 +143,8 @@ class Defaultionary(Explictionary):
             same key in `kwargs`, as if `key is not in self`.
         :param kwargs: Mapping[str, Any] of values to add to self if needed.
         """
-        if exclude:
-            example_exclude = next(iter(exclude))
-            for key, value in kwargs.items():
-                if self.get(key, example_exclude, exclude) is example_exclude:
-                    self[key] = value
-        else:
-            for key, value in kwargs.items():
-                self.setdefault(key, value)
+        for key in self.missing_keys(kwargs.keys(), exclude):
+            self[key] = kwargs[key]
 
 
 class Invertionary(Explictionary):
@@ -186,8 +219,8 @@ class Subsetionary(Explictionary):
             NONE OF the provided `values`.
         :return: Subsetionary including only the specified keys and values.       
         """
-        return MapSubset(keys, values, include_keys, include_values
-                         ).of(from_map, cls)
+        return mapping.Subset(keys, values, include_keys, include_values
+                              ).of(from_map, cls)
 
     def subset(self, keys: Container[Hashable] = set(),
                values: Container = set(), include_keys: bool = False,
@@ -204,7 +237,8 @@ class Subsetionary(Explictionary):
             NONE OF the provided `values`.
         :return: Subsetionary including only the specified keys and values.       
         """
-        return MapSubset(keys, values, include_keys, include_values).of(self)
+        return mapping.Subset(keys, values, include_keys, include_values
+                              ).of(self)
 
 
 class Updationary(Explictionary):
@@ -250,19 +284,19 @@ class Updationary(Explictionary):
 
 
 class Walktionary(Explictionary):
-    def walk(self, only_yield_maps: bool = True) -> WalkMap:
+    def walk(self, only_yield_maps: bool = True) -> mapping.Walk:
         """ Recursively iterate over this dict and every dict inside it.
 
         :param only_yield_maps: bool, True for this iterator to return \
             key-value pairs only if the value is also a Mapping; else False \
             to return every item iterated over. Defaults to True.
-        :return: WalkMap with `keys`, `values`, and `items` methods to \
+        :return: mapping.Walk with `keys`, `values`, and `items` methods to \
             recursively iterate over this Walktionary.
         """
-        return WalkMap(self, only_yield_maps)
+        return mapping.Walk(self, only_yield_maps)
 
 
-class DotDict(Updationary, Traversible):
+class DotDict(Updationary, mapping.Traversible):
     """ dict with dot.notation item access. Compare `sklearn.utils.Bunch`.
         DotDict can get/set items as attributes: if `name` is not protected, \
         then `self.name is self["name"]`.
@@ -289,7 +323,7 @@ class DotDict(Updationary, Traversible):
         Updationary.__init__(self, from_map, **kwargs)
 
         # Initialize self as a Traversible for self.homogenize() method
-        Traversible.__init__(self)
+        mapping.Traversible.__init__(self)
 
         # Prevent overwriting method/attributes or treating them like items
         dict.__setattr__(self, self.PROTECTEDS,
@@ -545,7 +579,7 @@ class Promptionary(LazyDict):
         return self.lazysetdefault(key, prompt_fn, [prompt], exclude=exclude)
 
 
-class Cryptionary(Promptionary, Bytesifier, Debuggable):
+class Cryptionary(Promptionary, mapping.Bytesifier, Debuggable):
     """ Extended Promptionary that automatically encrypts values before \
         storing them and automatically decrypts values before returning them.
         Created to store user credentials slightly more securely, and to \
@@ -660,8 +694,7 @@ class SubCryptionary(Cryptionary, Subsetionary):
     """ Cryptionary with subset access/creation methods. """
 
 
-class FancyDict(DotDict, Promptionary, Invertionary,
-                Subsetionary, Walktionary):
+class FancyDict(DotPromptionary, Invertionary, Subsetionary, Walktionary):
     """ Custom dict combining as much functionality from the other classes \
         defined in this file and in `maptools.py` as possible: lazy methods, \
         enhanced default/update methods, prompt methods, invert method, \
