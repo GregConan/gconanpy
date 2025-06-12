@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-06-10
+Updated: 2025-06-11
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Iterable, Mapping
@@ -121,6 +121,22 @@ class TestDictFunctions(DictTester):
             self.check_result(new_dict[k], v)
         return new_dict
 
+    def test_chain_get(self, chain_get: Callable = map_funcs.chain_get,
+                       dict_class: type[dict] = dict) -> None:
+        self.add_basics()
+        adict = dict_class(self.adict)
+
+        # Tests where chain_get should return default
+        for no_keys in (tuple(), list(), ("x", "y", "z"), ("y", "z"),
+                        [i for i in range(5)]):  # , (list(), tuple())  # ?
+            self.check_result(chain_get(adict, no_keys), None)
+            self.check_result(chain_get(adict, no_keys, "the"), "the")
+
+        # Tests where chain_get should return the value mapped to "a"
+        for seq_with_a in (("y", "z", "a", "b"), ["a", "b", "c", "d"],
+                           ("x", "y", "z", "a"), ["a"], ["d", "a"]):
+            self.check_result(chain_get(adict, seq_with_a), adict["a"])
+
     def test_has_all(self, has_all: Callable = map_funcs.has_all,
                      dict_class: type[dict] = dict) -> None:
         self.add_basics()
@@ -198,9 +214,13 @@ class TestDictFunctions(DictTester):
         self.one_update_test(new_dict, 4, dict(a=3), c=1)
 
 
-class TestDefaultionary(TestDictFunctions):  # TODO
+class TestDefaultionary(TestDictFunctions):
     CLASSES = tuple[type[Defaultionary], ...]
     TEST_CLASSES: CLASSES = (Defaultionary, FancyDict, LazyDict, LazyDotDict)
+
+    def test_chain_get(self, classes: CLASSES = TEST_CLASSES) -> None:
+        for DictClass in classes:
+            return super().test_chain_get(DictClass.chain_get, DictClass)
 
     def test_has_all(self, classes: CLASSES = TEST_CLASSES) -> None:
         for DictClass in classes:

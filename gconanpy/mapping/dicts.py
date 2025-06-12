@@ -4,11 +4,11 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-06-10
+Updated: 2025-06-11
 """
 # Import standard libraries
 from collections.abc import (Callable, Collection, Container, Generator,
-                             Hashable, Iterable, Mapping)
+                             Hashable, Iterable, Mapping, Sequence)
 from configparser import ConfigParser
 from typing import Any, overload, TypeVar
 from typing_extensions import Self
@@ -77,6 +77,23 @@ class Defaultionary(Explictionary):
             is mapped to something in `exclude`
         """
         return key not in self or self[key] in exclude
+
+    def chain_get(self, keys: Sequence[Hashable], default: Any = None,
+                  exclude: Container = set()) -> Any:
+        """ Return the value mapped to the first key if any, else return \
+            the value mapped to the second key if any, ... etc. recursively. \
+            Return `default` if this dict doesn't contain any of the `keys`.
+
+        :param keys: Sequence[Hashable], keys mapped to the value to return
+        :param default: Any, object to return if no `keys` are in this dict
+        :param exclude: Container, values to ignore or overwrite. If one \
+            of the `keys` is mapped to a value in `exclude`, then skip that \
+            key as if `key is not in self`.
+        :return: Any, value mapped to the first key (of `keys`) in this dict \
+            if any; otherwise `default` if no `keys` are in this dict.
+        """
+        return self.get(keys[0], self.chain_get(keys[1:], default), exclude
+                        ) if keys else default
 
     def get(self, key: Hashable, default: Any = None,
             exclude: Container = set()) -> Any:
