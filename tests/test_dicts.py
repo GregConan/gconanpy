@@ -6,7 +6,8 @@ Created: 2025-04-07
 Updated: 2025-06-11
 """
 # Import standard libraries
-from collections.abc import Callable, Generator, Iterable, Mapping
+from collections.abc import Callable, Generator, Iterable, \
+    Mapping, MutableMapping
 from typing import Any, TypeVar
 
 # Import local custom libraries
@@ -82,6 +83,7 @@ class TestCryptionary(DictTester):
 
 class TestDictFunctions(DictTester):
     # has_setdefaults = type("has_setdefaults", (dict, ), dict(setdefaults=""))
+    _M = TypeVar("_M", bound=MutableMapping)
 
     def check_setdefaults(self, expected: dict[str, int],
                           setdefaults: Callable = map_funcs.setdefaults,
@@ -107,10 +109,10 @@ class TestDictFunctions(DictTester):
             inverted = to_invert
         self.check_result(dict(inverted), out_dict)
 
-    def one_update_test(self, a_dict: dict, expected_len: int,
+    def one_update_test(self, a_dict: _M, expected_len: int,
                         from_map: Mapping | None = None,
                         # update: Callable = methods.update,
-                        **expected: Any) -> dict:
+                        **expected: Any) -> _M:
         if from_map is None:
             new_dict = map_funcs.update(a_dict, **expected)
         else:

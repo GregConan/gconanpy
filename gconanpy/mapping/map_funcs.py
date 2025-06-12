@@ -7,8 +7,8 @@ Created: 2025-06-09
 Updated: 2025-06-11
 """
 # Import standard libraries
-from collections.abc import (Callable, Collection, Container, Generator,
-                             Hashable, Iterable, Mapping, Sequence)
+from collections.abc import Callable, Collection, Container, Generator, \
+    Hashable, Iterable, Mapping, MutableMapping, Sequence
 from configparser import ConfigParser
 from typing import Any, TypeVar
 
@@ -20,16 +20,16 @@ except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.metafunc import DATA_ERRORS
     from gconanpy.trivial import always_none
 
-# Type variable for .__init__(...) and .update(...) method input parameters
-FromMap = TypeVar("FromMap", Mapping, Iterable[tuple[Hashable, Any]], None)
-
-_T = TypeVar("_T")
-CollisionHandler = None | Callable[[list[_T]], Iterable[_T]]
-
+# Constants: type variables
+_MM = TypeVar("_MM", bound=MutableMapping)  # For update and setdefaults
 _Prompter = Callable[[str], str]  # Prompt function to use as lazy getter
+_T = TypeVar("_T")  # For invert
+CollisionHandler = None | Callable[[list[_T]], Iterable[_T]]  # For invert
+FromMap = TypeVar("FromMap", Mapping, Iterable[tuple[Hashable, Any]], None
+                  )  # For update function input parameters
 
 
-def chain_get(a_dict: dict, keys: Sequence[Hashable], default: Any = None,
+def chain_get(a_dict: Mapping, keys: Sequence[Hashable], default: Any = None,
               exclude: Container = set()) -> Any:
     """ Return the value mapped to the first key if any, else return \
         the value mapped to the second key if any, ... etc. recursively. \
@@ -56,7 +56,7 @@ def fromConfigParser(config: ConfigParser) -> dict:
             for section in config.sections()}
 
 
-def get_or_prompt_for(a_dict: dict, key: Hashable, prompt: str,
+def get_or_prompt_for(a_dict: Mapping, key: Hashable, prompt: str,
                       prompt_fn: _Prompter = input,
                       exclude: Container = set()) -> Any:
     """ Return the value mapped to key in a_dict if one already exists; \
@@ -74,7 +74,7 @@ def get_or_prompt_for(a_dict: dict, key: Hashable, prompt: str,
     return lazyget(a_dict, key, prompt_fn, [prompt], exclude=exclude)
 
 
-def get_subset_from_lookups(a_dict: dict, to_look_up: Mapping[str, str],
+def get_subset_from_lookups(a_dict: Mapping, to_look_up: Mapping[str, str],
                             sep: str = ".", default: Any = None) -> dict:
     """ `a_dict.get_subset_from_lookups({"a": "b/c"}, sep="/")` \
         -> `DotDict({"a": a_dict.b.c})`
@@ -92,7 +92,7 @@ def get_subset_from_lookups(a_dict: dict, to_look_up: Mapping[str, str],
             for key, path in to_look_up.items()}
 
 
-def getdefault(a_dict: dict, key: Hashable, default: Any = None,
+def getdefault(a_dict: Mapping, key: Hashable, default: Any = None,
                exclude: Container = set()) -> Any:
     """ Return the value mapped to `key` in `a_dict`, if any; else return \
         `default`. Defined to add `exclude` option to `dict.get`.
@@ -107,7 +107,8 @@ def getdefault(a_dict: dict, key: Hashable, default: Any = None,
     return default if will_getdefault(a_dict, key, exclude) else a_dict[key]
 
 
-def has_all(a_dict: dict, keys: Iterable, exclude: Collection = set()) -> bool:
+def has_all(a_dict: Mapping, keys: Iterable[Hashable],
+            exclude: Collection = set()) -> bool:
     """
     :param keys: Iterable[_K], keys to find in this Defaultionary.
     :param exclude: Collection, values to overlook/ignore such that if \
@@ -159,7 +160,8 @@ def invert(a_dict: dict, keep_collisions_in: CollisionHandler = None) -> dict:
     return inverted
 
 
-def lazyget(a_dict: dict, key: Hashable, get_if_absent: Callable = always_none,
+def lazyget(a_dict: Mapping, key: Hashable,
+            get_if_absent: Callable = always_none,
             getter_args: Iterable = list(),
             getter_kwargs: Mapping = dict(),
             exclude: Container = set()) -> Any:
@@ -180,7 +182,7 @@ def lazyget(a_dict: dict, key: Hashable, get_if_absent: Callable = always_none,
         will_getdefault(a_dict, key, exclude) else a_dict[key]
 
 
-def lazysetdefault(a_dict: dict, key: Hashable, get_if_absent:
+def lazysetdefault(a_dict: MutableMapping, key: Hashable, get_if_absent:
                    Callable = always_none, getter_args: Iterable = list(),
                    getter_kwargs: Mapping = dict(),
                    exclude: Container = set()) -> Any:
@@ -203,7 +205,7 @@ def lazysetdefault(a_dict: dict, key: Hashable, get_if_absent:
     return a_dict[key]
 
 
-def lookup(a_dict: dict, path: str, sep: str = ".", default: Any = None) -> Any:
+def lookup(a_dict: Mapping, path: str, sep: str = ".", default: Any = None) -> Any:
     """ Get the value mapped to a key in nested structure. Adapted from \
         https://gist.github.com/miku/dc6d06ed894bc23dfd5a364b7def5ed8
 
@@ -228,7 +230,7 @@ def lookup(a_dict: dict, path: str, sep: str = ".", default: Any = None) -> Any:
     return default if keypath else retrieved
 
 
-def missing_keys(a_dict: dict, keys: Iterable, exclude: Collection = set()
+def missing_keys(a_dict: Mapping, keys: Iterable, exclude: Collection = set()
                  ) -> Generator[Any, None, None]:
     """
     :param keys: Iterable[_K], keys to find in this Defaultionary.
@@ -250,8 +252,8 @@ def missing_keys(a_dict: dict, keys: Iterable, exclude: Collection = set()
                 yield key
 
 
-def setdefault_or_prompt_for(a_dict: dict, key: Hashable, prompt: str,
-                             prompt_fn: _Prompter = input,
+def setdefault_or_prompt_for(a_dict: MutableMapping, key: Hashable,
+                             prompt: str, prompt_fn: _Prompter = input,
                              exclude: Container = set()) -> Any:
     """ Return the value mapped to key in a_dict if one already exists; \
         otherwise prompt the user to interactively provide it, store the \
@@ -269,8 +271,8 @@ def setdefault_or_prompt_for(a_dict: dict, key: Hashable, prompt: str,
     return lazysetdefault(a_dict, key, prompt_fn, [prompt], exclude=exclude)
 
 
-def setdefaults(a_dict: dict, exclude: Collection = set(),
-                **kwargs: Any) -> dict:
+def setdefaults(a_dict: _MM, exclude: Collection = set(),
+                **kwargs: Any) -> _MM:
     """ Fill any missing values in a_dict from kwargs.
         dict.update prefers to overwrite old values with new ones.
         setdefaults is basically dict.update that prefers to keep old values.
@@ -286,16 +288,7 @@ def setdefaults(a_dict: dict, exclude: Collection = set(),
     return a_dict
 
 
-def to_dict(a_dict: dict) -> dict:
-    """
-    :return: `dict` with all of the key-value pairings from this custom \
-        dictionary. Retrieves values exclusively using `dict` methods. \
-        Used by (e.g.) `Cryptionary.__repr__` to skip decryption.
-    """
-    return {key: dict.__getitem__(a_dict, key) for key in dict.keys(a_dict)}
-
-
-def update(a_dict: dict, from_map: FromMap = None, **kwargs) -> dict:
+def update(a_dict: _MM, from_map: FromMap = None, **kwargs: Any) -> _MM:
     """ Add or overwrite items in this Mapping from other Mappings.
 
     :param from_map: Mapping | Iterable[tuple[Hashable, Any] ] | None \
@@ -316,7 +309,7 @@ def update(a_dict: dict, from_map: FromMap = None, **kwargs) -> dict:
     return a_dict
 
 
-def will_getdefault(a_dict: dict, key: Hashable, exclude: Container = set()
+def will_getdefault(a_dict: Mapping, key: Hashable, exclude: Container = set()
                     ) -> bool:
     """
     :param key: Hashable
