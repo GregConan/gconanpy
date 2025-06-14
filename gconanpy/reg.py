@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Classes that use Regex to parse strings and text data.
+Classes that parse strings and text data, especially using Regex.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
 Updated: 2025-06-10
@@ -20,6 +20,26 @@ try:
     import mapping
 except ModuleNotFoundError:  # TODO DRY?
     from gconanpy import mapping
+
+
+class Abbreviator:
+
+    @staticmethod
+    def abbreviate(name: str, max_len: int, **shortenings: str) -> str:
+        for old, new in shortenings.items():
+            if len(name) <= max_len:
+                break
+            else:
+                name = name.replace(old, new).strip()
+        return name
+
+
+class Abbreviations(Abbreviator):
+    def __init__(self, **shortenings: str) -> None:
+        self.shortenings = shortenings
+
+    def abbreviate(self, name: str, max_len: int) -> str:
+        return super().abbreviate(name, max_len, **self.shortenings)
 
 
 class Regextract:

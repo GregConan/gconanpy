@@ -5,11 +5,12 @@ Classes and functions that iterate and then break once they find what \
     they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-06-03
+Updated: 2025-06-13
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping, Sequence
 # from more_itertools import iter_except  # TODO?
+import sys
 from typing import Any, TypeVar
 from typing_extensions import Self
 
@@ -25,6 +26,7 @@ except ModuleNotFoundError:  # TODO DRY?
 
 
 # TODO Figure out standard way to centralize, reuse, & document TypeVars?
+Gotten = TypeVar("Gotten")  # for spliterate function
 Item = TypeVar("Item")  # Element in BasicRange/ReadyChecker
 IterfindItem = TypeVar("IterfindItem")  # Element in iterfind
 IterfindDefault = TypeVar("IterfindDefault")
@@ -68,31 +70,36 @@ def modifind(find_in: Iterable,
     return modified if is_found else default
 
 
-def spliterate(parts: list[str],
-               ready_if: StrChecker = is_not_none,
-               min_len: int = 1,
-               get_target: Callable[[str], Any] = always_none,
-               pop_ix: int = -1, join_on: str = " ") -> tuple[str, Any]:
-    """ _summary_
+class Spliterator:
+    _Target = TypeVar("_Target")
 
-    :param parts: list[str] to iteratively modify, check, and recombine
-    :param ready_if: Callable[[str | None], bool], function that returns \
-        True if join_on.join(parts) is ready to return and False if it \
-        still needs to be modified further; defaults to `is not None`
-    :param pop_ix: int, index of item to remove from parts once per \
-        iteration; defaults to -1 (the last item)
-    :param join_on: str, delimiter to insert between parts; defaults to " "
-    :return: tuple[str, Any], the modified and recombined string built from \
-        parts and then something retrieved from within parts
-    """
-    gotten = get_target(parts[pop_ix])
-    rejoined = join_on.join(parts)
-    while not ready_if(rejoined) and len(parts) > min_len \
-            and gotten is None:
-        parts.pop(pop_ix)
+    def __init__(self, max_len: int = sys.maxunicode) -> None:
+        self.max_len = max_len
+
+    def spliterate(self, parts: list[str], *,
+                   pop_ix: int = -1, min_parts: int = 1,
+                   get_target: Callable[[str], _Target] = always_none,
+                   join_on: str = " ") -> tuple[str, _Target]:
+        """ _summary_
+
+        :param parts: list[str] to iteratively modify, check, and recombine
+        :param ready_if: Callable[[str | None], bool], function that returns \
+            True if join_on.join(parts) is ready to return and False if it \
+            still needs to be modified further; defaults to `is not None`
+        :param pop_ix: int, index of item to remove from parts once per \
+            iteration; defaults to -1 (the last item)
+        :param join_on: str, delimiter to insert between parts; defaults to " "
+        :return: tuple[str, Any], the modified and recombined string built from \
+            parts and then something retrieved from within parts
+        """
         gotten = get_target(parts[pop_ix])
         rejoined = join_on.join(parts)
-    return rejoined, gotten
+        while len(parts) > min_parts and len(rejoined) <= self.max_len \
+                and gotten is None:
+            parts.pop(pop_ix)
+            gotten = get_target(parts[pop_ix])
+            rejoined = join_on.join(parts)
+        return rejoined, gotten
 
 
 class UntilFound(WrapFunction):
