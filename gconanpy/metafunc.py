@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-06-03
+Updated: 2025-06-13
 """
 # Import standard libraries
 import abc
@@ -25,8 +25,8 @@ except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.reg import DunderParser
     from gconanpy.trivial import call_method_of
 
-# Constants: TypeVars for...
-M = TypeVar("M", bound=MutableMapping)  # ...combine_maps
+# Constants
+M = TypeVar("M", bound=MutableMapping)  # For combine_maps function type hints
 
 # Purely "internal" errors only involving local data; ignorable in some cases
 DATA_ERRORS = (AttributeError, IndexError, KeyError, TypeError, ValueError)
@@ -383,6 +383,23 @@ class BoolableMeta(type):  # https://realpython.com/python-interface/
 
 class Boolable(metaclass=BoolableMeta):
     """ Any object that you can call `bool()` on is a `Boolable`. """
+
+
+class BytesOrStrMeta(type):
+    _Checker = Callable[[Any, type | tuple[type, ...]], bool]
+
+    def _check(cls, thing: Any, check: _Checker) -> bool:
+        return check(thing, (bytes, str))
+
+    def __instancecheck__(cls, instance: Any) -> bool:
+        return cls._check(instance, isinstance)
+
+    def __subclasscheck__(cls, subclass: Any) -> bool:
+        return cls._check(subclass, issubclass)
+
+
+class BytesOrStr(metaclass=BytesOrStrMeta):
+    """ Any instance of `bytes` or `str` is a `BytesOrStr` instance. """
 
 
 class HasClass(abc.ABC):

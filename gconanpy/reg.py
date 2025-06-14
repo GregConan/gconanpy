@@ -4,7 +4,7 @@
 Classes that parse strings and text data, especially using Regex.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
-Updated: 2025-06-10
+Updated: 2025-06-13
 """
 # Import standard libraries
 from collections.abc import Container, Generator
