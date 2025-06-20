@@ -4,7 +4,7 @@
 Useful/convenient classes to work with Python dicts/Mappings.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-06-09
+Updated: 2025-06-20
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Hashable, Mapping
@@ -110,7 +110,7 @@ class Subset:
     @overload
     def of(self, from_map: _M) -> _M: ...
 
-    def of(self, from_map, as_type=None):
+    def of(self, from_map: Mapping, as_type: type | None = None):
         """ Construct an instance of this class by picking a subset of \
             key-value pairs to keep.
 

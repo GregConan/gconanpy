@@ -4,10 +4,10 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
-Updated: 2025-05-24
+Updated: 2025-06-20
 """
 # Import local custom libraries
-from gconanpy.metafunc import metaclass_hasmethod
+from gconanpy.meta.funcs import metaclass_hasmethod
 from gconanpy.reg import DunderParser
 from tests.testers import Tester
 

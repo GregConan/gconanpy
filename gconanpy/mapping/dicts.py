@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-06-11
+Updated: 2025-06-20
 """
 # Import standard libraries
 from collections.abc import (Callable, Collection, Container, Generator,
@@ -20,12 +20,12 @@ from cryptography.fernet import Fernet
 try:
     from .. import attributes, mapping
     from ..debug import Debuggable
-    from ..metafunc import DATA_ERRORS, name_of
+    from ..meta.funcs import DATA_ERRORS, name_of
     from ..trivial import always_none
 except ModuleNotFoundError:  # TODO DRY?
     from gconanpy import attributes, mapping
     from gconanpy.debug import Debuggable
-    from gconanpy.metafunc import DATA_ERRORS, name_of
+    from gconanpy.meta.funcs import DATA_ERRORS, name_of
     from gconanpy.trivial import always_none
 
 # Type variables for .__init__(...) and .update(...) method input parameters

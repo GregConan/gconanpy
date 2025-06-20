@@ -20,11 +20,13 @@ from makefun import create_function, with_signature
 # Import local custom libraries
 try:
     import attributes
-    from metafunc import combine_maps, HasSlots, name_of, pairs
+    from meta.classes import HasSlots
+    from meta.funcs import combine_maps, name_of, pairs
     from ToString import ToString
 except ModuleNotFoundError:  # TODO DRY?
     from gconanpy import attributes
-    from gconanpy.metafunc import combine_maps, HasSlots, name_of, pairs
+    from gconanpy.meta.classes import HasSlots
+    from gconanpy.meta.funcs import combine_maps, name_of, pairs
     from gconanpy.ToString import ToString
 
 

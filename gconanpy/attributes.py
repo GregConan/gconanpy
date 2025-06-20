@@ -12,10 +12,12 @@ from typing import Any, Literal, TypeVar
 
 # Import local custom libraries
 try:
-    from metafunc import combine_sets, WrapFunction
+    from meta.classes import WrapFunction
+    from meta.funcs import combine_sets
     from trivial import always_true
 except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy.metafunc import combine_sets, WrapFunction
+    from gconanpy.meta.classes import WrapFunction
+    from gconanpy.meta.funcs import combine_sets
     from gconanpy.trivial import always_true
 
 # Constants: TypeVars for...

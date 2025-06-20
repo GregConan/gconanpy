@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-06-03
+Updated: 2025-06-20
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Iterable, Mapping
@@ -19,9 +19,9 @@ import pathvalidate
 
 # Import local custom libraries
 try:
-    from metafunc import MethodWrapper
+    from meta.classes import MethodWrapper
 except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy.metafunc import MethodWrapper
+    from gconanpy.meta.classes import MethodWrapper
 
 
 class ToString(str):

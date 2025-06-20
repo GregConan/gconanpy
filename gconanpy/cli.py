@@ -14,9 +14,9 @@ from typing import Any
 
 # Import local custom libraries
 try:
-    from metafunc import WrapFunction
+    from meta.classes import WrapFunction
 except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy.metafunc import WrapFunction
+    from gconanpy.meta.classes import WrapFunction
 
 
 # NOTE: Functions and classes below are in alphabetical order.

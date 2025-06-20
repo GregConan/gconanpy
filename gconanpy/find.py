@@ -5,7 +5,7 @@ Classes and functions that iterate and then break once they find what \
     they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-06-13
+Updated: 2025-06-20
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -16,12 +16,14 @@ from typing_extensions import Self
 
 # Import remote custom libraries
 try:
-    from metafunc import DATA_ERRORS, KeepSkippingExceptions, \
+    from meta.classes import KeepSkippingExceptions, \
         IgnoreExceptions, WrapFunction
+    from meta.funcs import DATA_ERRORS
     from trivial import is_not_none, always_none
 except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy.metafunc import DATA_ERRORS, KeepSkippingExceptions, \
+    from gconanpy.meta.classes import KeepSkippingExceptions, \
         IgnoreExceptions, WrapFunction
+    from gconanpy.meta.funcs import DATA_ERRORS
     from gconanpy.trivial import is_not_none, always_none
 
 

@@ -28,11 +28,11 @@ from pympler.asizeof import asizeof
 
 # Import local custom libraries
 try:
-    from metafunc import name_of
+    from meta.funcs import name_of
     from seq import uniqs_in
     from ToString import stringify_dt, stringify_iter
 except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy.metafunc import name_of
+    from gconanpy.meta.funcs import name_of
     from gconanpy.seq import uniqs_in
     from gconanpy.ToString import stringify_dt, stringify_iter
 

@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-06-10
+Updated: 2025-06-20
 """
 # Import standard libraries
 from abc import ABC
@@ -21,7 +21,7 @@ from gconanpy import attributes, mapping
 from gconanpy.mapping import map_funcs
 from gconanpy.extend import classes_in_module
 from gconanpy.find import ErrIterChecker
-from gconanpy.metafunc import has_method, name_of
+from gconanpy.meta.funcs import has_method, name_of
 from gconanpy.seq import powers_of_ten
 
 

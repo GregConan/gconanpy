@@ -4,7 +4,7 @@
 Useful/convenient functions to use on dicts. Taken from dicts.py classes
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-09
-Updated: 2025-06-13
+Updated: 2025-06-20
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Container, Generator, \
@@ -14,10 +14,10 @@ from typing import Any, TypeVar
 
 # Import local custom libraries
 try:
-    from ..metafunc import DATA_ERRORS
+    from ..meta.funcs import DATA_ERRORS
     from ..trivial import always_none
 except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy.metafunc import DATA_ERRORS
+    from gconanpy.meta.funcs import DATA_ERRORS
     from gconanpy.trivial import always_none
 
 # Constants: type variables
