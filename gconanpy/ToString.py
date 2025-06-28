@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-06-20
+Updated: 2025-06-27
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Iterable, Mapping
@@ -20,8 +20,12 @@ import pathvalidate
 # Import local custom libraries
 try:
     from meta.classes import MethodWrapper
-except ModuleNotFoundError:  # TODO DRY?
+    from meta.funcs import combinations_of_conditions, name_of
+    from reg import Regextract
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.meta.classes import MethodWrapper
+    from gconanpy.meta.funcs import combinations_of_conditions, name_of
+    from gconanpy.reg import Regextract
 
 
 class ToString(str):
@@ -84,7 +88,7 @@ class ToString(str):
         :return: ToString with `prefix` at the beginning & `suffix` at the end
         """
         return self.that_starts_with(prefix).that_ends_with(suffix) \
-            if len(self) else self.__class__(prefix) + suffix
+            if len(self) else self.that_starts_with(prefix) + suffix
 
     @classmethod
     def filepath(cls, dir_path: str, file_name: str, file_ext: str = "",
@@ -163,7 +167,8 @@ class ToString(str):
     def from_iterable(cls, an_obj: Collection, quote: str | None = "'",
                       sep: str = ", ", quote_numbers: bool = False,
                       prefix: str | None = "[", suffix: str | None = "]",
-                      max_len: int | None = None, lastly: str = "and "
+                      max_len: int | None = None, lastly: str = "and ",
+                      iter_kwargs: Mapping[str, Any] = dict()
                       ) -> Self:
         """ Convert an Iterable into a ToString object.
 
@@ -189,11 +194,13 @@ class ToString(str):
                  with `prefix` and ending with `suffix`, with `lastly` after \
                  the last `sep` if there are more than 2 elements of `an_obj`.
         """
-        if isinstance(an_obj, str):  # TODO Refactor from LBYL to EAFP?
+        if not an_obj:
+            string = ""
+        elif isinstance(an_obj, str):  # TODO Refactor from LBYL to EAFP?
             string = an_obj
         else:
-            list_with_str_els = cls.quotate_all(an_obj, quote,
-                                                quote_numbers, max_len)
+            list_with_str_els = cls.quotate_all(an_obj, quote, quote_numbers,
+                                                max_len, iter_kwargs)
             if len(an_obj) > 2:
                 except_end = sep.join(list_with_str_els[:-1])
                 string = f"{except_end}{sep}{lastly}{list_with_str_els[-1]}"
@@ -218,7 +225,9 @@ class ToString(str):
                     dt_sep: str = "_", timespec: _TIMESPEC = "seconds",
                     replace: Mapping[str, str] = {":": "-"},
                     encoding: str = sys.getdefaultencoding(),
-                    errors: str = "ignore", lastly: str = "and ") -> Self:
+                    errors: str = "ignore",
+                    lastly: str = "and ", iter_kwargs:
+                    dict[str, Any] = dict()) -> Self:
         """ Convert an object ToString 
 
         :param an_obj: Any, object to convert ToString
@@ -250,25 +259,42 @@ class ToString(str):
             ToString object `if len(an_obj) > 2`, or None to add no such \
             string; defaults to "and "
         :return: ToString of `an_obj` formatted as specified.
-        """  # Class pattern match: stackoverflow.com/questions/72295812
-        match an_obj:
+        """
+        # If the max_len is too low for anything besides the affixes, then
+        # return just the affixes if they fit, else return an empty ToString
+        if max_len is not None:
+            if prefix:
+                max_len -= len(prefix)
+            if suffix:
+                max_len -= len(suffix)
+            if max_len < 0:
+                return cls()
+            elif max_len == 0:
+                return cls().enclosed_in(prefix, suffix)
+
+        match an_obj:  # Stringify!
             case bytes() | bytearray():
-                stringified = cls(an_obj, encoding=encoding, errors=errors)
+                stringified = cls(an_obj, encoding=encoding, errors=errors
+                                  ).truncate(max_len)
             case dict():
-                stringified = cls.from_mapping(an_obj, quote, quote_numbers,
-                                               quote_keys, join_on, prefix, suffix,
-                                               sep, max_len, lastly)
+                stringified = cls.from_mapping(
+                    an_obj, quote, quote_numbers, quote_keys, join_on, prefix,
+                    suffix, sep, max_len, lastly, iter_kwargs)
             case list() | tuple() | set():
-                stringified = cls.from_iterable(an_obj, quote, sep,
-                                                quote_numbers, prefix, suffix,
-                                                max_len, lastly)
+                stringified = cls.from_iterable(
+                    an_obj, quote, sep, quote_numbers, prefix, suffix,
+                    max_len, lastly, iter_kwargs)
             case dt.date() | dt.time() | dt.datetime():
-                stringified = cls.from_datetime(an_obj, dt_sep,
-                                                timespec, replace)
+                stringified = cls.from_datetime(
+                    an_obj, dt_sep, timespec, replace).truncate(max_len)
+            case type():
+                stringified = cls.from_callable(an_obj, max_len)
             case None:
                 stringified = cls()
             case _:  # str or other
-                stringified = cls(an_obj)
+                stringified = cls(an_obj).truncate(max_len)
+                if Regextract.is_invalid_py_repr(stringified):
+                    stringified = cls.from_callable(an_obj, max_len)
         return stringified
 
     @classmethod
@@ -277,7 +303,8 @@ class ToString(str):
                      join_on: str = ": ",
                      prefix: str | None = "{", suffix: str | None = "}",
                      sep: str = ", ", max_len: int | None = None,
-                     lastly: str = "and ") -> Self:
+                     lastly: str = "and ",
+                     iter_kwargs: Mapping[str, Any] = dict()) -> Self:
         """
         :param a_map: Mapping to convert ToString
         :param quote: str to add before and after each key-value pair in \
@@ -301,21 +328,68 @@ class ToString(str):
         :return: ToString, _description_
         """
         join_on = cls(join_on)
-        quotate = cls.get_quotator(quote, quote_numbers)
+        # quotate = cls.get_quotator(quote, quote_numbers, list_kwargs)
         pair_strings = list()
         for k, v in a_map.items():
-            k = quotate(k) if quote_keys else k
-            v = quotate(v).truncate(max_len, quotate)
+            k = cls.quotate(k, quote, quote_numbers) if quote_keys else cls(k)
+            v = cls.quotate(v, quote, quote_numbers, quote_keys, **iter_kwargs
+                            ) if iter_kwargs else \
+                cls.quotate(v, quote, quote_numbers, quote_keys,
+                            max_len=max_len, join_on=join_on, sep=sep,
+                            prefix=prefix, suffix=suffix, lastly=lastly)
             pair_strings.append(join_on.join((k, v)))
         return cls.from_iterable(pair_strings, quote=None, prefix=prefix,
                                  suffix=suffix, max_len=max_len, sep=sep,
-                                 lastly=lastly)
+                                 lastly=lastly, iter_kwargs=iter_kwargs)
 
     @classmethod
-    def get_quotator(cls, quote: str | None = "'",
-                     quote_numbers: bool = False) -> Stringifier:
-        quotate = cls.quotate_obj if quote_numbers else cls.quotate_number
-        return cls.from_object if not quote else lambda x: quotate(x, quote)
+    def from_callable(cls, an_obj: Callable, max_len: int | None = None
+                      ) -> Self:
+        return cls(name_of(an_obj)).truncate(max_len)
+
+    @classmethod
+    def quotate(cls, an_obj: Any, quote: str | None = "'",
+                quote_numbers: bool = False, quote_keys: bool = False,
+                **iter_kwargs: Any) -> Self:
+        if not quote:
+            quoted = cls(an_obj)
+        else:
+            match an_obj:
+                case dict():
+                    quoted = cls.from_mapping(an_obj, quote, quote_numbers,
+                                              quote_keys, **iter_kwargs)
+                case list() | tuple():
+                    quoted = cls.from_iterable(
+                        an_obj, quote, quote_numbers=quote_numbers,
+                        **iter_kwargs)
+                case int() | float():
+                    quoted = cls(an_obj).enclosed_by(quote) \
+                        if quote_numbers else cls(an_obj)
+                case None:
+                    quoted = cls().enclosed_by(quote)
+                case _:
+                    quoted = cls(an_obj)
+                    if Regextract.is_invalid_py_repr(quoted):
+                        quoted = cls.from_callable(an_obj)
+                    else:
+                        quoted = quoted.enclosed_by(quote)
+        return quoted
+
+    @classmethod
+    def represent_class(cls, a_class: type, max_len: int | None = None,
+                        *args: Any, **kwargs: Any) -> Self:
+        # Put all pre-defined args and kwargs into this instance's str repr
+        iter_kwargs: Mapping = dict(prefix="[", suffix="]", lastly="")
+        kwargstrs = cls.from_mapping(kwargs, quote_keys=False, prefix=None,
+                                     suffix=None, join_on="=", max_len=max_len,
+                                     lastly="", iter_kwargs=iter_kwargs)
+        argstrs = cls.from_iterable(args, prefix=None, suffix=None, lastly="")
+        param_conds = combinations_of_conditions(("argstrs", "kwargstrs"), {
+            True: ', '.join((argstrs, kwargstrs)), False: "",
+            "argstrs": argstrs, "kwargstrs": kwargstrs
+        })
+        stringified = param_conds[(bool(argstrs), bool(kwargstrs))]
+        return cls(f"{name_of(a_class)}({stringified})")
 
     @MethodWrapper.return_as_its_class
     def replacements(self, replace: Mapping[str, str], count: int = -1) -> str:
@@ -326,25 +400,10 @@ class ToString(str):
 
     @classmethod
     def quotate_all(cls, objects: Iterable, quote: str | None = "'",
-                    quote_numbers: bool = False, max_len: int | None = None
-                    ) -> list[Self]:
-        finish = cls.get_quotator(quote, quote_numbers)
-        return [finish(obj).truncate(max_len) for obj in objects]
-
-    @classmethod
-    def quotate_number(cls, a_num: Any, quote: str = "'") -> Self:
-        stringified = cls.from_object(a_num)
-        return stringified if stringified.isnumeric() \
-            else stringified.enclosed_by(quote)
-
-    @classmethod
-    def quotate_obj(cls, an_obj: Any, quote: str = "'") -> Self:
-        """
-        :param an_obj: Any, object to convert ToString.
-        :param quote: str to add before and after `an_obj`; defaults to "'"
-        :return: ToString, `quote + stringify(an_obj) + quote`
-        """
-        return cls.from_object(an_obj).enclosed_by(quote)
+                    quote_numbers: bool = False, max_len: int | None = None,
+                    kwargs: Mapping[str, Any] = dict()) -> list[Self]:
+        return [cls.quotate(an_obj, quote, quote_numbers, max_len=max_len,
+                            **kwargs) for an_obj in objects]
 
     def that_ends_with(self, suffix: str | None) -> Self:
         """ Append `suffix` to the end of `self` unless it is already there.
@@ -363,26 +422,11 @@ class ToString(str):
         """
         return self if not prefix or self.startswith(prefix) else prefix + self
 
-    def truncate(self, max_len: int | None = None,
-                 quotate: Stringifier | None = None,
-                 suffix: str = "...") -> Self:
-        if max_len is None:
-            truncated = self
-        else:
-            quotated = quotate(self) if quotate else self
-            if len(quotated) <= max_len:
-                truncated = quotated
-            else:
-                quote_len = len(quotated) - len(self)
-                raw_max_len = max_len - quote_len - len(suffix)
-
-                # TODO Use independent truncate() function here again (DRY)?
-                raw_truncated = (self[:raw_max_len] if len(self) > raw_max_len
-                                 else self) + suffix
-
-                truncated = self.__class__(quotate(raw_truncated) if quotate
-                                           else raw_truncated)
-        return truncated
+    def truncate(self, max_len: int | None = None, suffix: str = "..."
+                 ) -> Self:
+        # TODO Use independent truncate() function here again (DRY)?
+        return self if max_len is None or len(self) <= max_len else \
+            self.__class__(self[:max_len - len(suffix)] + suffix)
 
 
 # Shorter names to export

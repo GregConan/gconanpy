@@ -4,30 +4,30 @@
 Functions to manipulate and define classes and/or other functions.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-20
-Updated: 2025-06-20
+Updated: 2025-06-27
 """
 # Import standard libraries
 from collections.abc import (Callable, Collection, Generator,
-                             Iterable, MutableMapping)
-from functools import reduce
+                             Iterable, Mapping, Sequence)
 import itertools
 import more_itertools
 # from operator import attrgetter, methodcaller  # TODO?
-from typing import Any, TypeVar
+from typing import Any, NamedTuple
 
 # Import local custom libraries
 try:
     from ..reg import DunderParser
     from ..trivial import call_method_of
-except ModuleNotFoundError:  # TODO DRY?
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.reg import DunderParser
     from gconanpy.trivial import call_method_of
 
-# Constants
-M = TypeVar("M", bound=MutableMapping)  # For combine_maps function type hints
-
 # Purely "internal" errors only involving local data; ignorable in some cases
 DATA_ERRORS = (AttributeError, IndexError, KeyError, TypeError, ValueError)
+
+# Type of keys in Matcher(dict) in combinations_of_conditions
+MatchKeys = tuple[str, ...] | list[str] | \
+    dict | tuple[bool, ...] | list[bool] | str | bool | None
 
 
 def are_all_equal(comparables: Iterable, eq_meth: str | None = None,
@@ -65,22 +65,59 @@ def bool_pair_to_cases(cond1, cond2) -> int:  # Literal[0, 1, 2, 3]:
     return sum(which_of(cond1, cond2))
 
 
-def combine_maps(maps: Iterable[M]) -> M:  # TODO Move to maptools?
-    """ Merge dicts/maps. (NOTE: It's wild that this implementation works.)
+def combinations_of_conditions(conditions: Sequence[str], cond_mappings:
+                               Mapping[MatchKeys, Any] = dict()) -> dict:
+    ConditionCombo = NamedTuple("ConditionsCombo",
+                                **{cond: bool for cond in conditions})
 
-    :param maps: Iterable[Mapping], maps to combine
-    :return: Mapping combining all of the `maps` into one
-    """
-    return reduce(lambda x, y: x.update(y) or x, maps)
+    class Matcher(dict[ConditionCombo, Any]):
+        _KT = MatchKeys | ConditionCombo
 
+        def __init__(self, matches: Mapping[ConditionCombo, Any] = dict()
+                     ) -> None:
+            for conds in itertools.product((True, False),
+                                           repeat=len(conditions)):
+                key = self.as_conds_combo(conds)
+                self[key] = matches.get(key, None)
 
-def combine_sets(sets: Iterable[set]) -> set:
-    """ Merge sets.
+        def __getitem__(self, key: _KT) -> Any:
+            return super().__getitem__(self.as_conds_combo(key))
 
-    :param sets: Iterable[set] to merge/combine.
-    :return: set, the union of all of the provided `sets`.
-    """
-    return reduce(set.union, sets)
+        def __setitem__(self, key: _KT, value: Any) -> None:
+            return super().__setitem__(self.as_conds_combo(key), value)
+
+        @classmethod
+        def as_conds_combo(cls, conds: _KT) -> ConditionCombo:
+            PARSE_ERR = f"Cannot parse conditions {conds}"
+            match conds:
+                case dict():
+                    combo = ConditionCombo(**conds)
+                case tuple() | list():
+                    conds_types = {type(c) for c in conds}
+                    if conds_types == {bool}:
+                        combo = ConditionCombo(**{conditions[i]: conds[i]
+                                                  for i in range(len(conds))})
+                    elif conds_types == {str}:
+                        combo = cls.conds_in(conds)
+                    else:
+                        raise TypeError(PARSE_ERR)
+                case str():
+                    combo = cls.conds_in((conds, )) if conds in conditions \
+                        else cls.conds_in(conds.split())
+                case ConditionCombo():
+                    combo = conds
+                case bool() | None:
+                    combo = ConditionCombo(**{
+                        k: bool(conds) for k in conditions})
+            return combo
+
+        @staticmethod
+        def conds_in(conds: Iterable) -> ConditionCombo:
+            return ConditionCombo(**{cond: cond in conds
+                                     for cond in conditions})
+
+    return Matcher({Matcher.as_conds_combo(k): v
+                    for k, v in cond_mappings.items()})
 
 
 def has_method(an_obj: Any, method_name: str) -> bool:

@@ -4,7 +4,7 @@
 Tools to define, accept, and validate command-line input arguments.
 Greg Conan: gregmconan@gmail.com
 Created: 2024-09-23
-Updated: 2025-05-24
+Updated: 2025-06-24
 """
 # Import standard libraries
 from collections.abc import Callable
@@ -14,9 +14,9 @@ from typing import Any
 
 # Import local custom libraries
 try:
-    from meta.classes import WrapFunction
-except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy.meta.classes import WrapFunction
+    from wrap import WrapFunction
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from gconanpy.wrap import WrapFunction
 
 
 # NOTE: Functions and classes below are in alphabetical order.

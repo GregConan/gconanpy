@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-22
-Updated: 2025-04-23
+Updated: 2025-06-27
 """
 # Import standard libraries
 from collections.abc import Iterable
@@ -59,6 +59,6 @@ class TestExtend(Tester):
         self.check_result(len(jim.children), 1)
         self.check_result(jim.children[0], james)
         jamesstr = "Sibling(name='James', description='Description', " \
-            "age=21, and siblings=1)"
+            "age=21, siblings=1)"
         self.check_result(str(james), jamesstr)
         assert jim != james

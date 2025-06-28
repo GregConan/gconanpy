@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-06-20
+Updated: 2025-06-24
 """
 # Import standard libraries
 import abc
@@ -16,12 +16,12 @@ from typing_extensions import Self
 
 # Import local custom libraries
 try:
-    from funcs import DATA_ERRORS, has_method, make_metaclass, \
-        metaclass_hasmethod, metaclass_issubclass, name_of, name_type_class
+    from .funcs import DATA_ERRORS, has_method, make_metaclass, \
+        metaclass_hasmethod, metaclass_issubclass, name_type_class
     from ..reg import DunderParser
-except ModuleNotFoundError:  # TODO DRY?
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.meta.funcs import DATA_ERRORS, has_method, make_metaclass, \
-        metaclass_hasmethod, metaclass_issubclass, name_of, name_type_class
+        metaclass_hasmethod, metaclass_issubclass, name_type_class
     from gconanpy.reg import DunderParser
 
 
@@ -48,75 +48,6 @@ class MethodWrapper:
         return inner
 
 
-class WrapFunction:  # (Callable):
-    """ Function wrapper that also stores some of its input parameters. """
-
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        """ Call/execute/unwrap/"thaw" the wrapped/"frozen" function.
-
-        :return: Any, the output of calling the wrapped/"frozen" function \
-            with the specified input parameters
-        """
-        return self.inner(*args, **kwargs)
-
-    def __init__(self, call: Callable, pre: Iterable = list(),
-                 post: Iterable = list(), **kwargs: Any) -> None:
-        """ Wrap/"freeze" a function with some parameters already defined \
-            to call that function with those parameters later.
-
-        :param call: Callable[[*pre, ..., *post], Any], the function to \
-            wrap/"freeze" and then call/execute/"thaw" later.
-        :param pre: Iterable of positional arguments to inject BEFORE the \
-            `call` function's other positional input parameters.
-        :param post: Iterable of positional arguments to inject AFTER the \
-            `call` function's other positional input parameters.
-        :param kwargs: Mapping[str, Any] of keyword arguments to call the \
-            wrapped/"frozen" `call` function with.
-        """
-        if pre or post or kwargs:
-            def inner(*in_args, **in_kwargs):
-                in_kwargs.update(kwargs)
-                return call(*pre, *in_args, *post, **in_kwargs)
-        else:
-            inner = call
-
-        # Put all pre-defined args and kwargs into this instance's str repr
-        # TODO Use stringify_map(kwargs) and stringify_iter(call, pre, post) ?
-        kwargstrs = [f"{k}={v}" for k, v in kwargs.items()]
-        self.stringified = f"{name_of(self)}(call={name_of(call)}, " \
-            f"pre={pre}, post={post}, {', '.join(kwargstrs)})"
-
-        self.inner = inner
-
-    def __repr__(self) -> str:
-        """
-        :return: str, annotated function header describing this WrapFunction.
-        """
-        return self.stringified
-
-    def expect(self, output: Any) -> Self:
-        """ 
-        :param output: Any, expected output returned from inner \
-            wrapped/"frozen" function.
-        :return: WrapFunction[..., bool] that returns True if the inner \
-            wrapped/"frozen" function returns `output` and False otherwise.
-        """
-        def is_as_expected(*args, **kwargs) -> bool:
-            return self.inner(*args, **kwargs) == output
-        return self.__class__(is_as_expected)
-
-    def foreach(self, *objects: Any) -> Generator[Any, None, None]:
-        """ Call the wrapped/"frozen" function with its specified parameters \
-            on every object in `objects`. Iterate lazily; only call/execute \
-            the wrapped function on each object at the moment of retrieval.
-
-        :yield: Generator[Any, None, None], what the wrapped/"frozen" \
-            function returns when given each object in `objects` as an input.
-        """
-        for an_obj in objects:
-            yield self.inner(an_obj)
-
-
 class BoolableMeta(type):  # https://realpython.com/python-interface/
     """ A metaclass that will be used for Boolable class creation. """
     def __instancecheck__(cls, instance: Any) -> bool:
@@ -135,17 +66,28 @@ class Boolable(metaclass=BoolableMeta):
     """ Any object that you can call `bool()` on is a `Boolable`. """
 
 
-class BytesOrStrMeta(type):
-    _Checker = Callable[[Any, type | tuple[type, ...]], bool]
+class MultiTypeMeta(type, abc.ABC):
+    _TypeArgs = type | tuple[type, ...]
+    _TypeChecker = Callable[[Any, _TypeArgs], bool]
 
-    def _check(cls, thing: Any, check: _Checker) -> bool:
-        return check(thing, (bytes, str))
+    IS_A: _TypeArgs = (object, )
+    ISNT_A: _TypeArgs = tuple()
+
+    @staticmethod
+    def check(thing: Any, is_if: _TypeChecker,
+              is_a: _TypeArgs = (object, ),
+              isnt_a: _TypeArgs = tuple()) -> bool:
+        return is_if(thing, is_a) and not is_if(thing, isnt_a)
 
     def __instancecheck__(cls, instance: Any) -> bool:
-        return cls._check(instance, isinstance)
+        return cls.check(instance, isinstance, cls.IS_A, cls.ISNT_A)
 
     def __subclasscheck__(cls, subclass: Any) -> bool:
-        return cls._check(subclass, issubclass)
+        return cls.check(subclass, issubclass, cls.IS_A, cls.ISNT_A)
+
+
+class BytesOrStrMeta(MultiTypeMeta):
+    TYPES = (bytes, str)
 
 
 class BytesOrStr(metaclass=BytesOrStrMeta):

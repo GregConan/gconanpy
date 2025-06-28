@@ -3,19 +3,25 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-06-02
+Updated: 2025-06-27
 """
 # Import standard libraries
+from collections.abc import Callable, Iterable, Sequence
 import datetime as dt
 import random
+from typing import Any, TypeVar
 
 # Import local custom libraries
 from gconanpy.IO.web import URL
+from gconanpy.meta.funcs import name_of
 from gconanpy.ToString import stringify, ToString
+from gconanpy.trivial import always_true
+from gconanpy.wrap import WrapFunction
 from tests.testers import Tester
 
 
 class TestStringify(Tester):
+    _T = TypeVar("_T")
     HELLO_WORLD = ToString("hello world")
 
     def check_map(self, expected: str, **kwargs) -> None:
@@ -56,6 +62,12 @@ class TestStringify(Tester):
         self.check_ToString(stringify(moment), moment.isoformat(
             sep="_", timespec="seconds").replace(":", "-"))
 
+    def test_enclose(self) -> None:
+        self.check_ToString(ToString("").enclosed_by("'"), "''")
+        for args, out in {(None, "'"): "'", ("'", None): "'", (None, None): ""
+                          }.items():
+            self.check_ToString(ToString("").enclosed_in(*args), out)
+
     def test_filepath(self) -> None:
         str_fpath = ToString.filepath(
             "/home/gconan", file_name="delete-this-git-difference",
@@ -79,6 +91,29 @@ class TestStringify(Tester):
 
     def test_none(self) -> None:
         self.check_ToString(stringify(None), "")
+
+    def stringify_WrapFunction(self, call: Callable, pre: Iterable = list(),
+                               post: Iterable = list(), **kwargs: Any) -> str:
+        kwargstrs = [f"{k}={v}" for k, v in kwargs.items()]
+        stringified = f"{name_of(WrapFunction)}(call={name_of(call)}, " \
+            f"pre={pre}, post={post}, {', '.join(kwargstrs)})"
+        return stringified
+
+    def random_sublist(self, seq: Sequence[_T], min_len: int = 0,
+                       max_len: int = 100) -> list[_T]:
+        return random.choices(seq, k=random.randint(
+            min_len, min(max_len, len(seq))))
+
+    def test_represent_class(self) -> None:
+        self.add_basics()
+        for _ in range(10):
+            pre = self.random_sublist(self.alist)
+            post = self.random_sublist(self.alist)
+            kwargs = self.adict
+            call = always_true
+            self.check_result(ToString.represent_class(
+                WrapFunction, call=call, pre=pre, post=post, **kwargs),
+                self.stringify_WrapFunction(call, pre, post, **kwargs))
 
     def test_quote(self) -> None:
         self.check_map('"a": 1, "b": 2, and "c": 3', quote='"')

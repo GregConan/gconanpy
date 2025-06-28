@@ -4,7 +4,7 @@
 Functions/classes to access and/or modify the attributes of any object(s).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-02
-Updated: 2025-06-05
+Updated: 2025-06-24
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Iterable
@@ -12,13 +12,13 @@ from typing import Any, Literal, TypeVar
 
 # Import local custom libraries
 try:
-    from meta.classes import WrapFunction
-    from meta.funcs import combine_sets
+    from seq import Combine
     from trivial import always_true
-except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy.meta.classes import WrapFunction
-    from gconanpy.meta.funcs import combine_sets
+    from wrap import WrapFunction
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from gconanpy.seq import Combine
     from gconanpy.trivial import always_true
+    from gconanpy.wrap import WrapFunction
 
 # Constants: TypeVars for...
 T = TypeVar("T")  # ...add_to
@@ -58,7 +58,7 @@ def get_names(an_obj: Any) -> set[str]:
     # If it's a class, name some attributes of its base class(es)
     bases = getattr(an_obj, "__bases__", None)
     if bases:
-        names.update(combine_sets((set(base.__dict__) for base in bases)))
+        names.update(Combine.sets((set(base.__dict__) for base in bases)))
 
     # Name some of its own attributes
     names.update(dir(an_obj))

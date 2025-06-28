@@ -4,7 +4,7 @@
 Classes that parse strings and text data, especially using Regex.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
-Updated: 2025-06-13
+Updated: 2025-06-24
 """
 # Import standard libraries
 from collections.abc import Container, Generator
@@ -18,7 +18,7 @@ import regex
 # Import local custom libraries
 try:
     import mapping
-except ModuleNotFoundError:  # TODO DRY?
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy import mapping
 
 
@@ -49,6 +49,23 @@ class Regextract:
         )*+  # Match everything possible inside the outermost parentheses
         \)"""  # Get everything before the closing parenthesis
     # _PARENTHETICALS = r"\((?:[^()]*(?R)?)*+\)"  # NOTE Functionally same?
+    INVALID_PY_REPR = r"""<
+        ((
+        (module|function|built-in|class)
+        [^<>]*
+        )|(
+        [^<>]*
+        \sobject\sat\s\dx\w{12}))
+        >"""
+
+    @classmethod
+    def is_invalid_py_repr(cls, astr: str) -> bool:
+        """
+        _summary_ 
+        :param astr: str, _description_
+        :return: bool, _description_
+        """
+        return re.match(cls.INVALID_PY_REPR, astr, re.X) is not None
 
     @classmethod
     def iter_parentheticals(cls, txt: str) -> Generator[regex.Match[str], None, None]:

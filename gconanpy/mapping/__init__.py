@@ -4,10 +4,12 @@
 Useful/convenient classes to work with Python dicts/Mappings.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-06-20
+Updated: 2025-06-24
 """
 # Import standard libraries
-from collections.abc import Callable, Container, Generator, Hashable, Mapping
+from collections.abc import (Callable, Collection, Container,
+                             Generator, Hashable, Mapping)
+import itertools
 import sys
 from typing import Any, overload, SupportsBytes, TypeVar
 
@@ -127,6 +129,29 @@ class Subset:
         return as_type(filtered)
 
 
+class Combinations:
+    _K = TypeVar("_K")
+    _V = TypeVar("_V")
+    _Map = Mapping[_K, _V]
+
+    @staticmethod
+    def of_seq(objects: Collection) -> itertools.chain:
+        """ Return all possible combinations/subsequences of `objects`.
+        Adapted from https://stackoverflow.com/a/31474532
+
+        :param objects: Collection, _description_
+        :return: itertools.chain, _description_
+        """
+        return itertools.chain.from_iterable(
+            itertools.combinations(objects, i + 1)
+            for i in range(len(objects)))
+
+    @classmethod
+    def of_map(cls, a_map: _Map) -> Generator[_Map, None, None]:
+        for keys in cls.of_seq(a_map):
+            yield Subset(keys=keys, include_keys=True).of(a_map)
+
+
 class Traversible:
     def __init__(self) -> None:
         self.traversed: set[int] = set()
@@ -144,8 +169,7 @@ class Traversible:
 
 class Walk(Traversible, IterableMap):
     """ Recursively iterate over a Mapping and the Mappings nested in it. """
-    _KeyType = Hashable | None
-    _Walker = Generator[tuple[_KeyType, Mapping], None, None]
+    _Walker = Generator[tuple[Hashable, Mapping], None, None]
 
     def __init__(self, from_map: Mapping,
                  only_yield_maps: bool = False) -> None:
@@ -161,7 +185,7 @@ class Walk(Traversible, IterableMap):
         self.only_yield_maps = only_yield_maps
         self.root = from_map
 
-    def _walk(self, key: _KeyType, value: Mapping | Any) -> _Walker:
+    def _walk(self, key: Hashable | None, value: Mapping | Any) -> _Walker:
         # Only visit each item once; mark each as visited after checking
         if self._will_now_traverse(value):
 

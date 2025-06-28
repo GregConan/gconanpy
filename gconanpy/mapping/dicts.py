@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-06-20
+Updated: 2025-06-24
 """
 # Import standard libraries
 from collections.abc import (Callable, Collection, Container, Generator,
@@ -22,7 +22,7 @@ try:
     from ..debug import Debuggable
     from ..meta.funcs import DATA_ERRORS, name_of
     from ..trivial import always_none
-except ModuleNotFoundError:  # TODO DRY?
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy import attributes, mapping
     from gconanpy.debug import Debuggable
     from gconanpy.meta.funcs import DATA_ERRORS, name_of

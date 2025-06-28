@@ -21,12 +21,14 @@ from makefun import create_function, with_signature
 try:
     import attributes
     from meta.classes import HasSlots
-    from meta.funcs import combine_maps, name_of, pairs
+    from meta.funcs import name_of, pairs
+    from seq import Combine
     from ToString import ToString
 except ModuleNotFoundError:  # TODO DRY?
     from gconanpy import attributes
     from gconanpy.meta.classes import HasSlots
-    from gconanpy.meta.funcs import combine_maps, name_of, pairs
+    from gconanpy.meta.funcs import name_of, pairs
+    from gconanpy.seq import Combine
     from gconanpy.ToString import ToString
 
 
@@ -40,7 +42,7 @@ def all_annotations_of(a_class: type) -> dict[str, type]:
     :return: dict[str, type], the `__annotations__` of `a_class` and all of \
         its parent (`__mro__`) classes, prioritizing `a_class`'s annotations
     """
-    return combine_maps([getattr(base, "__annotations__", dict())
+    return Combine.maps([getattr(base, "__annotations__", dict())
                          for base in reversed(a_class.__mro__)])
 
 
@@ -222,12 +224,8 @@ class WeakDataclassBase:
     __slots__: tuple
 
     def __repr__(self) -> str:
-        attrs = {x: ToString.from_object(getattr(self, x), max_len=100)
-                 for x in self.__slots__}
-        attrs_str = ToString.from_mapping(attrs, quote="'", join_on="=",
-                                          prefix="(", suffix=")",
-                                          quote_keys=False)
-        return name_of(self) + attrs_str
+        return ToString.represent_class(type(self), **{
+            x: getattr(self, x) for x in self.__slots__}, max_len=100)
 
     def __eq__(self, other) -> bool:
         return self.__slots__ == other.__slots__ and \

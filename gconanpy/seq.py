@@ -7,10 +7,12 @@ Overlaps with:
     DCAN-Labs:abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-06-02
+Updated: 2025-06-24
 """
 # Import standard libraries
-from collections.abc import Hashable, Iterable, Mapping, Sequence
+from collections.abc import (Hashable, Iterable, Mapping,
+                             MutableMapping, Sequence)
+from functools import reduce
 from pprint import pprint
 from typing import Any, TypeVar
 
@@ -29,6 +31,30 @@ I = TypeVar("I")  # ...insert_into
 S = TypeVar("S")  # ...differentiate_sets & get_key_set
 
 # NOTE All functions/classes below are in alphabetical order.
+
+
+class Combine:
+    _M = TypeVar("_M", bound=MutableMapping)
+    _S = TypeVar("_S")
+
+    @staticmethod
+    def maps(maps: Iterable[_M]) -> _M:
+        """ Merge dicts/maps.
+        (NOTE: It's wild that this implementation works.)
+
+        :param maps: Iterable[Mapping], maps to combine
+        :return: Mapping combining all of the `maps` into one
+        """
+        return reduce(lambda x, y: x.update(y) or x, maps)
+
+    @staticmethod
+    def sets(sets: Iterable[set[_S]]) -> set[_S]:
+        """ Merge sets.
+
+        :param sets: Iterable[set] to merge/combine.
+        :return: set, the union of all of the provided `sets`.
+        """
+        return reduce(set.union, sets)
 
 
 def count_uniqs_in_cols(a_df: pd.DataFrame) -> dict[str, int]:
