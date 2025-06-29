@@ -4,14 +4,13 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-06-24
+Updated: 2025-06-28
 """
 # Import standard libraries
 import abc
-from collections.abc import (Callable, Collection, Generator,
-                             Iterable, Mapping, MutableMapping)
+from collections.abc import Callable, Collection, Iterable, Mapping
 # from operator import attrgetter, methodcaller  # TODO?
-from typing import Any, Concatenate, ParamSpec, TypeVar
+from typing import Any, Concatenate, get_args, Literal, ParamSpec, TypeVar
 from typing_extensions import Self
 
 # Import local custom libraries
@@ -147,6 +146,19 @@ class TypeFactory:  # NOTE: Work-in-progress
 
         return type(class_name, (type, ), {"metaclass": make_metaclass(
             "MethodMetaclass", _check), **kwargs})
+
+
+class TimeSpec(dict[str, int]):
+    UNIT = Literal["auto", "nanoseconds", "milliseconds", "microseconds",
+                   "seconds", "minutes", "hours"]
+    OFFSETS = (1, 1000, 10, 100, 60, 60)
+
+    def __init__(self):
+        super().__init__()
+        units = get_args(self.UNIT)[1:]
+        self[units[0]] = self.OFFSETS[0]
+        for i in range(1, len(self.OFFSETS)):
+            self[units[i]] = self[units[i-1]] * self.OFFSETS[i]
 
 
 class SkipException(BaseException):

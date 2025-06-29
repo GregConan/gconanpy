@@ -4,7 +4,7 @@
 Functions to manipulate and define classes and/or other functions.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-20
-Updated: 2025-06-27
+Updated: 2025-06-28
 """
 # Import standard libraries
 from collections.abc import (Callable, Collection, Generator,
@@ -16,18 +16,16 @@ from typing import Any, NamedTuple
 
 # Import local custom libraries
 try:
+    from . import MatcherBase
     from ..reg import DunderParser
     from ..trivial import call_method_of
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from gconanpy.meta import MatcherBase
     from gconanpy.reg import DunderParser
     from gconanpy.trivial import call_method_of
 
 # Purely "internal" errors only involving local data; ignorable in some cases
 DATA_ERRORS = (AttributeError, IndexError, KeyError, TypeError, ValueError)
-
-# Type of keys in Matcher(dict) in combinations_of_conditions
-MatchKeys = tuple[str, ...] | list[str] | \
-    dict | tuple[bool, ...] | list[bool] | str | bool | None
 
 
 def are_all_equal(comparables: Iterable, eq_meth: str | None = None,
@@ -62,59 +60,15 @@ def are_all_equal(comparables: Iterable, eq_meth: str | None = None,
 
 
 def bool_pair_to_cases(cond1, cond2) -> int:  # Literal[0, 1, 2, 3]:
-    return sum(which_of(cond1, cond2))
+    return sum({x + 1 for x in which_of(bool(cond1), bool(cond2))})
 
 
-def combinations_of_conditions(conditions: Sequence[str], cond_mappings:
-                               Mapping[MatchKeys, Any] = dict()) -> dict:
-    ConditionCombo = NamedTuple("ConditionsCombo",
-                                **{cond: bool for cond in conditions})
-
-    class Matcher(dict[ConditionCombo, Any]):
-        _KT = MatchKeys | ConditionCombo
-
-        def __init__(self, matches: Mapping[ConditionCombo, Any] = dict()
-                     ) -> None:
-            for conds in itertools.product((True, False),
-                                           repeat=len(conditions)):
-                key = self.as_conds_combo(conds)
-                self[key] = matches.get(key, None)
-
-        def __getitem__(self, key: _KT) -> Any:
-            return super().__getitem__(self.as_conds_combo(key))
-
-        def __setitem__(self, key: _KT, value: Any) -> None:
-            return super().__setitem__(self.as_conds_combo(key), value)
-
-        @classmethod
-        def as_conds_combo(cls, conds: _KT) -> ConditionCombo:
-            PARSE_ERR = f"Cannot parse conditions {conds}"
-            match conds:
-                case dict():
-                    combo = ConditionCombo(**conds)
-                case tuple() | list():
-                    conds_types = {type(c) for c in conds}
-                    if conds_types == {bool}:
-                        combo = ConditionCombo(**{conditions[i]: conds[i]
-                                                  for i in range(len(conds))})
-                    elif conds_types == {str}:
-                        combo = cls.conds_in(conds)
-                    else:
-                        raise TypeError(PARSE_ERR)
-                case str():
-                    combo = cls.conds_in((conds, )) if conds in conditions \
-                        else cls.conds_in(conds.split())
-                case ConditionCombo():
-                    combo = conds
-                case bool() | None:
-                    combo = ConditionCombo(**{
-                        k: bool(conds) for k in conditions})
-            return combo
-
-        @staticmethod
-        def conds_in(conds: Iterable) -> ConditionCombo:
-            return ConditionCombo(**{cond: cond in conds
-                                     for cond in conditions})
+def combinations_of_conditions(all_conditions: Sequence[str], cond_mappings:
+                               Mapping[MatcherBase._KT, Any] = dict()) -> dict:
+    class Matcher(MatcherBase):
+        conditions = all_conditions
+        ConditionCombo = NamedTuple(
+            "ConditionsCombo", **{cond: bool for cond in conditions})
 
     return Matcher({Matcher.as_conds_combo(k): v
                     for k, v in cond_mappings.items()})
@@ -215,9 +169,10 @@ def name_type_class(is_all_of: Any = tuple(), isnt_any_of: Any = tuple(),
                     max_n: int = 5, default: str = "NewTypeClass",
                     pos_verb: str = "Is", neg_verb: str = "IsNot",
                     get_name: Callable[[Any], str] = name_of) -> str:
-    str_isall = "And".join(names_of(tuplify(is_all_of), max_n, get_name))
-    str_isntany = "Or".join(names_of(tuplify(isnt_any_of), max_n, get_name))
-    match bool_pair_to_cases(str_isall, str_isntany):
+    def nameit(x: Any) -> str: return get_name(x).capitalize()
+    str_isall = "And".join(names_of(tuplify(is_all_of), max_n, nameit))
+    str_isntany = "Or".join(names_of(tuplify(isnt_any_of), max_n, nameit))
+    match bool_pair_to_cases(bool(str_isall), bool(str_isntany)):
         case 0:
             name = default
         case 1:

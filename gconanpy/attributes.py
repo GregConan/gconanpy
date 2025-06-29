@@ -4,7 +4,7 @@
 Functions/classes to access and/or modify the attributes of any object(s).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-02
-Updated: 2025-06-24
+Updated: 2025-06-28
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Iterable
@@ -298,7 +298,7 @@ class Of:
             if filter_if(name, attr) is not exclude:
                 yield name, attr
 
-    def select_all(self, filter_if: newFilter.FilterFunction,
+    def select_all(self, filter_if: newFilter.FilterFunction = always_true,
                    exclude: bool = False) -> list[_AttrPair]:
         return [(name, attr) for name, attr in
                 self.select(filter_if, exclude)]

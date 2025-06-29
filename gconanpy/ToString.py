@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-06-27
+Updated: 2025-06-28
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Iterable, Mapping
@@ -11,7 +11,7 @@ import datetime as dt
 import os
 import re
 import sys
-from typing import Any, Literal, TypeVar
+from typing import Any, TypeVar
 from typing_extensions import Self
 
 # Import third-party PyPI libraries
@@ -19,19 +19,17 @@ import pathvalidate
 
 # Import local custom libraries
 try:
-    from meta.classes import MethodWrapper
+    from meta.classes import MethodWrapper, TimeSpec
     from meta.funcs import combinations_of_conditions, name_of
     from reg import Regextract
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.meta.classes import MethodWrapper
+    from gconanpy.meta.classes import MethodWrapper, TimeSpec
     from gconanpy.meta.funcs import combinations_of_conditions, name_of
     from gconanpy.reg import Regextract
 
 
 class ToString(str):
     _S = TypeVar("_S")  # for truncate(...) function
-    _TIMESPEC = Literal["auto", "hours", "minutes", "seconds", "milliseconds",
-                        "microseconds"]  # for datetime.isoformat
     Stringifier = Callable[[Any], Self]
 
     # Wrap string methods so they return a ToString instance
@@ -137,7 +135,7 @@ class ToString(str):
 
     @classmethod
     def from_datetime(cls, moment: dt.date | dt.time | dt.datetime,
-                      sep: str = "_", timespec: _TIMESPEC = "seconds",
+                      sep: str = "_", timespec: TimeSpec.UNIT = "seconds",
                       replace: Mapping[str, str] = {":": "-"}) -> Self:
         """ Return the time formatted according to ISO as a ToString object.
 
@@ -222,7 +220,7 @@ class ToString(str):
                     quote_keys: bool = True, join_on: str = ": ",
                     sep: str = ", ", prefix: str | None = None,
                     suffix: str | None = None,
-                    dt_sep: str = "_", timespec: _TIMESPEC = "seconds",
+                    dt_sep: str = "_", timespec: TimeSpec.UNIT = "seconds",
                     replace: Mapping[str, str] = {":": "-"},
                     encoding: str = sys.getdefaultencoding(),
                     errors: str = "ignore",

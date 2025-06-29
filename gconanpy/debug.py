@@ -6,7 +6,7 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-06-03
+Updated: 2025-06-28
 """
 # Import standard libraries
 from abc import ABC
@@ -17,6 +17,7 @@ import logging
 import os
 import pdb
 import sys
+from time import perf_counter_ns
 import traceback
 import tracemalloc
 from typing import Any
@@ -28,10 +29,12 @@ from pympler.asizeof import asizeof
 
 # Import local custom libraries
 try:
+    from meta.classes import TimeSpec
     from meta.funcs import name_of
     from seq import uniqs_in
     from ToString import stringify_dt, stringify_iter
 except ModuleNotFoundError:  # TODO DRY?
+    from gconanpy.meta.classes import TimeSpec
     from gconanpy.meta.funcs import name_of
     from gconanpy.seq import uniqs_in
     from gconanpy.ToString import stringify_dt, stringify_iter
@@ -207,6 +210,27 @@ class ShowTimeTaken(ABC):
         """
         self.elapsed = dt.datetime.now() - self.start
         self.show(f"\nTime elapsed {self.doing_what}: {self.elapsed}")
+        return not exc_type
+
+
+class StrictlyTime(ShowTimeTaken):
+    """Context manager to time and log the duration of any block of code."""
+    TIMESPECS = TimeSpec()
+
+    def __init__(self, doing_what: str, show: Callable[..., Any] = print,
+                 timespec: TimeSpec.UNIT = "milliseconds") -> None:
+        super().__init__(doing_what, show)
+        self.unit: TimeSpec.UNIT = timespec
+
+    def __enter__(self) -> Self:
+        self.start: int = perf_counter_ns()
+        return self
+
+    def __exit__(self, exc_type: type | None = None, *_: Any) -> bool:
+        ns_elapsed: int = perf_counter_ns() - self.start
+        self.elapsed: float = float(ns_elapsed / self.TIMESPECS[self.unit])
+        self.show(f"{self.unit.capitalize()} elapsed "
+                  f"{self.doing_what}: {self.elapsed}")
         return not exc_type
 
 

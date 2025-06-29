@@ -3,11 +3,12 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-07
-Updated: 2025-06-24
+Updated: 2025-06-28
 """
 # Import standard libraries
 import builtins
 from collections.abc import Iterable
+import random
 from typing import Any, TypeVar
 
 # Import third-party PyPI libraries
@@ -15,11 +16,12 @@ import pandas as pd
 
 # Import local custom libraries
 import gconanpy.attributes as attributes
+from gconanpy.debug import StrictlyTime
 from gconanpy.mapping import Combinations
 from gconanpy.mapping.dicts import Cryptionary, Defaultionary, DotDict, \
     Explictionary, LazyDict, LazyDotDict
 from gconanpy.meta.classes import Boolable, MultiTypeMeta
-from gconanpy.meta.funcs import metaclass_issubclass
+from gconanpy.meta.funcs import metaclass_issubclass, name_of, name_type_class
 from tests.testers import Tester
 
 
@@ -57,7 +59,21 @@ class TestMetaClasses(Tester):
 
 class TestMetaFunctions(Tester):
 
-    def test_metaclass_issubclass(self):
+    def test_name_type_class(self) -> None:
+        n_variants = 100
+        n_runs = 100
+        disjoint_classes = {list, tuple, dict, pd.DataFrame, attributes.Of}
+        subsets = [*Combinations.of_seq(disjoint_classes)]
+        for _ in range(n_variants):
+            subclasses = random.choice(subsets)
+            not_subclasses = disjoint_classes - set(subclasses)
+            with StrictlyTime(f"running {name_of(name_type_class)}"):
+                for _ in range(n_runs):
+                    name = name_type_class(subclasses, not_subclasses)
+            for class_name in disjoint_classes:
+                assert name_of(class_name).capitalize() in name
+
+    def test_metaclass_issubclass(self) -> None:
         self.add_basics()
         subclasses = (dict, Explictionary, Defaultionary, DotDict)
         not_subclasses = (LazyDict, LazyDotDict, Cryptionary)
