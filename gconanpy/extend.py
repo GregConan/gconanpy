@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2025-05-24
+Updated: 2025-07-07
 """
 # Import standard libraries
 from collections.abc import (Callable, Container, Generator,
@@ -22,13 +22,13 @@ try:
     import attributes
     from meta.classes import HasSlots
     from meta.funcs import name_of, pairs
-    from seq import Combine
+    from seq import merge
     from ToString import ToString
-except ModuleNotFoundError:  # TODO DRY?
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy import attributes
     from gconanpy.meta.classes import HasSlots
     from gconanpy.meta.funcs import name_of, pairs
-    from gconanpy.seq import Combine
+    from gconanpy.seq import merge
     from gconanpy.ToString import ToString
 
 
@@ -42,8 +42,8 @@ def all_annotations_of(a_class: type) -> dict[str, type]:
     :return: dict[str, type], the `__annotations__` of `a_class` and all of \
         its parent (`__mro__`) classes, prioritizing `a_class`'s annotations
     """
-    return Combine.maps([getattr(base, "__annotations__", dict())
-                         for base in reversed(a_class.__mro__)])
+    return merge([getattr(base, "__annotations__", dict())
+                  for base in reversed(a_class.__mro__)])
 
 
 def classes_in_module(module: ModuleType) -> Generator[tuple[str, type],

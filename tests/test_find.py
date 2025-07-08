@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-03
-Updated: 2025-05-27
+Updated: 2025-07-06
 """
 # Import standard libraries
 import datetime as dt
@@ -12,7 +12,7 @@ from typing import Any
 # Import local custom libraries
 from gconanpy.debug import ShowTimeTaken
 from gconanpy.find import iterfind, modifind, ReadyChecker, UntilFound
-from tests.testers import Tester
+from gconanpy.testers import Tester
 
 # Import third-party PyPI libraries
 import bs4

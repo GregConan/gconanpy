@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-06-27
+Updated: 2025-07-06
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Sequence
@@ -15,9 +15,9 @@ from typing import Any, TypeVar
 from gconanpy.IO.web import URL
 from gconanpy.meta.funcs import name_of
 from gconanpy.ToString import stringify, ToString
+from gconanpy.testers import Tester
 from gconanpy.trivial import always_true
 from gconanpy.wrap import WrapFunction
-from tests.testers import Tester
 
 
 class TestStringify(Tester):

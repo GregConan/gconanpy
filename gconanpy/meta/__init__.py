@@ -1,11 +1,10 @@
-
 #!/usr/bin/env python3
 
 """
 Matcher base class
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-28
-Updated: 2025-06-28
+Updated: 2025-06-29
 """
 # Import standard libraries
 from collections.abc import Iterable, Mapping, Sequence

@@ -4,7 +4,7 @@
 Useful/convenient classes to work with Python dicts/Mappings.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-06-24
+Updated: 2025-07-07
 """
 # Import standard libraries
 from collections.abc import (Callable, Collection, Container,
@@ -54,6 +54,7 @@ class Bytesifier:
 
 
 class IterableMap:
+    """ Base class for a custom object to emulate Mapping iter methods. """
     _KeyType = Hashable | None
     _KeyWalker = Generator[_KeyType, None, None]
     _Walker = Generator[tuple[_KeyType, Any], None, None]
@@ -61,7 +62,7 @@ class IterableMap:
     def __iter__(self) -> _KeyWalker:
         yield from self.keys()
 
-    items: Callable[[], _Walker]
+    items: Callable[[], _Walker]  # Must be defined in subclass
 
     def keys(self) -> _KeyWalker:
         for k, _ in self.items():
@@ -130,29 +131,46 @@ class Subset:
 
 
 class Combinations:
-    _K = TypeVar("_K")
-    _V = TypeVar("_V")
-    _Map = Mapping[_K, _V]
+    _Map = TypeVar("_Map", bound=Mapping)
+
+    @staticmethod
+    def of_bools(n: int) -> Generator[tuple[bool, ...], None, None]:
+        """         
+        :param n: int, maximum length of each tuple to yield.
+        :yield: Generator[tuple[bool, ...], None, None], all possible \
+            combinations of `n` boolean values.
+        """
+        for conds in itertools.product((True, False), repeat=n):
+            yield tuple(conds)
+
+    @classmethod
+    def of_map(cls, a_map: _Map) -> Generator[_Map, None, None]:
+        """ Given a mapping, yield each possible subset of its item pairs.
+        `d={1:1, 2:2}; Combinations.of_map(d)` yields `{1:1}`, `{2:2}`, & `d`.
+
+        :param a_map: _Map, _description_
+        :yield: Generator[_Map, None, None], _description_
+        """
+        for keys in cls.of_seq(a_map):
+            yield Subset(keys=keys, include_keys=True).of(a_map)
 
     @staticmethod
     def of_seq(objects: Collection) -> itertools.chain:
         """ Return all possible combinations/subsequences of `objects`.
         Adapted from https://stackoverflow.com/a/31474532
 
-        :param objects: Collection, _description_
-        :return: itertools.chain, _description_
+        :param objects: Collection
+        :return: itertools.chain[Collection], all `objects` combinations
         """
         return itertools.chain.from_iterable(
             itertools.combinations(objects, i + 1)
             for i in range(len(objects)))
 
-    @classmethod
-    def of_map(cls, a_map: _Map) -> Generator[_Map, None, None]:
-        for keys in cls.of_seq(a_map):
-            yield Subset(keys=keys, include_keys=True).of(a_map)
-
 
 class Traversible:
+    """ Base class for recursive iterators that can visit all items in a \
+        nested container data structure. """
+
     def __init__(self) -> None:
         self.traversed: set[int] = set()
 

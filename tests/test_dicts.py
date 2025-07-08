@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-06-11
+Updated: 2025-07-06
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Iterable, \
@@ -16,7 +16,7 @@ from gconanpy import mapping
 from gconanpy.mapping import map_funcs
 from gconanpy.mapping.dicts import Cryptionary, Defaultionary, DotDict, DotPromptionary, Explictionary, FancyDict, Invertionary, LazyDict, LazyDotDict, Promptionary, SubCryptionary, Subsetionary, Updationary, Walktionary
 # from tests import test_dicts
-from tests.testers import Tester  # , TimeTester
+from gconanpy.testers import Tester  # , TimeTester
 
 
 DotInvertionary = type("DotInvertionary", (DotDict, Invertionary), dict())
@@ -164,10 +164,10 @@ class TestDictFunctions(DictTester):
     def test_invert_3(self, invert: Callable = map_funcs.invert,
                       dict_class: type[dict] = dict) -> None:
         self.add_basics()
-        for holder_type in (list, set, tuple):
-            self.invert_test(self.get_1s_dict(),
-                             {1: holder_type(["a", "b", "c", "d"])}, invert,
-                             dict_class, keep_collisions_in=holder_type)
+        # for holder_type in (list, set, tuple):  # TODO
+        self.invert_test(self.get_1s_dict(),
+                         {1: ["a", "b", "c", "d"]}, invert,
+                         dict_class, keep_keys=True)
 
     def test_invert_4(self, invert: Callable = map_funcs.invert,
                       dict_class: type[dict] = dict) -> None:

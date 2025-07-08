@@ -12,11 +12,11 @@ from typing import Any, Literal, TypeVar
 
 # Import local custom libraries
 try:
-    from seq import Combine
+    from seq import merge
     from trivial import always_true
     from wrap import WrapFunction
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.seq import Combine
+    from gconanpy.seq import merge
     from gconanpy.trivial import always_true
     from gconanpy.wrap import WrapFunction
 
@@ -58,7 +58,7 @@ def get_names(an_obj: Any) -> set[str]:
     # If it's a class, name some attributes of its base class(es)
     bases = getattr(an_obj, "__bases__", None)
     if bases:
-        names.update(Combine.sets((set(base.__dict__) for base in bases)))
+        names.update(merge((set(base.__dict__) for base in bases)))
 
     # Name some of its own attributes
     names.update(dir(an_obj))
@@ -99,13 +99,15 @@ class Filter:
         """ _summary_ 
 
         :param if_names: list[Callable[[Any], bool]] of \
-            Callables to run on the NAME of every attribute of this object, \
+            Callables to run on the NAME of every attribute of this object \
             to check whether the returned generator function should include \
-            that attribute or skip it
+            that attribute or skip it; all must return the `include_names` \
+            value (default True) to pass the filter.
         :param if_values: list[Callable[[Any], bool]] of \
             Callables to run on the VALUE of every attribute of this object, \
             to check whether the returned generator function should include \
-            that attribute or skip it
+            that attribute or skip it; all must return the `include_values` \
+            value (default True) to pass the filter.
         """
         self.include = {"names": include_names, "values": include_values}
         self.selectors = {"names": if_names, "values": if_values}
@@ -113,6 +115,7 @@ class Filter:
     def add(self, which: _WHICH, func: Callable,
             pre: Iterable = list(), post: Iterable = list(),
             **kwargs: Any) -> None:
+
         self.selectors[which].append(WrapFunction(func, pre, post,
                                                   **kwargs))
 

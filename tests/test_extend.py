@@ -3,14 +3,14 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-22
-Updated: 2025-06-27
+Updated: 2025-07-06
 """
 # Import standard libraries
 from collections.abc import Iterable
 
 # Import local custom libraries
 from gconanpy.extend import weak_dataclass
-from tests.testers import Tester
+from gconanpy.testers import Tester
 
 
 class TestExtend(Tester):

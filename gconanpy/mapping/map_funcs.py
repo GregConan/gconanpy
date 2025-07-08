@@ -4,9 +4,10 @@
 Useful/convenient functions to use on dicts. Taken from dicts.py classes
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-09
-Updated: 2025-06-20
+Updated: 2025-07-07
 """
 # Import standard libraries
+from collections import defaultdict
 from collections.abc import Callable, Collection, Container, Generator, \
     Hashable, Iterable, Mapping, MutableMapping, Sequence
 from configparser import ConfigParser
@@ -16,7 +17,7 @@ from typing import Any, TypeVar
 try:
     from ..meta.funcs import DATA_ERRORS
     from ..trivial import always_none
-except ModuleNotFoundError:  # TODO DRY?
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.meta.funcs import DATA_ERRORS
     from gconanpy.trivial import always_none
 
@@ -124,7 +125,7 @@ def has_all(a_dict: Mapping, keys: Iterable[Hashable],
         return True
 
 
-def invert(a_dict: dict, keep_collisions_in: CollisionHandler = None) -> dict:
+def invert(a_dict: dict, keep_keys: bool = False) -> dict:
     """ Swap keys and values. Inverting {1: 2, 3: 4} returns {2: 1, 4: 3}.
 
     When 2+ keys are mapped to the same value, then that value will be \
@@ -137,26 +138,17 @@ def invert(a_dict: dict, keep_collisions_in: CollisionHandler = None) -> dict:
     """
     # If we are NOT keeping all keys mapped to the same value, then
     # just keep whichever key was added most recently
-    if keep_collisions_in is None:
+    if not keep_keys:
         inverted = {v: k for k, v in a_dict.items()}
 
     else:  # If we ARE keeping all keys mapped to the same value, then:
-        inverted = dict()  # Avoid conflating keys & values
-        collided = set()  # Keep track of which values collide
+        inverted = defaultdict(list)  # Avoid conflating keys & values
 
-        # If values don't collide, just swap them with keys
-        # TODO Instead, contain every new value so dict has 1 value type?
+        # Swap values with keys
+        # Contain every new value so dict has 1 value type
         for key, value in a_dict.items():
-            if value not in inverted:
-                inverted[value] = key
+            inverted[value].append(key)
 
-            # If 2+ former values (now keys) collide, then map them to a
-            # keep_collisions_in container holding all of the former keys
-            else:
-                new_value = [*inverted[value], key] if value in collided \
-                    else [inverted[value], key]
-                collided.add(value)
-                inverted[value] = keep_collisions_in(new_value)
     return inverted
 
 

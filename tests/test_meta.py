@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-07
-Updated: 2025-06-28
+Updated: 2025-07-06
 """
 # Import standard libraries
 import builtins
@@ -21,8 +21,9 @@ from gconanpy.mapping import Combinations
 from gconanpy.mapping.dicts import Cryptionary, Defaultionary, DotDict, \
     Explictionary, LazyDict, LazyDotDict
 from gconanpy.meta.classes import Boolable, MultiTypeMeta
-from gconanpy.meta.funcs import metaclass_issubclass, name_of, name_type_class
-from tests.testers import Tester
+from gconanpy.meta.funcs import metaclass_issubclass, name_of, \
+    name_type_class, names_of
+from gconanpy.testers import Tester
 
 
 class TestAttributesOf(Tester):
@@ -58,20 +59,35 @@ class TestMetaClasses(Tester):
 
 
 class TestMetaFunctions(Tester):
+    DISJOINT_CLASSES: set[type] = {
+        list, tuple, dict, pd.DataFrame, attributes.Of}
+
+    def test_names_of(self) -> None:
+        for classes in Combinations.of_seq(self.DISJOINT_CLASSES):
+            self.check_result(names_of(classes), [name_of(x) for x in classes])
 
     def test_name_type_class(self) -> None:
         n_variants = 100
         n_runs = 100
-        disjoint_classes = {list, tuple, dict, pd.DataFrame, attributes.Of}
-        subsets = [*Combinations.of_seq(disjoint_classes)]
+        subsets = [*Combinations.of_seq(self.DISJOINT_CLASSES)]
         for _ in range(n_variants):
             subclasses = random.choice(subsets)
-            not_subclasses = disjoint_classes - set(subclasses)
-            with StrictlyTime(f"running {name_of(name_type_class)}"):
-                for _ in range(n_runs):
-                    name = name_type_class(subclasses, not_subclasses)
-            for class_name in disjoint_classes:
-                assert name_of(class_name).capitalize() in name
+            not_subclasses = self.DISJOINT_CLASSES - set(subclasses)
+            for nameit in (name_type_class, ):  # , name_type_class2):
+                name = ""
+                with StrictlyTime(f"running {name_of(nameit)}"):
+                    for _ in range(n_runs):
+                        nameit(subclasses, not_subclasses)
+                name = nameit(subclasses, not_subclasses)
+                for each_class in self.DISJOINT_CLASSES:
+                    class_name = name_of(each_class).capitalize()
+                    if not class_name in str(name):
+                        raise ValueError(
+                            f"'{name}' is not the right name for Is("
+                            f"{names_of(subclasses)})ButIsNot("
+                            f"{names_of(not_subclasses)}). "
+                            f"{name_of(nameit)} failed because '{class_name}'"
+                            f"is not in '{name}'.")
 
     def test_metaclass_issubclass(self) -> None:
         self.add_basics()

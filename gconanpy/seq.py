@@ -7,14 +7,14 @@ Overlaps with:
     DCAN-Labs:abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-06-24
+Updated: 2025-07-07
 """
 # Import standard libraries
-from collections.abc import (Hashable, Iterable, Mapping,
-                             MutableMapping, Sequence)
+from collections.abc import Hashable, Iterable, Mapping, Sequence
 from functools import reduce
 from pprint import pprint
-from typing import Any, TypeVar
+from typing import Any, get_args, TypeVar
+from unittest.mock import MagicMock
 
 # Import third-party PyPI libraries
 import numpy as np
@@ -22,39 +22,19 @@ import pandas as pd
 
 # Import local custom libraries
 try:
+    from meta.classes import MutableItemStore, Updatable
+    from meta.funcs import tuplify
     from ToString import stringify
 except ModuleNotFoundError:  # TODO DRY?
+    from gconanpy.meta.classes import MutableItemStore, Updatable
+    from gconanpy.meta.funcs import tuplify
     from gconanpy.ToString import stringify
 
 # Constant: TypeVars for...
-I = TypeVar("I")  # ...insert_into
 S = TypeVar("S")  # ...differentiate_sets & get_key_set
+U = TypeVar("U", bound=Updatable)  # ...merge
 
 # NOTE All functions/classes below are in alphabetical order.
-
-
-class Combine:
-    _M = TypeVar("_M", bound=MutableMapping)
-    _S = TypeVar("_S")
-
-    @staticmethod
-    def maps(maps: Iterable[_M]) -> _M:
-        """ Merge dicts/maps.
-        (NOTE: It's wild that this implementation works.)
-
-        :param maps: Iterable[Mapping], maps to combine
-        :return: Mapping combining all of the `maps` into one
-        """
-        return reduce(lambda x, y: x.update(y) or x, maps)
-
-    @staticmethod
-    def sets(sets: Iterable[set[_S]]) -> set[_S]:
-        """ Merge sets.
-
-        :param sets: Iterable[set] to merge/combine.
-        :return: set, the union of all of the provided `sets`.
-        """
-        return reduce(set.union, sets)
 
 
 def count_uniqs_in_cols(a_df: pd.DataFrame) -> dict[str, int]:
@@ -98,9 +78,28 @@ def get_key_set(a_map: Mapping[S, Any]) -> set[S]:
     return set(a_map.keys())
 
 
-def insert_into(a_seq: Sequence[I], item: I, at_ix: int) -> list[I]:
-    # TODO items: Iterable[T] ?
-    return [*a_seq[:at_ix], item, *a_seq[at_ix:]]
+class Recursively:
+    _KT = Hashable | tuple[Hashable, ...]
+
+    @staticmethod
+    def getitem(an_obj: MutableItemStore, key: _KT) -> Any:
+        for k in tuplify(key):
+            an_obj = an_obj[k]
+        return an_obj
+
+    @classmethod
+    def getattribute(cls, an_obj: Any, *attr_names: str) -> Any:
+        if attr_names:
+            return getattr(an_obj, attr_names[0],
+                           cls.getattribute(an_obj, *attr_names[1:]))
+
+    @classmethod
+    def setitem(cls, an_obj: MutableItemStore, key: _KT, value: Any) -> None:
+        keys = tuplify(key)
+        if len(keys) == 1:
+            an_obj[keys[0]] = value
+        else:
+            cls.setitem(an_obj[keys[0]], keys[1:], value)
 
 
 def link_to_markdown(a_string: str, a_URL: str) -> str:
@@ -122,6 +121,23 @@ def markdown_to_link(md_link_text: str) -> tuple[str, str]:
     assert md_link_text[0] == "[" and md_link_text[-1] == ")"
     md_link_parts = md_link_text[1:-1].split("](")
     return md_link_parts[0], md_link_parts[1]
+
+
+def merge(updatables: Iterable[U]) -> U:
+    """ Merge dicts, sets, or things of any type with an `update` method.
+
+    :param updatables: Iterable[Updatable], objects to combine
+    :return: Updatable combining all of the `updatables` into one
+    """
+    return reduce(lambda x, y: x.update(y) or x, updatables)
+
+
+def merge_lists(lists: Iterable[list]) -> list:
+    """
+    :param lists: Iterable[list], objects to combine
+    :return: list combining all of the `lists` into one
+    """
+    return reduce(lambda x, y: x.extend(y) or x, lists)
 
 
 def nan_rows_in(a_df: pd.DataFrame) -> pd.DataFrame:

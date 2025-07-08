@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 """
+Base classes for unit tests in ../tests/ dir
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-06-20
+Updated: 2025-07-07
 """
 # Import standard libraries
 from abc import ABC
@@ -17,12 +18,20 @@ from typing import Any, TypeVar
 from bs4 import BeautifulSoup
 
 # Import local custom libraries
-from gconanpy import attributes, mapping
-from gconanpy.mapping import map_funcs
-from gconanpy.extend import classes_in_module
-from gconanpy.find import ErrIterChecker
-from gconanpy.meta.funcs import has_method, name_of
-from gconanpy.seq import powers_of_ten
+try:
+    from . import attributes, mapping, ROOT_DIR
+    from mapping import map_funcs
+    from extend import classes_in_module
+    from find import ErrIterChecker
+    from meta.funcs import has_method, name_of
+    from seq import powers_of_ten
+except (ImportError, ModuleNotFoundError):
+    from gconanpy import attributes, mapping, ROOT_DIR
+    from gconanpy.mapping import map_funcs
+    from gconanpy.extend import classes_in_module
+    from gconanpy.find import ErrIterChecker
+    from gconanpy.meta.funcs import has_method, name_of
+    from gconanpy.seq import powers_of_ten
 
 
 class Tester(ABC):
@@ -66,7 +75,7 @@ class Tester(ABC):
         assert succeeded
 
     def get_soup(self):
-        fpath = os.path.join(os.path.dirname(__file__),
+        fpath = os.path.join(ROOT_DIR, "tests",
                              'sample-email-body-structure.html')
         with open(fpath) as infile:
             htmltxt = infile.read()

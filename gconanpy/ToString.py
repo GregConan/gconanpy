@@ -3,9 +3,10 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-06-28
+Updated: 2025-07-07
 """
 # Import standard libraries
+# from collections import UserString  # TODO?
 from collections.abc import Callable, Collection, Iterable, Mapping
 import datetime as dt
 import os
@@ -20,11 +21,11 @@ import pathvalidate
 # Import local custom libraries
 try:
     from meta.classes import MethodWrapper, TimeSpec
-    from meta.funcs import combinations_of_conditions, name_of
+    from meta.funcs import bool_pair_to_cases, name_of
     from reg import Regextract
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.meta.classes import MethodWrapper, TimeSpec
-    from gconanpy.meta.funcs import combinations_of_conditions, name_of
+    from gconanpy.meta.funcs import bool_pair_to_cases, name_of
     from gconanpy.reg import Regextract
 
 
@@ -166,8 +167,7 @@ class ToString(str):
                       sep: str = ", ", quote_numbers: bool = False,
                       prefix: str | None = "[", suffix: str | None = "]",
                       max_len: int | None = None, lastly: str = "and ",
-                      iter_kwargs: Mapping[str, Any] = dict()
-                      ) -> Self:
+                      iter_kwargs: Mapping[str, Any] = dict()) -> Self:
         """ Convert an Iterable into a ToString object.
 
         :param an_obj: Collection to convert ToString
@@ -219,13 +219,12 @@ class ToString(str):
                     quote: str | None = "'", quote_numbers: bool = False,
                     quote_keys: bool = True, join_on: str = ": ",
                     sep: str = ", ", prefix: str | None = None,
-                    suffix: str | None = None,
-                    dt_sep: str = "_", timespec: TimeSpec.UNIT = "seconds",
+                    suffix: str | None = None, dt_sep: str = "_",
+                    timespec: TimeSpec.UNIT = "seconds",
                     replace: Mapping[str, str] = {":": "-"},
                     encoding: str = sys.getdefaultencoding(),
-                    errors: str = "ignore",
-                    lastly: str = "and ", iter_kwargs:
-                    dict[str, Any] = dict()) -> Self:
+                    errors: str = "ignore", lastly: str = "and ",
+                    iter_kwargs: dict[str, Any] = dict()) -> Self:
         """ Convert an object ToString 
 
         :param an_obj: Any, object to convert ToString
@@ -382,11 +381,15 @@ class ToString(str):
                                      suffix=None, join_on="=", max_len=max_len,
                                      lastly="", iter_kwargs=iter_kwargs)
         argstrs = cls.from_iterable(args, prefix=None, suffix=None, lastly="")
-        param_conds = combinations_of_conditions(("argstrs", "kwargstrs"), {
-            True: ', '.join((argstrs, kwargstrs)), False: "",
-            "argstrs": argstrs, "kwargstrs": kwargstrs
-        })
-        stringified = param_conds[(bool(argstrs), bool(kwargstrs))]
+        match bool_pair_to_cases(argstrs, kwargstrs):
+            case 0:  # neither argstrs nor kwargstrs
+                stringified = ""
+            case 1:  # only argstrs
+                stringified = argstrs
+            case 2:  # only kwargstrs
+                stringified = kwargstrs
+            case 3:  # both argstrs and kwargstrs
+                stringified = ', '.join((argstrs, kwargstrs))
         return cls(f"{name_of(a_class)}({stringified})")
 
     @MethodWrapper.return_as_its_class

@@ -4,13 +4,15 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-06-28
+Updated: 2025-07-06
 """
 # Import standard libraries
 import abc
 from collections.abc import Callable, Collection, Iterable, Mapping
+from functools import reduce
 # from operator import attrgetter, methodcaller  # TODO?
-from typing import Any, Concatenate, get_args, Literal, ParamSpec, TypeVar
+from typing import (Any, Concatenate, get_args, Literal, NamedTuple,
+                    ParamSpec, Protocol, runtime_checkable, TypeVar)
 from typing_extensions import Self
 
 # Import local custom libraries
@@ -86,7 +88,7 @@ class MultiTypeMeta(type, abc.ABC):
 
 
 class BytesOrStrMeta(MultiTypeMeta):
-    TYPES = (bytes, str)
+    IS_A = (bytes, str)
 
 
 class BytesOrStr(metaclass=BytesOrStrMeta):
@@ -101,6 +103,18 @@ class HasSlots(abc.ABC):
     __slots__: tuple
 
 
+@runtime_checkable
+class MutableItemStore(Protocol):
+    """
+    Any Container that can get, set, and delete items is a MutableItemStore.
+    """
+
+    def __contains__(self, key, /) -> bool: ...
+    def __delitem__(self, key, /) -> None: ...
+    def __getitem__(self, key, /) -> Any: ...
+    def __setitem__(self, key, value, /) -> None: ...
+
+
 class NonIterable(metaclass=metaclass_hasmethod("__iter__", include=False)):
     """ Any object that isn't an Iterable is a NonIterable. """
 
@@ -109,6 +123,13 @@ class PureIterable(metaclass=metaclass_issubclass(
         is_all_of=(Iterable, ), isnt_any_of=(str, bytes, Mapping),
         name="PureIterableMeta")):
     """ Iterables that aren't strings, bytes, or Mappings are "Pure." """
+
+
+@runtime_checkable
+class Updatable(Protocol):
+    """ Any object or class with an `update` method is an `Updatable`.
+        `dict`, `MutableMapping`, and `set` are each `Updatable`. """
+    update: Callable
 
 
 class TypeFactory:  # NOTE: Work-in-progress
@@ -149,15 +170,20 @@ class TypeFactory:  # NOTE: Work-in-progress
 
 
 class TimeSpec(dict[str, int]):
+
+    # Names of valid TimeSpec options, each corresponding to a duration unit
     UNIT = Literal["auto", "nanoseconds", "milliseconds", "microseconds",
                    "seconds", "minutes", "hours"]
+
+    # The number of each UNIT per the next unit:
+    #   1ns, 1000ns/ms, 10ms/us, 100us/sec, 60sec/min, 60min/hr
     OFFSETS = (1, 1000, 10, 100, 60, 60)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        units = get_args(self.UNIT)[1:]
-        self[units[0]] = self.OFFSETS[0]
-        for i in range(1, len(self.OFFSETS)):
+        units = get_args(self.UNIT)[1:]  # List all time units; exclude "auto"
+        self[units[0]] = self.OFFSETS[0]  # Initialize for iteration
+        for i in range(1, len(self.OFFSETS)):  # Calculate unit ratios/offsets
             self[units[i]] = self[units[i-1]] * self.OFFSETS[i]
 
 

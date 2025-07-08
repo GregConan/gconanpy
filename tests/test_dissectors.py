@@ -3,17 +3,17 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-06-10
+Updated: 2025-07-06
 """
 # Import standard libraries
 from typing import Any
 
 # Import local custom libraries
-from gconanpy.mapping.dicts import Cryptionary, DotDict
 from gconanpy.dissectors import Corer, DifferenceBetween, \
     Shredder, SimpleShredder, Xray
 from gconanpy import mapping
-from tests.testers import Tester
+from gconanpy.mapping.dicts import Cryptionary, DotDict
+from gconanpy.testers import Tester
 
 
 class TestShredders(Tester):

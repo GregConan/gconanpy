@@ -109,7 +109,7 @@ class UntilFound(WrapFunction):
     _I = TypeVar("_I")
     def check_each(self, find_in: Iterable[_I], default: _D = None,
                    element_is_arg: bool = True) -> _I | _D:
-        return iterfind(find_in, self.inner, default=default,
+        return iterfind(find_in, found_if=self, default=default,
                         element_is_arg=element_is_arg)
 
 

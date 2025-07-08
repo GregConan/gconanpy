@@ -4,7 +4,7 @@
 Functions to manipulate and define classes and/or other functions.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-20
-Updated: 2025-06-28
+Updated: 2025-07-06
 """
 # Import standard libraries
 from collections.abc import (Callable, Collection, Generator,
@@ -59,8 +59,8 @@ def are_all_equal(comparables: Iterable, eq_meth: str | None = None,
     return result
 
 
-def bool_pair_to_cases(cond1, cond2) -> int:  # Literal[0, 1, 2, 3]:
-    return sum({x + 1 for x in which_of(bool(cond1), bool(cond2))})
+def bool_pair_to_cases(cond1, cond2) -> int:  # TODO cond*: Boolable
+    return sum({x + 1 for x in which_of(cond1, cond2)})
 
 
 def combinations_of_conditions(all_conditions: Sequence[str], cond_mappings:
@@ -85,7 +85,7 @@ def has_method(an_obj: Any, method_name: str) -> bool:
 
 
 def make_metaclass(name: str, checker: Callable[[Any, Any], bool]) -> type:
-    """ 
+    """
     :param name: str, name of the metaclass type to return.
     :param checker: Callable[[Any, Any], bool], function to call from the \
         `instancecheck`/`subclasscheck` methods of the returned metaclass.
@@ -97,10 +97,10 @@ def make_metaclass(name: str, checker: Callable[[Any, Any], bool]) -> type:
 
 
 def metaclass_hasmethod(method_name: str, include: bool = True) -> type:
-    """ _summary_ 
+    """ _summary_
 
     :param method_name: str naming the method that the returned metaclass \
-        type object will check whether objects have 
+        type object will check whether objects have
     :param include: bool, True to return a metaclass for a type WITH certain \
         methods; else (by default) False for a type WITHOUT certain methods
     :return: type, _description_
@@ -132,7 +132,7 @@ def metaclass_issubclass(is_all_of: type | tuple[type, ...] = tuple(),
 
 
 def method(method_name: str) -> Callable:
-    """ Wrapper to retrieve a specific callable object attribute. 
+    """ Wrapper to retrieve a specific callable object attribute.
     `method(method_name)(something, *args, **kwargs)` is the same as \
     `getattr(something, method_name)(*args, **kwargs)`.
 
@@ -149,7 +149,7 @@ def method(method_name: str) -> Callable:
         :param kwargs: Mapping[str, Any], keyword arguments to call the \
             method with
         :return: Any, the output of calling the method of `self` with the \
-            specified `args` and `kwargs` 
+            specified `args` and `kwargs`
         """
         return call_method_of(self, method_name, *args, **kwargs)
 
@@ -172,7 +172,7 @@ def name_type_class(is_all_of: Any = tuple(), isnt_any_of: Any = tuple(),
     def nameit(x: Any) -> str: return get_name(x).capitalize()
     str_isall = "And".join(names_of(tuplify(is_all_of), max_n, nameit))
     str_isntany = "Or".join(names_of(tuplify(isnt_any_of), max_n, nameit))
-    match bool_pair_to_cases(bool(str_isall), bool(str_isntany)):
+    match bool_pair_to_cases(str_isall, str_isntany):
         case 0:
             name = default
         case 1:
@@ -245,8 +245,25 @@ def rename_keys(a_dict: dict[str, Any], **renamings: str) -> dict:
     return a_dict
 
 
+def setdefault_attr(an_obj: Any, name: str, value: Any,
+                    exclude: Collection = set()) -> None:
+    """ If `an_obj` does not have an attribute called `name`, or if it does \
+        but that attribute's value is a member of `exclude`, then set that \
+        `name` attribute of `an_obj` to the specified `value`.
+
+    :param an_obj: Any
+    :param name: str naming the attribute to ensure that `an_obj` has
+    :param value: Any, new value of the `name` attribute of `an_obj` if that \
+        attribute doesn't exist or if its value is in `exclude`
+    :param exclude: Collection, values of `an_obj.<name>` to overwrite
+    """
+    if (getattr(an_obj, name, next(iter(exclude))) in exclude) \
+            if exclude else hasattr(an_obj, name):
+        setattr(an_obj, name, value)
+
+
 def tuplify(an_obj: Any) -> tuple:
-    """ 
+    """
     :param an_obj: Any, object to convert into a tuple.
     :return: tuple, either `an_obj` AS a tuple if `tuple(an_obj)` works or \
         `an_obj` IN a single-item tuple if it doesn't.
@@ -257,7 +274,20 @@ def tuplify(an_obj: Any) -> tuple:
         return (an_obj, )
 
 
-def which_of(*conditions: bool) -> set[int]:
+def tuplify_preserve_str(an_obj: Any) -> tuple:
+    """
+    :param an_obj: Any, object to convert into a tuple.
+    :return: tuple, `an_obj` IN a single-item tuple if `an_obj` is a string \
+        or `tuple(an_obj)` raises `TypeError`, else `an_obj` AS a tuple.
+    """
+    try:
+        assert not isinstance(an_obj, str)
+        return tuple(an_obj)
+    except (AssertionError, TypeError):
+        return (an_obj, )
+
+
+def which_of(*conditions: Any) -> set[int]:  # TODO conditions: Boolable
     """
     :param conditions: Iterable[Boolable] of items to filter
     :return: set[int], the indices of every truthy item in `conditions`
