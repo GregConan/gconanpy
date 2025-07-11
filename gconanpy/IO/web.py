@@ -4,7 +4,7 @@
 Functions to import/export data from/to remote files/pages/APIs on the Web.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-13
-Updated: 2025-06-03
+Updated: 2025-07-10
 """
 # Import standard libraries
 from collections.abc import Mapping
@@ -14,11 +14,14 @@ from typing_extensions import Self
 from urllib.parse import parse_qs, urlparse
 import urllib.request
 
+# Import third-party PyPI libraries
+import bs4
+
 # Import local custom libraries
 try:
-    from ..ToString import stringify_map
-except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy.ToString import stringify_map
+    from ..ToString import BasicTree, ToString
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from gconanpy.ToString import BasicTree, ToString
 
 
 def download_GET(path_URL: str, headers: Mapping[str, Any]) -> Any:
@@ -45,6 +48,26 @@ def read_webpage_at(a_URL: str) -> Any:  # -> urllib.request._UrlopenRet:
     return urllib.request.urlopen(a_URL).read()
 
 
+class SoupTree(BasicTree):
+    full: str | tuple[str, str]
+
+    # def toHTML(self) -> str:  # TODO
+
+    @classmethod
+    def from_soup(cls, page_el: bs4.element.PageElement) -> Self:
+        match page_el:
+            case bs4.Tag():
+                ret = (page_el.name,
+                       [cls.from_soup(child) for child in page_el.children])
+            case bs4.element.NavigableString():
+                ret = ("str", list())
+            case _:
+                ret = ("", list())
+        self = cls(ret)
+        self.full = ToString.fromBeautifulSoup(page_el)
+        return self
+
+
 class URL:
     """ `urllib.parse.ParseResult` wrapper with extra methods """
 
@@ -69,8 +92,9 @@ class URL:
         """
         url = f"https://{'/'.join(parts)}"
         if url_params:
-            url += stringify_map(url_params, quote=None, join_on="=",
-                                 prefix="?", suffix=None, sep="&", lastly="")
+            url += ToString.from_mapping(
+                url_params, quote=None, join_on="=", prefix="?",
+                suffix=None, sep="&", lastly="")
         return cls(url)
 
     def get_params(self) -> dict[str, list]:

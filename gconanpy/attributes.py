@@ -4,20 +4,21 @@
 Functions/classes to access and/or modify the attributes of any object(s).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-02
-Updated: 2025-06-28
+Updated: 2025-07-09
 """
 # Import standard libraries
-from collections.abc import Callable, Generator, Iterable
+from collections.abc import Callable, Container, Collection, Generator, \
+    Iterable, Mapping
 from typing import Any, Literal, TypeVar
 
 # Import local custom libraries
 try:
     from seq import merge
-    from trivial import always_true
+    from trivial import always_none, always_true
     from wrap import WrapFunction
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.seq import merge
-    from gconanpy.trivial import always_true
+    from gconanpy.trivial import always_none, always_true
     from gconanpy.wrap import WrapFunction
 
 # Constants: TypeVars for...
@@ -80,6 +81,80 @@ def get_names(an_obj: Any) -> set[str]:
     # to_remove = {attr_name for attr_name in filter(obj_has, names)}
 
     return names - to_remove
+
+
+def lazyget(an_obj: Any, name: str,
+            get_if_absent: Callable = always_none,
+            getter_args: Iterable = list(),
+            getter_kwargs: Mapping = dict(),
+            exclude: Container = set()) -> Any:
+    """ Return the value for key if key is in the dictionary, else \
+    return the result of calling the `get_if_absent` parameter with args \
+    & kwargs. Adapted from `LazyButHonestDict.lazyget` from \
+    https://stackoverflow.com/q/17532929
+
+    :param name: str to use as a dict key to map to value
+    :param get_if_absent: function that returns the default value
+    :param getter_args: Iterable[Any] of get_if_absent arguments
+    :param getter_kwargs: Mapping of get_if_absent keyword arguments
+    :param exclude: set of possible values which (if they are mapped to \
+        `key` in `an_obj`) will not be returned; instead returning \
+        `get_if_absent(*getter_args, **getter_kwargs)`
+    """
+    return get_if_absent(*getter_args, **getter_kwargs) if \
+        will_getdefault(an_obj, name, exclude) else getattr(an_obj, name)
+
+
+def lazysetdefault(an_obj: Any, name: str, get_if_absent:
+                   Callable = always_none, getter_args: Iterable = list(),
+                   getter_kwargs: Mapping = dict(),
+                   exclude: Container = set()) -> Any:
+    """ Return the value for key if key is in the dictionary; else add \
+    that key to the dictionary, set its value to the result of calling \
+    the `get_if_absent` parameter with args & kwargs, then return that \
+    result. Adapted from `LazyButHonestDict.lazysetdefault` from \
+    https://stackoverflow.com/q/17532929
+
+    :param name: str to use as a dict key to map to value
+    :param get_if_absent: Callable, function to set & return default value
+    :param getter_args: Iterable[Any] of get_if_absent arguments
+    :param getter_kwargs: Mapping[Any] of get_if_absent keyword arguments
+    :param exclude: Container of possible values to replace with \
+        `get_if_absent(*getter_args, **getter_kwargs)` and return if \
+        they are mapped to `key` in `an_obj`
+    """
+    if will_getdefault(an_obj, name, exclude):
+        setattr(an_obj, name, get_if_absent(*getter_args, **getter_kwargs))
+    return getattr(an_obj, name)
+
+
+def setdefault(an_obj: Any, name: str, value: Any,
+               exclude: Collection = set()) -> None:
+    """ If `an_obj` does not have an attribute called `name`, or if it does \
+        but that attribute's value is a member of `exclude`, then set that \
+        `name` attribute of `an_obj` to the specified `value`.
+
+    :param an_obj: Any
+    :param name: str naming the attribute to ensure that `an_obj` has
+    :param value: Any, new value of the `name` attribute of `an_obj` if that \
+        attribute doesn't exist or if its value is in `exclude`
+    :param exclude: Collection, values of `an_obj.<name>` to overwrite
+    """
+    if (getattr(an_obj, name, next(iter(exclude))) in exclude) \
+            if exclude else hasattr(an_obj, name):
+        setattr(an_obj, name, value)
+
+
+def will_getdefault(an_obj: Any, name: str, exclude: Container = set()
+                    ) -> bool:
+    """
+    :param name: str
+    :param exclude: Container, values to ignore or overwrite. If `an_obj` \
+        maps `key` to one, then return True as if `key is not in an_obj`.
+    :return: bool, True if `key` is not mapped to a value in `an_obj` or \
+        is mapped to something in `exclude`
+    """
+    return not hasattr(an_obj, name) or getattr(an_obj, name) in exclude
 
 
 class Filter:

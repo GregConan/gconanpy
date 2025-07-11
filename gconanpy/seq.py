@@ -12,6 +12,7 @@ Updated: 2025-07-07
 # Import standard libraries
 from collections.abc import Hashable, Iterable, Mapping, Sequence
 from functools import reduce
+import itertools
 from pprint import pprint
 from typing import Any, get_args, TypeVar
 from unittest.mock import MagicMock
@@ -35,6 +36,14 @@ S = TypeVar("S")  # ...differentiate_sets & get_key_set
 U = TypeVar("U", bound=Updatable)  # ...merge
 
 # NOTE All functions/classes below are in alphabetical order.
+
+
+def combine_lists(lists: Iterable[list]) -> list:
+    """
+    :param lists: Iterable[list], objects to combine
+    :return: list combining all of the `lists` into one
+    """
+    return list(itertools.chain.from_iterable(lists))
 
 
 def count_uniqs_in_cols(a_df: pd.DataFrame) -> dict[str, int]:
@@ -130,14 +139,6 @@ def merge(updatables: Iterable[U]) -> U:
     :return: Updatable combining all of the `updatables` into one
     """
     return reduce(lambda x, y: x.update(y) or x, updatables)
-
-
-def merge_lists(lists: Iterable[list]) -> list:
-    """
-    :param lists: Iterable[list], objects to combine
-    :return: list combining all of the `lists` into one
-    """
-    return reduce(lambda x, y: x.extend(y) or x, lists)
 
 
 def nan_rows_in(a_df: pd.DataFrame) -> pd.DataFrame:

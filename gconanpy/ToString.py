@@ -3,34 +3,45 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-07-07
+Updated: 2025-07-10
 """
 # Import standard libraries
 # from collections import UserString  # TODO?
-from collections.abc import Callable, Collection, Iterable, Mapping
+from collections.abc import Callable, Collection, Generator, Iterable, Mapping
 import datetime as dt
 import os
 import re
 import sys
-from typing import Any, TypeVar
+from typing import Any, Literal, NamedTuple
 from typing_extensions import Self
 
 # Import third-party PyPI libraries
+import bs4
 import pathvalidate
 
 # Import local custom libraries
 try:
+    import mapping
     from meta.classes import MethodWrapper, TimeSpec
     from meta.funcs import bool_pair_to_cases, name_of
     from reg import Regextract
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from gconanpy import mapping
     from gconanpy.meta.classes import MethodWrapper, TimeSpec
     from gconanpy.meta.funcs import bool_pair_to_cases, name_of
     from gconanpy.reg import Regextract
 
 
 class ToString(str):
-    _S = TypeVar("_S")  # for truncate(...) function
+    # Input parameter for fromBeautifulSoup(el, tag: _Bs4Tag) method
+    _Bs4Tag = Literal["all", "first", "last"]
+
+    # Filter to call from_iterable in quotate method using the recursive
+    # iter_kwargs input parameter without adding a parameter exclusive to
+    # from_mapping method (and not from_iterable)
+    _ITER_SUBSET = mapping.Subset(keys="join_on", include_keys=False)
+
+    # Type hint for passing own methods to others as input parameters
     Stringifier = Callable[[Any], Self]
 
     # Wrap string methods so they return a ToString instance
@@ -133,6 +144,35 @@ class ToString(str):
 
                    # Add datetimestamp and file extension
                    ).that_ends_with(put_date_after).that_ends_with(file_ext)
+
+    @classmethod
+    def fromBeautifulSoup(cls, soup: bs4.element.PageElement | None,
+                          tag: _Bs4Tag = "all") -> Self:
+        match soup:
+            case bs4.Tag():
+                match tag:
+                    case "all":
+                        stringified = str(soup)
+                    case "first":
+                        attrs = getattr(soup, "attrs", None)
+                        attrstr = " " + cls.from_mapping(
+                            attrs, quote_keys=False, join_on="=", prefix=None,
+                            suffix=None, sep=" ", lastly="") if attrs else ""
+                        stringified = f"<{soup.name}{attrstr}>"
+                    case "last":
+                        stringified = f"</{soup.name}>"
+            case bs4.element.NavigableString():
+                stringified = soup.string
+            case None:
+                stringified = ""
+            case _:
+                raise TypeError(f"`{soup}` is not a bs4.element.PageElement")
+        return cls(stringified)
+
+    @classmethod
+    def from_callable(cls, an_obj: Callable, max_len: int | None = None
+                      ) -> Self:
+        return cls(name_of(an_obj)).truncate(max_len)
 
     @classmethod
     def from_datetime(cls, moment: dt.date | dt.time | dt.datetime,
@@ -288,10 +328,13 @@ class ToString(str):
                 stringified = cls.from_callable(an_obj, max_len)
             case None:
                 stringified = cls()
+            case bs4.element.PageElement():
+                stringified = cls.fromBeautifulSoup(an_obj)
             case _:  # str or other
-                stringified = cls(an_obj).truncate(max_len)
+                stringified = cls(an_obj)
                 if Regextract.is_invalid_py_repr(stringified):
                     stringified = cls.from_callable(an_obj, max_len)
+                stringified = stringified.truncate(max_len)
         return stringified
 
     @classmethod
@@ -340,11 +383,6 @@ class ToString(str):
                                  lastly=lastly, iter_kwargs=iter_kwargs)
 
     @classmethod
-    def from_callable(cls, an_obj: Callable, max_len: int | None = None
-                      ) -> Self:
-        return cls(name_of(an_obj)).truncate(max_len)
-
-    @classmethod
     def quotate(cls, an_obj: Any, quote: str | None = "'",
                 quote_numbers: bool = False, quote_keys: bool = False,
                 **iter_kwargs: Any) -> Self:
@@ -355,10 +393,13 @@ class ToString(str):
                 case dict():
                     quoted = cls.from_mapping(an_obj, quote, quote_numbers,
                                               quote_keys, **iter_kwargs)
-                case list() | tuple():
+                    # , iter_kwargs=iter_kwargs)
+                case list() | tuple() | set():
+                    # without_join = cls._ITER_SUBSET.of(iter_kwargs)
                     quoted = cls.from_iterable(
                         an_obj, quote, quote_numbers=quote_numbers,
-                        **iter_kwargs)
+                        # iter_kwargs=iter_kwargs,
+                        **cls._ITER_SUBSET.of(iter_kwargs))
                 case int() | float():
                     quoted = cls(an_obj).enclosed_by(quote) \
                         if quote_numbers else cls(an_obj)
@@ -371,6 +412,13 @@ class ToString(str):
                     else:
                         quoted = quoted.enclosed_by(quote)
         return quoted
+
+    @classmethod
+    def quotate_all(cls, objects: Iterable, quote: str | None = "'",
+                    quote_numbers: bool = False, max_len: int | None = None,
+                    kwargs: Mapping[str, Any] = dict()) -> list[Self]:
+        return [cls.quotate(an_obj, quote, quote_numbers, max_len=max_len,
+                            **kwargs) for an_obj in objects]
 
     @classmethod
     def represent_class(cls, a_class: type, max_len: int | None = None,
@@ -399,12 +447,16 @@ class ToString(str):
             string = string.replace(old, new, count)
         return string
 
-    @classmethod
-    def quotate_all(cls, objects: Iterable, quote: str | None = "'",
-                    quote_numbers: bool = False, max_len: int | None = None,
-                    kwargs: Mapping[str, Any] = dict()) -> list[Self]:
-        return [cls.quotate(an_obj, quote, quote_numbers, max_len=max_len,
-                            **kwargs) for an_obj in objects]
+    @MethodWrapper.return_as_its_class
+    def rreplace(self, old: str, new: str, count: int = -1) -> str:
+        """
+
+        :param old: str, _description_
+        :param new: str, _description_
+        :param count: int,_description_, defaults to -1
+        :return: str, _description_
+        """
+        return new.join(self.rsplit(old, count))
 
     def that_ends_with(self, suffix: str | None) -> Self:
         """ Append `suffix` to the end of `self` unless it is already there.
@@ -428,6 +480,62 @@ class ToString(str):
         # TODO Use independent truncate() function here again (DRY)?
         return self if max_len is None or len(self) <= max_len else \
             self.__class__(self[:max_len - len(suffix)] + suffix)
+
+
+class Branches(NamedTuple):
+    """ A defined tuple of symbols to visually represent a branching \
+        hierarchical tree structure, like a filesystem directory or a \
+        document written in a markup language (e.g. HTML, XML, markdown, \
+        etc). All symbols should have the same length.
+
+    `I` (vertical line) connects the top to the bottom.
+    `L` (end branch) connects the top to the right.
+    `T` (split branch) connects the top to the bottom and the right.
+    `X` (empty) represents a blank indentation character.
+    """
+    I: str = "│"
+    L: str = "└"
+    T: str = "├"
+    X: str = " "
+
+
+class BasicTree(tuple[str, list]):
+    full: str | tuple[str, str]
+
+    def prettify(self, prefix: ToString = ToString(),
+                 branch: Branches = Branches()) -> str:
+        pretties = [prefix + self[0]]
+
+        if prefix.endswith(branch.L):
+            prefix = prefix.rreplace(branch.L, branch.X, count=1
+                                     ).replace(branch.T, branch.I)
+
+        if self[1]:
+            for child in self[1][:-1]:
+                pretties.append(child.prettify(prefix + branch.T))
+            pretties.append(self[1][-1].prettify(
+                prefix.replace(branch.T, branch.I) + branch.L))
+
+        return "\n".join(pretties)
+
+    def prettify_spaces(self, indents_from_left: int = 0,
+                        indent: str = "  ") -> str:
+        children = [child.prettify_spaces(indents_from_left + 1,
+                                          indent) for child in self[1]]
+        pretty = f'{indent * indents_from_left}{self[0]}'
+        if children:
+            pretty += f'\n{"\n".join(children)}'
+        return pretty
+
+    def walk(self, depth_first: bool = True,
+             include_self: bool = True) -> Generator[Self, None, None]:
+        if include_self:
+            yield self
+        if not depth_first:
+            for child in self[1]:
+                yield child
+        for child in self[1]:
+            yield from child.walk(depth_first, depth_first)
 
 
 # Shorter names to export

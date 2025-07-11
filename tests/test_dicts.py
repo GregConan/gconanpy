@@ -3,20 +3,25 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-07-06
+Updated: 2025-07-09
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Iterable, \
     Mapping, MutableMapping
+from copy import copy, deepcopy
 from typing import Any, TypeVar
 
 # Import local custom libraries
 # from gconanpy import attributes
-from gconanpy import mapping
+from gconanpy import attributes, mapping
+from gconanpy.debug import StrictlyTime
+from gconanpy.lazy import Lazily
 from gconanpy.mapping import map_funcs
 from gconanpy.mapping.dicts import Cryptionary, Defaultionary, DotDict, DotPromptionary, Explictionary, FancyDict, Invertionary, LazyDict, LazyDotDict, Promptionary, SubCryptionary, Subsetionary, Updationary, Walktionary
+from gconanpy.meta.classes import TimeSpec
 # from tests import test_dicts
-from gconanpy.testers import Tester  # , TimeTester
+from gconanpy.seq import powers_of_ten
+from gconanpy.testers import Randoms, Tester  # , TimeTester
 
 
 DotInvertionary = type("DotInvertionary", (DotDict, Invertionary), dict())
@@ -214,6 +219,54 @@ class TestDictFunctions(DictTester):
         self.add_basics()
         new_dict = self.one_update_test(self.adict, 4, dict(d=4))
         self.one_update_test(new_dict, 4, dict(a=3), c=1)
+
+
+class TestLazy(TestDictFunctions):
+    CLASSES = tuple[type[Lazily], ...]
+    TEST_CLASSES: CLASSES = (Lazily, )
+    UNIT: TimeSpec.UNIT = "seconds"
+
+    def prep(self, n_tests_orders_of_magnitude: int = 4) -> None:
+        self.add_basics()
+        self.randicts = [{**Randoms.randict(max_len=10), **self.adict}
+                         for _ in Randoms.randrange(max_len=20)]
+        self.test_Ns = powers_of_ten(n_tests_orders_of_magnitude)
+
+    def time_lazy(self, name: str, lazy_meth: Callable,
+                  lazy_result: Any, input_obj: Any, **kwargs) -> None:
+
+        with StrictlyTime(f"running {name} {sum(self.test_Ns)} times",
+                          timespec=self.UNIT):
+            for eachN in self.test_Ns:
+                for _ in range(eachN):
+                    for d in self.randicts:
+                        for k, v in input_obj.items():
+                            assert lazy_meth(d, k, **kwargs) == v
+                        for digit in range(10):
+                            assert lazy_meth(d, digit, **kwargs
+                                             ) == lazy_result
+
+    # Remove the initial underscore to run time test
+    def _test_time_lazyget(self, n_tests_orders_of_magnitude: int = 4):
+        self.prep(n_tests_orders_of_magnitude)
+        kwargs = dict(get_if_absent=set.union,  # sum, getter_args=[self.alist]
+                      getter_args=({1, 2}, set(), {5}, {"foo", "bar"}))
+        result = {1, 2, 5, "foo", "bar"}  # sum(self.alist)  #
+        '''
+        self.time_lazy("attributes.lazysetdefault", attributes.lazysetdefault,
+                       result, self.Tripletters(), **kwargs)
+        self.time_lazy("attributes.lazyget", attributes.lazyget,
+                       result, self.Tripletters(), **kwargs)
+        '''
+        self.time_lazy("map_funcs.lazysetdefault",
+                       map_funcs.lazysetdefault, result, self.adict, **kwargs)
+        self.time_lazy("map_funcs.lazyget", map_funcs.lazyget, result,
+                       self.adict, **kwargs)
+        self.time_lazy("Lazily.setdefault", Lazily.setdefault, result,
+                       self.adict, get_an="item", **kwargs)
+        self.time_lazy("Lazily.get", Lazily.get, result,
+                       self.adict, get_an="item", **kwargs)
+        assert False
 
 
 class TestDefaultionary(TestDictFunctions):

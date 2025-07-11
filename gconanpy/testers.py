@@ -4,13 +4,16 @@
 Base classes for unit tests in ../tests/ dir
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-07-07
+Updated: 2025-07-09
 """
 # Import standard libraries
 from abc import ABC
-from collections.abc import Hashable, Iterable
+from collections.abc import Generator, Hashable, Iterable, Sequence
 import datetime as dt
 import os
+import random
+import string
+import sys
 from types import ModuleType
 from typing import Any, TypeVar
 
@@ -32,6 +35,46 @@ except (ImportError, ModuleNotFoundError):
     from gconanpy.find import ErrIterChecker
     from gconanpy.meta.funcs import has_method, name_of
     from gconanpy.seq import powers_of_ten
+
+
+class Randoms:
+    _T = TypeVar("_T")
+    BIGINT = sys.maxunicode
+    CHARS = tuple(string.printable)
+    MIN = 1    # Default minimum number of items/tests
+    MAX = 100  # Default maximum number of items/tests
+
+    @classmethod
+    def randict(cls, keys: Sequence[Hashable] = CHARS,
+                values: Sequence = CHARS,
+                min_len: int = MIN, max_len: int = MAX) -> dict:
+        return {random.choice(keys): random.choice(values)
+                for _ in cls.randrange(min_len, max_len)}
+
+    @classmethod
+    def randints(cls, min_len: int = MIN, max_len: int = MAX,
+                 min_int: int = -BIGINT, max_int: int = BIGINT
+                 ) -> Generator[int, None, None]:
+        for _ in cls.randrange(min_len, max_len):
+            yield random.randint(min_int, max_int)
+
+    @classmethod
+    def randintsets(cls, min_n: int = 2, max_n: int = MAX,
+                    min_len: int = MIN, max_len: int = MAX,
+                    min_int: int = -BIGINT, max_int: int = BIGINT
+                    ) -> list[set[int]]:
+        return [set(cls.randints(min_len, max_len, min_int, max_int))
+                for _ in cls.randrange(min_n, max_n)]
+
+    @staticmethod
+    def randrange(min_len: int = MIN, max_len: int = MAX) -> range:
+        return range(random.randint(min_len, max_len))
+
+    @staticmethod
+    def randsublist(seq: Sequence[_T], min_len: int = 0,
+                    max_len: int = 100) -> list[_T]:
+        return random.choices(seq, k=random.randint(
+            min_len, min(max_len, len(seq))))
 
 
 class Tester(ABC):

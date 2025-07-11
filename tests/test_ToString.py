@@ -9,13 +9,16 @@ Updated: 2025-07-06
 from collections.abc import Callable, Iterable, Sequence
 import datetime as dt
 import random
-from typing import Any, TypeVar
+from typing import Any, cast, TypeVar
+
+# Import third-party PyPI libraries
+import bs4
 
 # Import local custom libraries
 from gconanpy.IO.web import URL
 from gconanpy.meta.funcs import name_of
 from gconanpy.ToString import stringify, ToString
-from gconanpy.testers import Tester
+from gconanpy.testers import Randoms, Tester
 from gconanpy.trivial import always_true
 from gconanpy.wrap import WrapFunction
 
@@ -24,6 +27,17 @@ class TestStringify(Tester):
     _T = TypeVar("_T")
     HELLO_WORLD = ToString("hello world")
 
+    def check_fromBeautifulSoup(self, soup: bs4.Tag, **expecteds: str
+                                ) -> None:
+        for el_name, first_tag in expecteds.items():
+            el = cast(bs4.Tag, soup.find(el_name))
+            self.check_ToString(ToString.fromBeautifulSoup(
+                el), str(el))
+            self.check_ToString(ToString.fromBeautifulSoup(
+                el, tag="first"), first_tag)
+            self.check_ToString(ToString.fromBeautifulSoup(
+                el, tag="last"), f"</{el.name}>")
+
     def check_map(self, expected: str, **kwargs) -> None:
         self.add_basics()
         self.check_result(stringify(self.adict, **kwargs), expected)
@@ -31,6 +45,13 @@ class TestStringify(Tester):
     def check_ToString(self, actual_result: ToString, expected_result: str) -> None:
         self.check_result(actual_result, expected_result)
         assert type(actual_result) is ToString
+
+    def stringify_WrapFunction(self, call: Callable, pre: Iterable = list(),
+                               post: Iterable = list(), **kwargs: Any) -> str:
+        kwargstrs = [f"{k}={v}" for k, v in kwargs.items()]
+        stringified = f"{name_of(WrapFunction)}(call={name_of(call)}, " \
+            f"pre={pre}, post={post}, {', '.join(kwargstrs)})"
+        return stringified
 
     def test_add(self) -> None:
         self.check_result(type(stringify("hi") + " there"), ToString)
@@ -76,6 +97,21 @@ class TestStringify(Tester):
             f"{dt.date.today().isoformat()}.txt"
         self.check_ToString(str_fpath, expected)
 
+    def test_fromBeautifulSoup_1(self) -> None:
+        soup = self.get_soup()
+        expecteds = {"a": "<a href='https://google.com'>",
+                     "table": "<table>", "tr": "<tr>"}
+        self.check_fromBeautifulSoup(soup, **expecteds)
+
+    def test_fromBeautifulSoup_2(self) -> None:
+        raw = "<html lang='en'><body><p class='test'>Hello <a href=" \
+            "'https://google.com'>world</a></p></body></html>"
+        soup = bs4.BeautifulSoup(raw, "html.parser")
+        expecteds = {"a": "<a href='https://google.com'>",
+                     "p": "<p class='test'>", "body": "<body>",
+                     "html": "<html lang='en'>"}
+        self.check_fromBeautifulSoup(soup, **expecteds)
+
     def test_join(self) -> None:
         joined = ToString(" ").join(("hello", "world"))
         self.check_ToString(joined, "hello world")  # type: ignore # TODO
@@ -92,28 +128,28 @@ class TestStringify(Tester):
     def test_none(self) -> None:
         self.check_ToString(stringify(None), "")
 
-    def stringify_WrapFunction(self, call: Callable, pre: Iterable = list(),
-                               post: Iterable = list(), **kwargs: Any) -> str:
-        kwargstrs = [f"{k}={v}" for k, v in kwargs.items()]
-        stringified = f"{name_of(WrapFunction)}(call={name_of(call)}, " \
-            f"pre={pre}, post={post}, {', '.join(kwargstrs)})"
-        return stringified
-
-    def random_sublist(self, seq: Sequence[_T], min_len: int = 0,
-                       max_len: int = 100) -> list[_T]:
-        return random.choices(seq, k=random.randint(
-            min_len, min(max_len, len(seq))))
-
     def test_represent_class(self) -> None:
         self.add_basics()
         for _ in range(10):
-            pre = self.random_sublist(self.alist)
-            post = self.random_sublist(self.alist)
+            pre = Randoms.randsublist(self.alist)
+            post = Randoms.randsublist(self.alist)
             kwargs = self.adict
             call = always_true
             self.check_result(ToString.represent_class(
                 WrapFunction, call=call, pre=pre, post=post, **kwargs),
                 self.stringify_WrapFunction(call, pre, post, **kwargs))
+
+    def test_rreplace(self, n: int = 50) -> None:
+        OLD = " BAR"
+        NEW = ""
+        ABSENT = "not in the string"
+        a_str = ToString(OLD.join(("Foo", " baz", " hello", " world", "")))
+        # a_str = ToString("Foo BAR baz BAR hello BAR world BAR")
+        self.check_ToString(a_str.rreplace(ABSENT, NEW), a_str)
+        for i in Randoms.randints(min_len=n, max_len=n):
+            self.check_ToString(a_str.rreplace(OLD, NEW, i),
+                                NEW.join(a_str.rsplit(OLD, i)))
+            self.check_ToString(a_str.rreplace(ABSENT, NEW, i), a_str)
 
     def test_quote(self) -> None:
         self.check_map('"a": 1, "b": 2, and "c": 3', quote='"')

@@ -245,23 +245,6 @@ def rename_keys(a_dict: dict[str, Any], **renamings: str) -> dict:
     return a_dict
 
 
-def setdefault_attr(an_obj: Any, name: str, value: Any,
-                    exclude: Collection = set()) -> None:
-    """ If `an_obj` does not have an attribute called `name`, or if it does \
-        but that attribute's value is a member of `exclude`, then set that \
-        `name` attribute of `an_obj` to the specified `value`.
-
-    :param an_obj: Any
-    :param name: str naming the attribute to ensure that `an_obj` has
-    :param value: Any, new value of the `name` attribute of `an_obj` if that \
-        attribute doesn't exist or if its value is in `exclude`
-    :param exclude: Collection, values of `an_obj.<name>` to overwrite
-    """
-    if (getattr(an_obj, name, next(iter(exclude))) in exclude) \
-            if exclude else hasattr(an_obj, name):
-        setattr(an_obj, name, value)
-
-
 def tuplify(an_obj: Any) -> tuple:
     """
     :param an_obj: Any, object to convert into a tuple.

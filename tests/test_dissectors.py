@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-07-06
+Updated: 2025-07-08
 """
 # Import standard libraries
 from typing import Any
@@ -39,7 +39,6 @@ class TestCorers(Tester):
     TEST_CLASSES: tuple[type[Corer], ...] = (Corer, )
 
     def core_tests(self, to_core: Any, expected_result: Any,
-
                    **corer_kwargs: Any):
         as_type = type(expected_result)
         for corer_type in self.TEST_CLASSES:

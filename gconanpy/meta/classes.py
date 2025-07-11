@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-07-06
+Updated: 2025-07-09
 """
 # Import standard libraries
 import abc
@@ -172,12 +172,12 @@ class TypeFactory:  # NOTE: Work-in-progress
 class TimeSpec(dict[str, int]):
 
     # Names of valid TimeSpec options, each corresponding to a duration unit
-    UNIT = Literal["auto", "nanoseconds", "milliseconds", "microseconds",
+    UNIT = Literal["auto", "nanoseconds", "microseconds", "milliseconds",
                    "seconds", "minutes", "hours"]
 
     # The number of each UNIT per the next unit:
-    #   1ns, 1000ns/ms, 10ms/us, 100us/sec, 60sec/min, 60min/hr
-    OFFSETS = (1, 1000, 10, 100, 60, 60)
+    #   1ns, 1000ns/us, 1000us/ms, 1000ms/sec, 60sec/min, 60min/hr
+    OFFSETS = (1, 1000, 1000, 1000, 60, 60)
 
     def __init__(self) -> None:
         super().__init__()
