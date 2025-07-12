@@ -4,11 +4,11 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
-Updated: 2025-07-06
+Updated: 2025-07-11
 """
 # Import local custom libraries
 from gconanpy.meta.funcs import metaclass_hasmethod
-from gconanpy.reg import DunderParser
+from gconanpy.reg import DunderParser, Regextract
 from gconanpy.testers import Tester
 
 
@@ -34,3 +34,10 @@ class TestDunderParser(Tester):
             ("__sizeof__", "SizeOf"), ("__subclasscheck__", "SubclassCheck")
         ):
             self.pascaltest(method_name, pascalized)
+
+
+class TestRegextract(Tester):
+    def test_numbers_in(self) -> None:
+        expecteds = [0.5, 50.0, 0.1, 0.0, 0.0, 666.6789, 0.0, 0.0, 0.0, 0.6]
+        from_str = "0.5, 50, .1, 000, 0, 666.6789, hell0world, 0w0, var=.6:"
+        self.check_result(Regextract.numbers_in(from_str), expecteds)

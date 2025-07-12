@@ -4,7 +4,7 @@
 Functions to manipulate and define classes and/or other functions.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-20
-Updated: 2025-07-06
+Updated: 2025-07-11
 """
 # Import standard libraries
 from collections.abc import (Callable, Collection, Generator,
@@ -82,6 +82,10 @@ def has_method(an_obj: Any, method_name: str) -> bool:
         (method) of `an_obj`; otherwise False.
     """
     return callable(getattr(an_obj, method_name, None))
+
+
+def have_same_elements(*settables: Iterable) -> bool:
+    return more_itertools.all_equal((set(an_obj) for an_obj in settables))
 
 
 def make_metaclass(name: str, checker: Callable[[Any, Any], bool]) -> type:

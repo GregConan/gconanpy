@@ -4,7 +4,7 @@
 Classes that parse strings and text data, especially using Regex.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
-Updated: 2025-06-24
+Updated: 2025-07-11
 """
 # Import standard libraries
 from collections.abc import Container, Generator
@@ -43,8 +43,8 @@ class Abbreviations(Abbreviator):
 
 
 class Regextract:
-    _NOT_LETTERS = r"[^a-zA-Z]"
-    _PARENTHETICALS = r"""\((  # Get everything after the opening parenthesis
+    NOT_LETTERS = r"[^a-zA-Z]"
+    PARENTHETICALS = r"""\((  # Get everything after the opening parenthesis
         ?:[^()]+|(?R) # Nested parentheticals don't get their own groups
         )*+  # Match everything possible inside the outermost parentheses
         \)"""  # Get everything before the closing parenthesis
@@ -57,6 +57,14 @@ class Regextract:
         [^<>]*
         \sobject\sat\s\dx\w{12}))
         >"""
+    FLOAT = r"""(?:  # 1st case: dot followed by digits; ".1" -> 0.1
+            (?:[\.])  # Ensure there's a decimal point, then ignore it
+            (?<decimal>[0-9]+)  # Get all digits after the dot
+        )|(?:  # 2nd case: integer with optional decimals; "1" or "1.1"
+            (?<int>[0-9]+)  # Get all digits before the dot
+            (?:[\.]?)  # If there's a decimal point, then ignore it
+            (?<decimal>[0-9]*)  # Distinguish & get digits in decimal part
+        )"""
 
     @classmethod
     def is_invalid_py_repr(cls, astr: str) -> bool:
@@ -65,7 +73,14 @@ class Regextract:
         :param astr: str, _description_
         :return: bool, _description_
         """
-        return re.match(cls.INVALID_PY_REPR, astr, re.X) is not None
+        return regex.match(cls.INVALID_PY_REPR, astr, re.X) is not None
+
+    @classmethod
+    def iter_numbers(cls, txt: str) -> Generator[float, None, None]:
+        for num_match in regex.finditer(cls.FLOAT, txt, regex.X):
+            if num_match:
+                n = num_match.groupdict(default="0")
+                yield float(".".join((n["int"], n["decimal"])))
 
     @classmethod
     def iter_parentheticals(cls, txt: str) -> Generator[regex.Match[str], None, None]:
@@ -75,15 +90,19 @@ class Regextract:
         :param txt: str, _description_
         :yield: Generator[regex.Match, None, None], _description_
         """
-        yield from regex.finditer(cls._PARENTHETICALS, txt)
+        yield from regex.finditer(cls.PARENTHETICALS, txt)
 
     @classmethod
     def letters_in(cls, txt: str) -> str:
-        return re.sub(cls._NOT_LETTERS, "", txt)
+        return regex.sub(cls.NOT_LETTERS, "", txt)
+
+    @classmethod
+    def numbers_in(cls, txt: str) -> list[float]:
+        return list(cls.iter_numbers(txt))
 
     @classmethod
     def parentheticals_in(cls, txt: str) -> list:
-        return regex.findall(cls._PARENTHETICALS, txt, flags=re.X)
+        return regex.findall(cls.PARENTHETICALS, txt, flags=re.X)
 
     @staticmethod
     def parse(pattern: re.Pattern, txt: str, default: Any = None,
