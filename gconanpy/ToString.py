@@ -6,13 +6,14 @@ Created: 2025-05-04
 Updated: 2025-07-10
 """
 # Import standard libraries
-# from collections import UserString  # TODO?
+# from collections import UserString
 from collections.abc import Callable, Collection, Generator, Iterable, Mapping
 import datetime as dt
+from inspect import getattr_static
 import os
 import re
 import sys
-from typing import Any, Literal, NamedTuple
+from typing import Any, Literal, NamedTuple, ParamSpec
 from typing_extensions import Self
 
 # Import third-party PyPI libraries
@@ -33,9 +34,6 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
 
 
 class ToString(str):
-    # Input parameter for fromBeautifulSoup(el, tag: _Bs4Tag) method
-    _Bs4Tag = Literal["all", "first", "last"]
-
     # Filter to call from_iterable in quotate method using the recursive
     # iter_kwargs input parameter without adding a parameter exclusive to
     # from_mapping method (and not from_iterable)
@@ -44,24 +42,7 @@ class ToString(str):
     # Type hint for passing own methods to others as input parameters
     Stringifier = Callable[[Any], Self]
 
-    # Wrap string methods so they return a ToString instance
-    # TODO Wrap these methods programmatically, not 1 at a time manually
-    # capitalize = MethodWrapper.return_as_its_class(str.capitalize)  # TODO
-    # expandtabs = MethodWrapper.return_as_its_class(str.expandtabs)  # TODO
-    join = MethodWrapper.return_as_its_class(str.join)
-    ljust = MethodWrapper.return_as_its_class(str.ljust)
-    # lower = MethodWrapper.return_as_its_class(str.lower)  # TODO
-    removeprefix = MethodWrapper.return_as_its_class(str.removeprefix)
-    removesuffix = MethodWrapper.return_as_its_class(str.removesuffix)
-    replace = MethodWrapper.return_as_its_class(str.replace)
-    rjust = MethodWrapper.return_as_its_class(str.rjust)
-    # swapcase = MethodWrapper.return_as_its_class(str.swapcase)  # TODO
-    # title = MethodWrapper.return_as_its_class(str.title)  # TODO
-    translate = MethodWrapper.return_as_its_class(str.translate)
-    # upper = MethodWrapper.return_as_its_class(str.upper)  # TODO
-
-    @MethodWrapper.return_as_its_class  # method returns ToString
-    def __add__(self, value: str | None) -> str:
+    def __add__(self, value: str | None) -> Self:
         """ Append `value` to the end of `self`. Implements `self + value`. \
             Defined explicitly so that `ToString() + str() -> ToString` \
             instead of returning a `str` object.
@@ -70,9 +51,9 @@ class ToString(str):
         :return: ToString, `self` with `value` appended after it; \
             `if not value`, then `return self` unchanged.
         """
-        return super().__add__(value) if value else self
+        return self.__class__(super().__add__(value)) if value else self
 
-    @MethodWrapper.return_as_its_class  # method returns ToString
+    @MethodWrapper.return_as_its_class
     def __sub__(self, value: str | None) -> str:
         """ Remove `value` from the end of `self`. Implements `self - value`. 
             Defined as a shorter but still intuitive alias for `removesuffix`.
@@ -146,8 +127,8 @@ class ToString(str):
                    ).that_ends_with(put_date_after).that_ends_with(file_ext)
 
     @classmethod
-    def fromBeautifulSoup(cls, soup: bs4.element.PageElement | None,
-                          tag: _Bs4Tag = "all") -> Self:
+    def fromBeautifulSoup(cls, soup: bs4.element.PageElement | None, tag:
+                          Literal["all", "first", "last"] = "all") -> Self:
         match soup:
             case bs4.Tag():
                 match tag:
@@ -441,7 +422,8 @@ class ToString(str):
         return cls(f"{name_of(a_class)}({stringified})")
 
     @MethodWrapper.return_as_its_class
-    def replacements(self, replace: Mapping[str, str], count: int = -1) -> str:
+    def replacements(self, replace: Mapping[str, str], count: int = -1
+                     ) -> str:
         string = self  # cls = self.__class__
         for old, new in replace.items():
             string = string.replace(old, new, count)
@@ -466,7 +448,7 @@ class ToString(str):
         """
         return self if not suffix or self.endswith(suffix) else self + suffix
 
-    @MethodWrapper.return_as_its_class  # method returns ToString
+    @MethodWrapper.return_as_its_class
     def that_starts_with(self, prefix: str | None) -> str:
         """ Prepend `suffix` at index 0 of `self` unless it is already there.
 
@@ -522,9 +504,9 @@ class BasicTree(tuple[str, list]):
                         indent: str = "  ") -> str:
         children = [child.prettify_spaces(indents_from_left + 1,
                                           indent) for child in self[1]]
-        pretty = f'{indent * indents_from_left}{self[0]}'
+        pretty = f"{indent * indents_from_left}{self[0]}"
         if children:
-            pretty += f'\n{"\n".join(children)}'
+            pretty += "\n" + "\n".join(children)
         return pretty
 
     def walk(self, depth_first: bool = True,

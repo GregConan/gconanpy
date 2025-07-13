@@ -54,6 +54,8 @@ class TestStringify(Tester):
         return stringified
 
     def test_add(self) -> None:
+        # TODO Why doesn't VSCode recognize x as a ToString instance?
+        x = ToString("hello") - "o"
         self.check_result(type(stringify("hi") + " there"), ToString)
         # self.check_result(type("hi" + stringify(" there")), ToString)  # TODO?
 

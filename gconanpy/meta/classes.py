@@ -9,7 +9,8 @@ Updated: 2025-07-09
 # Import standard libraries
 import abc
 from collections.abc import Callable, Collection, Iterable, Mapping
-from functools import reduce
+from functools import reduce, wraps
+from inspect import getattr_static
 # from operator import attrgetter, methodcaller  # TODO?
 from typing import (Any, Concatenate, get_args, Literal, NamedTuple,
                     ParamSpec, Protocol, runtime_checkable, TypeVar)
@@ -17,6 +18,7 @@ from typing_extensions import Self
 
 # Import local custom libraries
 try:
+    from ..mapping.map_funcs import lazysetdefault
     from .funcs import DATA_ERRORS, has_method, make_metaclass, \
         metaclass_hasmethod, metaclass_issubclass, name_type_class
     from ..reg import DunderParser
@@ -36,6 +38,7 @@ class MethodWrapper:
     def return_as_its_class(meth: UnwrappedMethod) -> WrappedMethod:
         S = TypeVar("S", bound=HasClass)
 
+        @wraps(meth)
         def inner(self: S, *args: Any, **kwargs: Any) -> S:
             return self.__class__(meth(self, *args, **kwargs))
         return inner
@@ -44,6 +47,7 @@ class MethodWrapper:
     def return_self_if_no_value(meth: WrappedMethod) -> WrappedMethod:
         S = TypeVar("S")
 
+        @wraps(meth)
         def inner(self: S, value: Boolable) -> S:
             return meth(self, value) if value else self
         return inner
