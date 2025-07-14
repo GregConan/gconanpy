@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-07-13
+Updated: 2025-07-14
 """
 # Import standard libraries
 # from collections import UserString  # TODO?
@@ -32,6 +32,7 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.reg import Regextract
 
 
+# Wrap every str method that returns str to return a ToString instance instead
 wrapper = ClassWrapper(str)
 
 
@@ -218,6 +219,15 @@ class ToString(str):
     @classmethod
     def fromBeautifulSoup(cls, soup: bs4.element.PageElement | None, tag:
                           Literal["all", "first", "last"] = "all") -> Self:
+        """ Convert a `BeautifulSoup` object (from `bs4`) to a `ToString`.
+
+        :param soup: bs4.element.PageElement, or None to get an empty string.
+        :param tag: Literal["all", "first", "last"], which HTML document tag \
+            to represent as a string: "first" means only the opening tag, \
+            "last" means only the closing tag, and "all" means both plus \
+            everything in between them.
+        :return: ToString representing the `BeautifulSoup` object.
+        """
         match soup:
             case bs4.Tag():
                 match tag:
@@ -242,6 +252,19 @@ class ToString(str):
     @classmethod
     def fromCallable(cls, an_obj: Callable, max_len: int | None = None,
                      *args: Any, **kwargs: Any) -> Self:
+        """ Convert a `Callable` object, such as a function or class, into a \
+            `ToString` instance.
+
+        :param an_obj: Callable to stringify.
+        :param max_len: int, size of the longest possible ToString to return \
+            without truncation, or None to never truncate; defaults to None.
+        :param args: Iterable[Any], input parameters to represent calling \
+            `an_obj` with. `args=[1,2,3]` -> `"an_obj(1, 2, 3)"`.
+        :param kwargs: Mapping[str, Any], keyword input parameters to \
+            represent calling `an_obj` with. `kwargs={"a": 1, "b": 2}` -> \
+            `"an_obj(a=1, b=2)"`.
+        :return: ToString representing the `Callable` object `an_obj`.
+        """
         # Put all pre-defined args and kwargs into this instance's str repr
         iter_kwargs: Mapping = dict(prefix="[", suffix="]", lastly="")
         kwargstrs = cls.fromMapping(kwargs, quote_keys=False, prefix=None,
@@ -435,13 +458,18 @@ class ToString(str):
 
     @wrapper.return_as_its_class  # method returns ToString
     def rreplace(self, old: str, new: str, count: int = -1) -> str:
-        """
+        """ Return a copy with occurrences of substring old replaced by new.
+            Like `str.replace`, but replaces the last `old` occurrences first.
 
-        :param old: str, _description_
-        :param new: str, _description_
-        :param count: int,_description_, defaults to -1
-        :return: str, _description_
+        :param old: str, the substring to replace occurrences of with `new`.
+        :param new: str to replace `count` occurrences of `old` with.
+        :param count: int, the maximum number of occurrences to replace. \
+            Defaults to -1 (replace all occurrences). Include a different \
+            number to replace only the LAST `count` occurrences, starting \
+            from the end of the string.
+        :return: ToString with 
         """
+        str.replace
         return new.join(self.rsplit(old, count))
 
     def that_ends_with(self, suffix: str | None) -> Self:
