@@ -425,26 +425,6 @@ class ToString(str):
         return [cls.quotate(an_obj, quote, quote_numbers, max_len=max_len,
                             **kwargs) for an_obj in objects]
 
-    @classmethod
-    def represent_class(cls, a_class: type, max_len: int | None = None,
-                        *args: Any, **kwargs: Any) -> Self:
-        # Put all pre-defined args and kwargs into this instance's str repr
-        iter_kwargs: Mapping = dict(prefix="[", suffix="]", lastly="")
-        kwargstrs = cls.fromMapping(kwargs, quote_keys=False, prefix=None,
-                                    suffix=None, join_on="=", max_len=max_len,
-                                    lastly="", iter_kwargs=iter_kwargs)
-        argstrs = cls.fromIterable(args, prefix=None, suffix=None, lastly="")
-        match bool_pair_to_cases(argstrs, kwargstrs):
-            case 0:  # neither argstrs nor kwargstrs
-                stringified = ""
-            case 1:  # only argstrs
-                stringified = argstrs
-            case 2:  # only kwargstrs
-                stringified = kwargstrs
-            case 3:  # both argstrs and kwargstrs
-                stringified = ', '.join((argstrs, kwargstrs))
-        return cls(f"{name_of(a_class)}({stringified})")
-
     @wrapper.return_as_its_class  # method returns ToString
     def replacements(self, replace: Mapping[str, str], count: int = -1
                      ) -> str:

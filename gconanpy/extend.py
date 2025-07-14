@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2025-07-07
+Updated: 2025-07-13
 """
 # Import standard libraries
 from collections.abc import (Callable, Container, Generator,
@@ -224,7 +224,7 @@ class WeakDataclassBase:
     __slots__: tuple
 
     def __repr__(self) -> str:
-        return ToString.represent_class(type(self), **{
+        return ToString.fromCallable(type(self), **{
             x: getattr(self, x) for x in self.__slots__}, max_len=100)
 
     def __eq__(self, other) -> bool:
