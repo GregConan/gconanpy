@@ -43,28 +43,51 @@ class Abbreviations(Abbreviator):
 
 
 class Regextract:
-    NOT_LETTERS = r"[^a-zA-Z]"
-    PARENTHETICALS = r"""\((  # Get everything after the opening parenthesis
-        ?:[^()]+|(?R) # Nested parentheticals don't get their own groups
-        )*+  # Match everything possible inside the outermost parentheses
-        \)"""  # Get everything before the closing parenthesis
-    # _PARENTHETICALS = r"\((?:[^()]*(?R)?)*+\)"  # NOTE Functionally same?
-    INVALID_PY_REPR = r"""<
+    # Categories assigned in strictly-invalid repr() outputs.
+    REPRS = r"class|function|method|module"
+
+    NOT_LETTERS = r"[^a-zA-Z]"  # Match any non-letter character.
+
+    # Check whether a string is a strictly-invalid output of repr(), one that
+    # would raise an exception if typed into a Python console.
+    INVALID_PY_REPR = regex.compile(r"""<
         ((
-        (module|function|built-in|class)
+        (built-in|""" + REPRS + r""")
         [^<>]*
         )|(
         [^<>]*
         \sobject\sat\s\dx\w{12}))
-        >"""
-    FLOAT = r"""(?:  # 1st case: dot followed by digits; ".1" -> 0.1
+        >""", regex.X)
+
+    # Get a floating-point/decimal number from inside a string.
+    FLOAT = regex.compile(
+        r"""(?:  # 1st case: dot followed by digits; ".1" -> 0.1
             (?:[\.])  # Ensure there's a decimal point, then ignore it
             (?<decimal>[0-9]+)  # Get all digits after the dot
         )|(?:  # 2nd case: integer with optional decimals; "1" or "1.1"
             (?<int>[0-9]+)  # Get all digits before the dot
             (?:[\.]?)  # If there's a decimal point, then ignore it
             (?<decimal>[0-9]*)  # Distinguish & get digits in decimal part
-        )"""
+        )""", regex.X)
+
+    # Get the longest possible string bounded by parentheses.
+    # NOTE: Can't pre-compile PARENTHETICALS because it uses (?R).
+    PARENTHETICALS = r"""\((  # Get everything after the opening parenthesis
+        ?:[^()]+|(?R) # Nested parentheticals don't get their own groups
+        )*+  # Match everything possible inside the outermost parentheses
+        \)"""  # Get everything before the closing parenthesis
+    # _PARENTHETICALS = r"\((?:[^()]*(?R)?)*+\)"  # NOTE Functionally same?
+
+    # Convert output of Python repr() function to its valid name.
+    PY_REPR_TO_NAME = regex.compile(r"""
+        <  # If it's enclosed in angle brackets, then extract the name
+        (?:.*  # Ignore everything before the name
+        (?:""" + REPRS + r""")  # Ignore its category (e.g. 'class', 'method')
+        \s[\'\"]?)  # Ignore space, & any quote marks, between category & name
+        (?<name>[\w\.]+)  # The name is letters, digits, '_', and '.'
+        (?:.*)  # Ignore everything after the name
+        >|(?<name>.*)  # Anything not enclosed in angle brackets is valid
+        """, regex.X)   # TODO! Use in ToString.fromCallable?
 
     @classmethod
     def is_invalid_py_repr(cls, astr: str) -> bool:
@@ -73,11 +96,11 @@ class Regextract:
         :param astr: str, _description_
         :return: bool, _description_
         """
-        return regex.match(cls.INVALID_PY_REPR, astr, re.X) is not None
+        return regex.match(cls.INVALID_PY_REPR, astr) is not None
 
     @classmethod
     def iter_numbers(cls, txt: str) -> Generator[float, None, None]:
-        for num_match in regex.finditer(cls.FLOAT, txt, regex.X):
+        for num_match in regex.finditer(cls.FLOAT, txt):
             if num_match:
                 n = num_match.groupdict(default="0")
                 yield float(".".join((n["int"], n["decimal"])))
@@ -90,7 +113,7 @@ class Regextract:
         :param txt: str, _description_
         :yield: Generator[regex.Match, None, None], _description_
         """
-        yield from regex.finditer(cls.PARENTHETICALS, txt)
+        yield from regex.finditer(cls.PARENTHETICALS, txt, flags=regex.X)
 
     @classmethod
     def letters_in(cls, txt: str) -> str:
@@ -102,7 +125,7 @@ class Regextract:
 
     @classmethod
     def parentheticals_in(cls, txt: str) -> list:
-        return regex.findall(cls.PARENTHETICALS, txt, flags=re.X)
+        return regex.findall(cls.PARENTHETICALS, txt)
 
     @staticmethod
     def parse(pattern: re.Pattern, txt: str, default: Any = None,
@@ -118,7 +141,8 @@ class Regextract:
         parsed = pattern.search(txt)
         parsed = parsed.groupdict(default=default) if parsed else dict()
         return mapping.Subset(keys=parsed.keys(), include_keys=True,
-                              values=exclude, include_values=False).of(parsed)
+                              values=exclude, include_values=False
+                              ).of(parsed) if exclude else parsed
 
 
 class DunderParser:

@@ -3,17 +3,16 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-07-10
+Updated: 2025-07-13
 """
 # Import standard libraries
-# from collections import UserString
+# from collections import UserString  # TODO?
 from collections.abc import Callable, Collection, Generator, Iterable, Mapping
 import datetime as dt
-from inspect import getattr_static
 import os
 import re
 import sys
-from typing import Any, Literal, NamedTuple, ParamSpec
+from typing import Any, Literal, NamedTuple
 from typing_extensions import Self
 
 # Import third-party PyPI libraries
@@ -23,24 +22,31 @@ import pathvalidate
 # Import local custom libraries
 try:
     import mapping
-    from meta.classes import MethodWrapper, TimeSpec
+    from meta.classes import ClassWrapper, TimeSpec
     from meta.funcs import bool_pair_to_cases, name_of
     from reg import Regextract
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy import mapping
-    from gconanpy.meta.classes import MethodWrapper, TimeSpec
+    from gconanpy.meta.classes import ClassWrapper, TimeSpec
     from gconanpy.meta.funcs import bool_pair_to_cases, name_of
     from gconanpy.reg import Regextract
 
 
+wrapper = ClassWrapper(str)
+
+
+@wrapper.class_decorator
 class ToString(str):
-    # Filter to call from_iterable in quotate method using the recursive
+    # Filter to call fromIterable in quotate method using the recursive
     # iter_kwargs input parameter without adding a parameter exclusive to
-    # from_mapping method (and not from_iterable)
+    # fromMapping method (and not fromIterable)
     _ITER_SUBSET = mapping.Subset(keys="join_on", include_keys=False)
 
     # Type hint for passing own methods to others as input parameters
     Stringifier = Callable[[Any], Self]
+
+    # TODO Wrap string methods so type checker shows they return a ToString?
+    # TODO No, just hint them properly in a .pyi Python stub file?
 
     def __add__(self, value: str | None) -> Self:
         """ Append `value` to the end of `self`. Implements `self + value`. \
@@ -53,9 +59,9 @@ class ToString(str):
         """
         return self.__class__(super().__add__(value)) if value else self
 
-    @MethodWrapper.return_as_its_class
+    @wrapper.return_as_its_class  # method returns ToString
     def __sub__(self, value: str | None) -> str:
-        """ Remove `value` from the end of `self`. Implements `self - value`. 
+        """ Remove `value` from the end of `self`. Implements `self - value`.
             Defined as a shorter but still intuitive alias for `removesuffix`.
 
         :param value: str | None
@@ -111,7 +117,7 @@ class ToString(str):
         if put_date_after is not None:
 
             # Get ISO timestamp to append to file name  # dt.datetime.now()
-            put_date_after += cls.from_datetime(dt.date.today())
+            put_date_after += cls.fromDateTime(dt.date.today())
 
         # Make max_len take file extension and datetimestamp into account
             max_len -= len(put_date_after)
@@ -127,126 +133,17 @@ class ToString(str):
                    ).that_ends_with(put_date_after).that_ends_with(file_ext)
 
     @classmethod
-    def fromBeautifulSoup(cls, soup: bs4.element.PageElement | None, tag:
-                          Literal["all", "first", "last"] = "all") -> Self:
-        match soup:
-            case bs4.Tag():
-                match tag:
-                    case "all":
-                        stringified = str(soup)
-                    case "first":
-                        attrs = getattr(soup, "attrs", None)
-                        attrstr = " " + cls.from_mapping(
-                            attrs, quote_keys=False, join_on="=", prefix=None,
-                            suffix=None, sep=" ", lastly="") if attrs else ""
-                        stringified = f"<{soup.name}{attrstr}>"
-                    case "last":
-                        stringified = f"</{soup.name}>"
-            case bs4.element.NavigableString():
-                stringified = soup.string
-            case None:
-                stringified = ""
-            case _:
-                raise TypeError(f"`{soup}` is not a bs4.element.PageElement")
-        return cls(stringified)
-
-    @classmethod
-    def from_callable(cls, an_obj: Callable, max_len: int | None = None
-                      ) -> Self:
-        return cls(name_of(an_obj)).truncate(max_len)
-
-    @classmethod
-    def from_datetime(cls, moment: dt.date | dt.time | dt.datetime,
-                      sep: str = "_", timespec: TimeSpec.UNIT = "seconds",
-                      replace: Mapping[str, str] = {":": "-"}) -> Self:
-        """ Return the time formatted according to ISO as a ToString object.
-
-        The full format is 'HH:MM:SS.mmmmmm+zz:zz'. By default, the fractional
-        part is omitted if self.microsecond == 0.
-
-        :param moment: dt.date | dt.time | dt.datetime to convert ToString.
-        :param sep: str, the separator between date and time; defaults to "_"
-        :param timespec: str specifying the number of additional terms of \
-            the time to include; defaults to "seconds".
-        :param replace: Mapping[str, str] of parts (in the result of calling \
-            `moment.isoformat`) to different strings to replace them with; \
-            by default, this will replace ":" with "-" (for naming files).
-        :return: ToString, _description_
-        """
-        match moment:
-            case dt.datetime():
-                stringified = dt.datetime.isoformat(moment, sep=sep,
-                                                    timespec=timespec)
-            case dt.date():
-                stringified = dt.date.isoformat(moment)
-            case dt.time():
-                stringified = dt.time.isoformat(moment, timespec=timespec)
-        return cls(stringified).replacements(replace)
-
-    @classmethod
-    def from_iterable(cls, an_obj: Collection, quote: str | None = "'",
-                      sep: str = ", ", quote_numbers: bool = False,
-                      prefix: str | None = "[", suffix: str | None = "]",
-                      max_len: int | None = None, lastly: str = "and ",
-                      iter_kwargs: Mapping[str, Any] = dict()) -> Self:
-        """ Convert an Iterable into a ToString object.
-
-        :param an_obj: Collection to convert ToString
-        :param quote: str to add before and after each element of `an_obj`, \
-            or None to insert no quotes; defaults to "'"
-        :param sep: str to insert between all of the elements of `an_obj`, \
-            or None to insert no such separators; defaults to ", "
-        :param quote_numbers: bool, True to insert `quote` before and after \
-            each numerical element of `an_obj`; else False to add no \
-            quotes to numbers in `an_obj`; defaults to False
-        :param prefix: str to insert as the first character of the returned \
-            ToString object, or None to add no prefix; defaults to "["
-        :param suffix: str to insert as the last character of the returned \
-            ToString object, or None to add no suffix; defaults to "]"
-        :param max_len: int, size of the longest possible ToString to return \
-            without truncation, or None to never truncate; defaults to None
-        :param lastly: str to insert after the last `sep` in the returned \
-            ToString object `if len(an_obj) > 2`, or None to add no such \
-            string; defaults to "and "
-        :return: ToString of all elements in `an_obj`, `quote`-quoted and \
-                 `sep`-separated if there are multiple elements, starting \
-                 with `prefix` and ending with `suffix`, with `lastly` after \
-                 the last `sep` if there are more than 2 elements of `an_obj`.
-        """
-        if not an_obj:
-            string = ""
-        elif isinstance(an_obj, str):  # TODO Refactor from LBYL to EAFP?
-            string = an_obj
-        else:
-            list_with_str_els = cls.quotate_all(an_obj, quote, quote_numbers,
-                                                max_len, iter_kwargs)
-            if len(an_obj) > 2:
-                except_end = sep.join(list_with_str_els[:-1])
-                string = f"{except_end}{sep}{lastly}{list_with_str_els[-1]}"
-            elif lastly:
-                if lastly.endswith(" "):
-                    lastly = cls(lastly).that_starts_with(" ")
-                string = lastly.join(list_with_str_els)
-            else:
-                string = sep.join(list_with_str_els)
-        self = cls(string)
-        if max_len is not None:
-            affix_len = sum([len(x) if x else 0 for x in (prefix, suffix)])
-            self = self.truncate(max_len - affix_len)
-        return self.enclosed_in(prefix, suffix)
-
-    @classmethod
-    def from_object(cls, an_obj: Any, max_len: int | None = None,
-                    quote: str | None = "'", quote_numbers: bool = False,
-                    quote_keys: bool = True, join_on: str = ": ",
-                    sep: str = ", ", prefix: str | None = None,
-                    suffix: str | None = None, dt_sep: str = "_",
-                    timespec: TimeSpec.UNIT = "seconds",
-                    replace: Mapping[str, str] = {":": "-"},
-                    encoding: str = sys.getdefaultencoding(),
-                    errors: str = "ignore", lastly: str = "and ",
-                    iter_kwargs: dict[str, Any] = dict()) -> Self:
-        """ Convert an object ToString 
+    def fromAny(cls, an_obj: Any, max_len: int | None = None,
+                quote: str | None = "'", quote_numbers: bool = False,
+                quote_keys: bool = True, join_on: str = ": ",
+                sep: str = ", ", prefix: str | None = None,
+                suffix: str | None = None, dt_sep: str = "_",
+                timespec: TimeSpec.UNIT = "seconds",
+                replace: Mapping[str, str] = {":": "-"},
+                encoding: str = sys.getdefaultencoding(),
+                errors: str = "ignore", lastly: str = "and ",
+                iter_kwargs: dict[str, Any] = dict()) -> Self:
+        """ Convert an object ToString
 
         :param an_obj: Any, object to convert ToString
         :param max_len: int, size of the longest possible ToString to return \
@@ -295,18 +192,18 @@ class ToString(str):
                 stringified = cls(an_obj, encoding=encoding, errors=errors
                                   ).truncate(max_len)
             case dict():
-                stringified = cls.from_mapping(
+                stringified = cls.fromMapping(
                     an_obj, quote, quote_numbers, quote_keys, join_on, prefix,
                     suffix, sep, max_len, lastly, iter_kwargs)
             case list() | tuple() | set():
-                stringified = cls.from_iterable(
+                stringified = cls.fromIterable(
                     an_obj, quote, sep, quote_numbers, prefix, suffix,
                     max_len, lastly, iter_kwargs)
             case dt.date() | dt.time() | dt.datetime():
-                stringified = cls.from_datetime(
+                stringified = cls.fromDateTime(
                     an_obj, dt_sep, timespec, replace).truncate(max_len)
             case type():
-                stringified = cls.from_callable(an_obj, max_len)
+                stringified = cls.fromCallable(an_obj, max_len)
             case None:
                 stringified = cls()
             case bs4.element.PageElement():
@@ -314,18 +211,145 @@ class ToString(str):
             case _:  # str or other
                 stringified = cls(an_obj)
                 if Regextract.is_invalid_py_repr(stringified):
-                    stringified = cls.from_callable(an_obj, max_len)
+                    stringified = cls.fromCallable(an_obj, max_len)
                 stringified = stringified.truncate(max_len)
         return stringified
 
     @classmethod
-    def from_mapping(cls, a_map: Mapping, quote: str | None = "'",
-                     quote_numbers: bool = False, quote_keys: bool = True,
-                     join_on: str = ": ",
-                     prefix: str | None = "{", suffix: str | None = "}",
-                     sep: str = ", ", max_len: int | None = None,
-                     lastly: str = "and ",
+    def fromBeautifulSoup(cls, soup: bs4.element.PageElement | None, tag:
+                          Literal["all", "first", "last"] = "all") -> Self:
+        match soup:
+            case bs4.Tag():
+                match tag:
+                    case "all":
+                        stringified = str(soup)
+                    case "first":
+                        attrs = getattr(soup, "attrs", None)
+                        attrstr = " " + cls.fromMapping(
+                            attrs, quote_keys=False, join_on="=", prefix=None,
+                            suffix=None, sep=" ", lastly="") if attrs else ""
+                        stringified = f"<{soup.name}{attrstr}>"
+                    case "last":
+                        stringified = f"</{soup.name}>"
+            case bs4.element.NavigableString():
+                stringified = soup.string
+            case None:
+                stringified = ""
+            case _:
+                raise TypeError(f"`{soup}` is not a bs4.element.PageElement")
+        return cls(stringified)
+
+    @classmethod
+    def fromCallable(cls, an_obj: Callable, max_len: int | None = None,
+                     *args: Any, **kwargs: Any) -> Self:
+        # Put all pre-defined args and kwargs into this instance's str repr
+        iter_kwargs: Mapping = dict(prefix="[", suffix="]", lastly="")
+        kwargstrs = cls.fromMapping(kwargs, quote_keys=False, prefix=None,
+                                    suffix=None, join_on="=", max_len=max_len,
+                                    lastly="", iter_kwargs=iter_kwargs)
+        argstrs = cls.fromIterable(args, prefix=None, suffix=None, lastly="")
+        match bool_pair_to_cases(argstrs, kwargstrs):
+            case 0:  # neither argstrs nor kwargstrs
+                stringified = ""
+            case 1:  # only argstrs
+                stringified = f"({argstrs})"
+            case 2:  # only kwargstrs
+                stringified = f"({kwargstrs})"
+            case 3:  # both argstrs and kwargstrs
+                stringified = f"({', '.join((argstrs, kwargstrs))})"
+        # TODO instead of using name_of, use Regextract.PY_REPR_TO_NAME
+        #      or of_self_or_class(an_obj, "__qualname__")?
+        return cls(f"{name_of(an_obj)}{stringified}")
+
+    @classmethod
+    def fromDateTime(cls, moment: dt.date | dt.time | dt.datetime,
+                     sep: str = "_", timespec: TimeSpec.UNIT = "seconds",
+                     replace: Mapping[str, str] = {":": "-"}) -> Self:
+        """ Return the time formatted according to ISO as a ToString object.
+
+        The full format is 'HH:MM:SS.mmmmmm+zz:zz'. By default, the fractional
+        part is omitted if self.microsecond == 0.
+
+        :param moment: dt.date | dt.time | dt.datetime to convert ToString.
+        :param sep: str, the separator between date and time; defaults to "_"
+        :param timespec: str specifying the number of additional terms of \
+            the time to include; defaults to "seconds".
+        :param replace: Mapping[str, str] of parts (in the result of calling \
+            `moment.isoformat`) to different strings to replace them with; \
+            by default, this will replace ":" with "-" (for naming files).
+        :return: ToString, _description_
+        """
+        match moment:
+            case dt.datetime():
+                stringified = dt.datetime.isoformat(moment, sep=sep,
+                                                    timespec=timespec)
+            case dt.date():
+                stringified = dt.date.isoformat(moment)
+            case dt.time():
+                stringified = dt.time.isoformat(moment, timespec=timespec)
+        return cls(stringified).replacements(replace)
+
+    @classmethod
+    def fromIterable(cls, an_obj: Collection, quote: str | None = "'",
+                     sep: str = ", ", quote_numbers: bool = False,
+                     prefix: str | None = "[", suffix: str | None = "]",
+                     max_len: int | None = None, lastly: str = "and ",
                      iter_kwargs: Mapping[str, Any] = dict()) -> Self:
+        """ Convert a Collection (e.g. a list, tuple, or set) into an \
+            instance of the ToString class.
+
+        :param an_obj: Collection to convert ToString
+        :param quote: str to add before and after each element of `an_obj`, \
+            or None to insert no quotes; defaults to "'"
+        :param sep: str to insert between all of the elements of `an_obj`, \
+            or None to insert no such separators; defaults to ", "
+        :param quote_numbers: bool, True to insert `quote` before and after \
+            each numerical element of `an_obj`; else False to add no \
+            quotes to numbers in `an_obj`; defaults to False
+        :param prefix: str to insert as the first character of the returned \
+            ToString object, or None to add no prefix; defaults to "["
+        :param suffix: str to insert as the last character of the returned \
+            ToString object, or None to add no suffix; defaults to "]"
+        :param max_len: int, size of the longest possible ToString to return \
+            without truncation, or None to never truncate; defaults to None
+        :param lastly: str to insert after the last `sep` in the returned \
+            ToString object `if len(an_obj) > 2`, or None to add no such \
+            string; defaults to "and "
+        :return: ToString of all elements in `an_obj`, `quote`-quoted and \
+                 `sep`-separated if there are multiple elements, starting \
+                 with `prefix` and ending with `suffix`, with `lastly` after \
+                 the last `sep` if there are more than 2 elements of `an_obj`.
+        """
+        if not an_obj:
+            string = ""
+        elif isinstance(an_obj, str):  # TODO Refactor from LBYL to EAFP?
+            string = an_obj
+        else:
+            list_with_str_els = cls.quotate_all(an_obj, quote, quote_numbers,
+                                                max_len, iter_kwargs)
+            if len(an_obj) > 2:
+                except_end = sep.join(list_with_str_els[:-1])
+                string = f"{except_end}{sep}{lastly}{list_with_str_els[-1]}"
+            elif lastly:
+                if lastly.endswith(" "):
+                    lastly = cls(lastly).that_starts_with(" ")
+                string = lastly.join(list_with_str_els)
+            else:
+                string = sep.join(list_with_str_els)
+        self = cls(string)
+        if max_len is not None:
+            affix_len = sum([len(x) if x else 0 for x in (prefix, suffix)])
+            self = self.truncate(max_len - affix_len)
+        return self.enclosed_in(prefix, suffix)
+
+    @classmethod
+    def fromMapping(cls, a_map: Mapping, quote: str | None = "'",
+                    quote_numbers: bool = False, quote_keys: bool = True,
+                    join_on: str = ": ",
+                    prefix: str | None = "{", suffix: str | None = "}",
+                    sep: str = ", ", max_len: int | None = None,
+                    lastly: str = "and ",
+                    iter_kwargs: Mapping[str, Any] = dict()) -> Self:
         """
         :param a_map: Mapping to convert ToString
         :param quote: str to add before and after each key-value pair in \
@@ -359,9 +383,9 @@ class ToString(str):
                             max_len=max_len, join_on=join_on, sep=sep,
                             prefix=prefix, suffix=suffix, lastly=lastly)
             pair_strings.append(join_on.join((k, v)))
-        return cls.from_iterable(pair_strings, quote=None, prefix=prefix,
-                                 suffix=suffix, max_len=max_len, sep=sep,
-                                 lastly=lastly, iter_kwargs=iter_kwargs)
+        return cls.fromIterable(pair_strings, quote=None, prefix=prefix,
+                                suffix=suffix, max_len=max_len, sep=sep,
+                                lastly=lastly, iter_kwargs=iter_kwargs)
 
     @classmethod
     def quotate(cls, an_obj: Any, quote: str | None = "'",
@@ -372,12 +396,12 @@ class ToString(str):
         else:
             match an_obj:
                 case dict():
-                    quoted = cls.from_mapping(an_obj, quote, quote_numbers,
-                                              quote_keys, **iter_kwargs)
+                    quoted = cls.fromMapping(an_obj, quote, quote_numbers,
+                                             quote_keys, **iter_kwargs)
                     # , iter_kwargs=iter_kwargs)
                 case list() | tuple() | set():
                     # without_join = cls._ITER_SUBSET.of(iter_kwargs)
-                    quoted = cls.from_iterable(
+                    quoted = cls.fromIterable(
                         an_obj, quote, quote_numbers=quote_numbers,
                         # iter_kwargs=iter_kwargs,
                         **cls._ITER_SUBSET.of(iter_kwargs))
@@ -389,7 +413,7 @@ class ToString(str):
                 case _:
                     quoted = cls(an_obj)
                     if Regextract.is_invalid_py_repr(quoted):
-                        quoted = cls.from_callable(an_obj)
+                        quoted = cls.fromCallable(an_obj)
                     else:
                         quoted = quoted.enclosed_by(quote)
         return quoted
@@ -406,10 +430,10 @@ class ToString(str):
                         *args: Any, **kwargs: Any) -> Self:
         # Put all pre-defined args and kwargs into this instance's str repr
         iter_kwargs: Mapping = dict(prefix="[", suffix="]", lastly="")
-        kwargstrs = cls.from_mapping(kwargs, quote_keys=False, prefix=None,
-                                     suffix=None, join_on="=", max_len=max_len,
-                                     lastly="", iter_kwargs=iter_kwargs)
-        argstrs = cls.from_iterable(args, prefix=None, suffix=None, lastly="")
+        kwargstrs = cls.fromMapping(kwargs, quote_keys=False, prefix=None,
+                                    suffix=None, join_on="=", max_len=max_len,
+                                    lastly="", iter_kwargs=iter_kwargs)
+        argstrs = cls.fromIterable(args, prefix=None, suffix=None, lastly="")
         match bool_pair_to_cases(argstrs, kwargstrs):
             case 0:  # neither argstrs nor kwargstrs
                 stringified = ""
@@ -421,7 +445,7 @@ class ToString(str):
                 stringified = ', '.join((argstrs, kwargstrs))
         return cls(f"{name_of(a_class)}({stringified})")
 
-    @MethodWrapper.return_as_its_class
+    @wrapper.return_as_its_class  # method returns ToString
     def replacements(self, replace: Mapping[str, str], count: int = -1
                      ) -> str:
         string = self  # cls = self.__class__
@@ -429,7 +453,7 @@ class ToString(str):
             string = string.replace(old, new, count)
         return string
 
-    @MethodWrapper.return_as_its_class
+    @wrapper.return_as_its_class  # method returns ToString
     def rreplace(self, old: str, new: str, count: int = -1) -> str:
         """
 
@@ -448,7 +472,7 @@ class ToString(str):
         """
         return self if not suffix or self.endswith(suffix) else self + suffix
 
-    @MethodWrapper.return_as_its_class
+    @wrapper.return_as_its_class  # method returns ToString
     def that_starts_with(self, prefix: str | None) -> str:
         """ Prepend `suffix` at index 0 of `self` unless it is already there.
 
@@ -521,7 +545,7 @@ class BasicTree(tuple[str, list]):
 
 
 # Shorter names to export
-stringify = ToString.from_object
-stringify_dt = ToString.from_datetime
-stringify_map = ToString.from_mapping
-stringify_iter = ToString.from_iterable
+stringify = ToString.fromAny
+stringify_dt = ToString.fromDateTime
+stringify_map = ToString.fromMapping
+stringify_iter = ToString.fromIterable

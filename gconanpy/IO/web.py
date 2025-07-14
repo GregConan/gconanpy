@@ -4,7 +4,7 @@
 Functions to import/export data from/to remote files/pages/APIs on the Web.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-13
-Updated: 2025-07-10
+Updated: 2025-07-13
 """
 # Import standard libraries
 from collections.abc import Mapping
@@ -92,7 +92,7 @@ class URL:
         """
         url = f"https://{'/'.join(parts)}"
         if url_params:
-            url += ToString.from_mapping(
+            url += ToString.fromMapping(
                 url_params, quote=None, join_on="=", prefix="?",
                 suffix=None, sep="&", lastly="")
         return cls(url)

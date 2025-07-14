@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-07-06
+Updated: 2025-07-13
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Sequence
@@ -77,6 +77,10 @@ class TestStringify(Tester):
         bytestring = b"hello"
         self.check_ToString(stringify(bytestring), "hello")
 
+    def test_capitalize(self) -> None:
+        self.check_ToString(ToString("hello").capitalize(),  # type: ignore
+                            "Hello")  # TODO fix type annotation problem
+
     def test_defaults(self) -> None:
         self.check_map("'a': 1, 'b': 2, and 'c': 3")
 
@@ -130,14 +134,14 @@ class TestStringify(Tester):
     def test_none(self) -> None:
         self.check_ToString(stringify(None), "")
 
-    def test_represent_class(self) -> None:
+    def test_fromCallable(self) -> None:
         self.add_basics()
         for _ in range(10):
             pre = Randoms.randsublist(self.alist)
             post = Randoms.randsublist(self.alist)
             kwargs = self.adict
             call = always_true
-            self.check_result(ToString.represent_class(
+            self.check_result(ToString.fromCallable(
                 WrapFunction, call=call, pre=pre, post=post, **kwargs),
                 self.stringify_WrapFunction(call, pre, post, **kwargs))
 
@@ -190,6 +194,10 @@ class TestStringify(Tester):
 
     def test_sep(self) -> None:
         self.check_map("'a': 1; 'b': 2; and 'c': 3", sep="; ")
+
+    def test_upper(self) -> None:
+        self.check_ToString(ToString("hello").upper(),  # type: ignore
+                            "HELLO")  # TODO fix type annotation problem
 
 
 class TestURL(Tester):

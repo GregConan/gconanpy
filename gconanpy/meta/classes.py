@@ -4,15 +4,14 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-07-09
+Updated: 2025-07-13
 """
 # Import standard libraries
 import abc
 from collections.abc import Callable, Collection, Iterable, Mapping
-from functools import reduce, wraps
-from inspect import getattr_static
+from functools import wraps
 # from operator import attrgetter, methodcaller  # TODO?
-from typing import (Any, Concatenate, get_args, Literal, NamedTuple,
+from typing import (Any, Concatenate, get_args, Literal,
                     ParamSpec, Protocol, runtime_checkable, TypeVar)
 from typing_extensions import Self
 
@@ -28,26 +27,64 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.reg import DunderParser
 
 
-class MethodWrapper:
+class ClassWrapper:
+    # MethodWrapper type hint vars for return_as_* methods
     _P = ParamSpec("_P")  # _P means (*args, **kwargs)
     _T = TypeVar("_T")  # _T means self.__class__ means type(self)
     UnwrappedMethod = Callable[Concatenate[_T, _P], Any]
     WrappedMethod = Callable[Concatenate[_T, _P], _T]
 
-    @staticmethod
-    def return_as_its_class(meth: UnwrappedMethod) -> WrappedMethod:
-        S = TypeVar("S", bound=HasClass)
+    # New type hint variables for other ClassWrapper methods
+    _Super = TypeVar("_Super")
+    _S = TypeVar("_S")
+    ASSIGNED = ("__doc__", "__name__", "__text_signature__")
 
-        @wraps(meth)
-        def inner(self: S, *args: Any, **kwargs: Any) -> S:
-            return self.__class__(meth(self, *args, **kwargs))
+    def __init__(self, superclass: type[_Super]) -> None:
+        self.superclass = superclass
+        self.attr_names = dir(superclass)
+
+    def _wrap_method_of(self, subclass: type[_S], func: Callable):
+        @wraps(func, assigned=self.ASSIGNED)
+        def inner(*args, **kwargs):
+            result = func(*args, **kwargs)
+            return result if not isinstance(result, self.superclass) \
+                else subclass(result)  # type: ignore
+
+        # setattr(inner, "__objclass__", subclass)
+        setattr(inner, "__self__", subclass)
+        inner.__qualname__ = f"{subclass.__name__}.{inner.__name__}"
         return inner
 
-    @staticmethod
-    def return_self_if_no_value(meth: WrappedMethod) -> WrappedMethod:
+    def class_decorator(self, subclass: type[_S]) -> type[_S]:
+        self.subclass = subclass
+        for attr_name in self.attr_names:
+            if not attr_name.startswith("__"):
+                superattr = getattr(self.superclass, attr_name, None)
+                subattr = getattr(subclass, attr_name, None)
+                if callable(superattr) and callable(subattr):
+                    setattr(subclass, attr_name,
+                            self._wrap_method_of(subclass, superattr))
+        return subclass
+
+    @classmethod
+    def return_as_its_class(cls, meth: UnwrappedMethod) -> WrappedMethod:
+        S = TypeVar("S", bound=HasClass)
+
+        @wraps(meth, assigned=cls.ASSIGNED)
+        def inner(self: S, *args: Any, **kwargs: Any) -> S:
+            return self.__class__(meth(self, *args, **kwargs))
+
+        # TODO
+        # setattr(inner, "__self__", self.subclass)
+        # inner.__qualname__ = f"{self.subclass.__name__}.{inner.__name__}"
+        # inner.__annotations__["return"] = self.subclass
+        return inner
+
+    @classmethod
+    def return_self_if_no_value(cls, meth: WrappedMethod) -> WrappedMethod:
         S = TypeVar("S")
 
-        @wraps(meth)
+        @wraps(meth, assigned=cls.ASSIGNED)
         def inner(self: S, value: Boolable) -> S:
             return meth(self, value) if value else self
         return inner
