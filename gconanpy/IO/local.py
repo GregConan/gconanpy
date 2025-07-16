@@ -8,16 +8,16 @@ Overlaps significantly with:
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-26
-Updated: 2025-04-09
+Updated: 2025-07-15
 """
 # Import standard libraries
+from collections.abc import Generator
 from glob import glob
 import json
 import os
 import pdb
 import shutil
 from string import Formatter, Template
-import sys
 from typing import Any
 
 
@@ -82,3 +82,11 @@ def save_to_json(contents: Any, json_path: str) -> None:
     """
     with open(json_path, "w+") as outfile:
         json.dump(contents, outfile)
+
+
+def walk_dir(dir_path: str, ext: str | None = None
+             ) -> Generator[str, None, None]:
+    for subdir_path, _, files in os.walk(dir_path):
+        for eachfile in files:
+            if not ext or eachfile.endswith(ext):
+                yield os.path.join(subdir_path, eachfile)

@@ -4,7 +4,7 @@
 Functions to manipulate and define classes and/or other functions.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-20
-Updated: 2025-07-11
+Updated: 2025-07-15
 """
 # Import standard libraries
 from collections.abc import (Callable, Collection, Generator,
@@ -61,6 +61,15 @@ def are_all_equal(comparables: Iterable, eq_meth: str | None = None,
 
 def bool_pair_to_cases(cond1, cond2) -> int:  # TODO cond*: Boolable
     return sum({x + 1 for x in which_of(cond1, cond2)})
+
+
+def classgetattr(an_obj: Any, attr_name: str) -> Any:
+    """
+    :param an_obj: Any, instance of type/class to get the attribute from
+    :param attr_name: str naming the attribute to return
+    :return: Any, the named attribute of either `an_obj` or its type/class
+    """
+    return getattr(an_obj, attr_name, getattr(type(an_obj), attr_name))
 
 
 def combinations_of_conditions(all_conditions: Sequence[str], cond_mappings:
@@ -160,13 +169,15 @@ def method(method_name: str) -> Callable:
     return call_method
 
 
-def name_of(an_obj: Any) -> str:
-    """ Get the `__name__` of an object or of its type/class.
+def name_of(an_obj: Any, get: str = "__name__") -> str:
+    """ Get the name of an object or of its type/class.
 
-    :param an_obj: Any
+    :param an_obj: Any, object to get the name of.
+    :param get: str naming the attribute of `an_obj` (or of its type) to \
+        return. Defaults to "__name__".
     :return: str naming an_obj, usually its type/class name.
     """
-    return of_self_or_class(an_obj, "__name__")
+    return classgetattr(an_obj, get)
 
 
 def name_type_class(is_all_of: Any = tuple(), isnt_any_of: Any = tuple(),
@@ -200,15 +211,6 @@ def names_of(objects: Collection, max_n: int | None = None,
         [get_name(x) for i, x in enumerate(objects) if i < max_n]
 
 
-def of_self_or_class(an_obj: Any, attr_name: str) -> Any:
-    """
-    :param an_obj: Any, instance of type/class to get the attribute from
-    :param attr_name: str naming the attribute to return
-    :return: Any, the named attribute of either `an_obj` or its type/class
-    """
-    return getattr(an_obj, attr_name, getattr(type(an_obj), attr_name))
-
-
 def parents_of(an_obj: Any) -> tuple[type, ...]:
     """ List the inheritance tree from `class object` to `an_obj`.
 
@@ -216,7 +218,7 @@ def parents_of(an_obj: Any) -> tuple[type, ...]:
     :return: tuple[*type], the method resolution order (`__mro__`) of \
         `an_obj` or of `type(an_obj)`.
     """
-    return of_self_or_class(an_obj, "__mro__")
+    return classgetattr(an_obj, "__mro__")
 
 
 def pairs(*args: Any, **kwargs: Any

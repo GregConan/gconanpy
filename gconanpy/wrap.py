@@ -4,7 +4,7 @@
 WrapFunction needs its own file to import ToString which imports MethodWrapper
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-21
-Updated: 2025-07-07
+Updated: 2025-07-15
 """
 # Import standard libraries
 from collections.abc import Callable, Generator
@@ -73,7 +73,7 @@ class WrapFunction:  # WrapFunction(partial):
         """
         # Put all pre-defined args and kwargs into this instance's str repr
         if not getattr(self, "stringified", None):
-            self.stringified = ToString.represent_class(
+            self.stringified = ToString.fromCallable(
                 type(self), **self.__dict__)
         return self.stringified
 

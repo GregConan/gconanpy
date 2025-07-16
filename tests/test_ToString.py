@@ -3,10 +3,10 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-07-13
+Updated: 2025-07-15
 """
 # Import standard libraries
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable
 import datetime as dt
 import random
 from typing import Any, cast, TypeVar
@@ -177,11 +177,11 @@ class TestStringify(Tester):
         replaced = self.HELLO_WORLD.replace("world", "there")
         self.check_ToString(replaced, "hello there")  # type: ignore # TODO
 
-    def test_replacements(self) -> None:
+    def test_replace_all(self) -> None:
         self.add_basics()
         str_list = stringify(self.alist)
         replacements = {",": "", "1": "6", "4": "four", " and": ""}
-        self.check_ToString(str_list.replacements(replacements),
+        self.check_ToString(str_list.replace_all(replacements),
                             "6 2 3 four 5")
 
     def test_sub(self) -> None:

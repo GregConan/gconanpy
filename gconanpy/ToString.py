@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-07-14
+Updated: 2025-07-15
 """
 # Import standard libraries
 # from collections import UserString  # TODO?
@@ -281,8 +281,8 @@ class ToString(str):
             case 3:  # both argstrs and kwargstrs
                 stringified = f"({', '.join((argstrs, kwargstrs))})"
         # TODO instead of using name_of, use Regextract.PY_REPR_TO_NAME
-        #      or of_self_or_class(an_obj, "__qualname__")?
-        return cls(f"{name_of(an_obj)}{stringified}")
+        #      or classgetattr(an_obj, "__qualname__")?
+        return cls(f"{name_of(an_obj, '__qualname__')}{stringified}")
 
     @classmethod
     def fromDateTime(cls, moment: dt.date | dt.time | dt.datetime,
@@ -310,7 +310,7 @@ class ToString(str):
                 stringified = dt.date.isoformat(moment)
             case dt.time():
                 stringified = dt.time.isoformat(moment, timespec=timespec)
-        return cls(stringified).replacements(replace)
+        return cls(stringified).replace_all(replace)
 
     @classmethod
     def fromIterable(cls, an_obj: Collection, quote: str | None = "'",
@@ -449,15 +449,30 @@ class ToString(str):
                             **kwargs) for an_obj in objects]
 
     @wrapper.return_as_its_class  # method returns ToString
-    def replacements(self, replace: Mapping[str, str], count: int = -1
-                     ) -> str:
+    def replace_all(self, replacements: Mapping[str, str], count: int = -1,
+                    reverse: bool = False) -> str:
+        """ Repeatedly run the `replace` (or `rreplace`) method.
+
+        :param replacements: Mapping[str, str] of (old) substrings to their \
+            (new) respective replacement substrings.
+        :param count: int, the maximum number of occurrences of each \
+            substring to replace. Defaults to -1 (replace all occurrences).
+        :param reverse: bool, True to replace the last `count` substrings, \
+            starting from the end; else (by default) False to replace the \
+            first `count` substrings, starting from the string's beginning.
+        :return: ToString after replacing `count` key-substrings with their \
+            corresponding value-substrings in `replace`.
+        """
         string = self  # cls = self.__class__
-        for old, new in replace.items():
-            string = string.replace(old, new, count)
+        replace: Callable[[ToString, str, str, int], ToString] = \
+            ToString.rreplace if reverse else \
+            ToString.replace  # type: ignore[no-redef]  # TODO
+        for old, new in replacements.items():
+            string = replace(string, old, new, count)
         return string
 
     @wrapper.return_as_its_class  # method returns ToString
-    def rreplace(self, old: str, new: str, count: int = -1) -> str:
+    def rreplace(self, old: str, new: str, count: int = -1) -> Self:
         """ Return a copy with occurrences of substring old replaced by new.
             Like `str.replace`, but replaces the last `old` occurrences first.
 
@@ -467,10 +482,10 @@ class ToString(str):
             Defaults to -1 (replace all occurrences). Include a different \
             number to replace only the LAST `count` occurrences, starting \
             from the end of the string.
-        :return: ToString with 
+        :return: ToString, a copy with its last `count` instances of the \
+            `old` substring replaced by a `new` substring.
         """
-        str.replace
-        return new.join(self.rsplit(old, count))
+        return new.join(self.rsplit(old, count))  # type: ignore[no-redef]  # TODO
 
     def that_ends_with(self, suffix: str | None) -> Self:
         """ Append `suffix` to the end of `self` unless it is already there.
@@ -515,9 +530,10 @@ class Branches(NamedTuple):
 
 class BasicTree(tuple[str, list]):
     full: str | tuple[str, str]
+    BRANCH = Branches()
 
     def prettify(self, prefix: ToString = ToString(),
-                 branch: Branches = Branches()) -> str:
+                 branch: Branches = BRANCH) -> str:
         pretties = [prefix + self[0]]
 
         if prefix.endswith(branch.L):
@@ -526,9 +542,9 @@ class BasicTree(tuple[str, list]):
 
         if self[1]:
             for child in self[1][:-1]:
-                pretties.append(child.prettify(prefix + branch.T))
+                pretties.append(child.prettify(prefix + branch.T, branch))
             pretties.append(self[1][-1].prettify(
-                prefix.replace(branch.T, branch.I) + branch.L))
+                prefix.replace(branch.T, branch.I) + branch.L, branch))
 
         return "\n".join(pretties)
 

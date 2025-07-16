@@ -4,7 +4,7 @@
 Useful/convenient functions to use on dicts. Taken from dicts.py classes
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-09
-Updated: 2025-07-07
+Updated: 2025-07-15
 """
 # Import standard libraries
 from collections import defaultdict
@@ -144,11 +144,12 @@ def invert(a_dict: dict, keep_keys: bool = False) -> dict:
     else:  # If we ARE keeping all keys mapped to the same value, then:
         inverted = defaultdict(list)  # Avoid conflating keys & values
 
-        # Swap values with keys
-        # Contain every new value so dict has 1 value type
-        for key, value in a_dict.items():
-            inverted[value].append(key)
-
+        for key, value in a_dict.items():  # Swap values with keys
+            if keep_keys == "unpack":  # TODO Use Shredder for recursion?
+                for subval in value:
+                    inverted[subval].append(key)
+            else:
+                inverted[value].append(key)
     return inverted
 
 
