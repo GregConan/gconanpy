@@ -131,11 +131,12 @@ class Subset:
 
 
 class Combinations:
+    _T = TypeVar("_T")
     _Map = TypeVar("_Map", bound=Mapping)
 
     @staticmethod
     def of_bools(n: int) -> Generator[tuple[bool, ...], None, None]:
-        """         
+        """
         :param n: int, maximum length of each tuple to yield.
         :yield: Generator[tuple[bool, ...], None, None], all possible \
             combinations of `n` boolean values.
@@ -155,11 +156,11 @@ class Combinations:
             yield Subset(keys=keys, include_keys=True).of(a_map)
 
     @staticmethod
-    def of_seq(objects: Collection) -> itertools.chain:
+    def of_seq(objects: Collection[_T]) -> itertools.chain[tuple[_T, ...]]:
         """ Return all possible combinations/subsequences of `objects`.
         Adapted from https://stackoverflow.com/a/31474532
 
-        :param objects: Collection
+        :param objects: Collection[_T]
         :return: itertools.chain[Collection], all `objects` combinations
         """
         return itertools.chain.from_iterable(

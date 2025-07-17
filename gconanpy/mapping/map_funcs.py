@@ -4,14 +4,14 @@
 Useful/convenient functions to use on dicts. Taken from dicts.py classes
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-09
-Updated: 2025-07-15
+Updated: 2025-07-16
 """
 # Import standard libraries
 from collections import defaultdict
 from collections.abc import Callable, Collection, Container, Generator, \
     Hashable, Iterable, Mapping, MutableMapping, Sequence
 from configparser import ConfigParser
-from typing import Any, TypeVar
+from typing import Any, cast, Literal, overload, TypeVar
 
 # Import local custom libraries
 try:
@@ -22,16 +22,22 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.trivial import always_none
 
 # Constants: type variables
+_D = TypeVar("_D")
+_KT = TypeVar("_KT", bound=Hashable)
+_VT = TypeVar("_VT")
+
 _MM = TypeVar("_MM", bound=MutableMapping)  # For update and setdefaults
-_Prompter = Callable[[str], str]  # Prompt function to use as lazy getter
+_ValueGetter = Callable[..., _VT]
+_Prompter = Callable[[str], _VT]  # Prompt function to use as lazy getter
 _T = TypeVar("_T")  # For invert
 CollisionHandler = None | Callable[[list[_T]], Iterable[_T]]  # For invert
 FromMap = TypeVar("FromMap", Mapping, Iterable[tuple[Hashable, Any]], None
                   )  # For update function input parameters
 
 
-def chain_get(a_dict: Mapping, keys: Sequence[Hashable], default: Any = None,
-              exclude: Container = set()) -> Any:
+def chain_get(a_dict: Mapping[_KT, _VT], keys: Sequence[_KT],
+              default: _D = None, exclude: Container[_KT] = set()
+              ) -> _VT | _D:
     """ Return the value mapped to the first key if any, else return \
         the value mapped to the second key if any, ... etc. recursively. \
         Return `default` if `a_dict` doesn't contain any of the `keys`.
@@ -57,9 +63,9 @@ def fromConfigParser(config: ConfigParser) -> dict:
             for section in config.sections()}
 
 
-def get_or_prompt_for(a_dict: Mapping, key: Hashable, prompt: str,
+def get_or_prompt_for(a_dict: Mapping[_KT, _VT], key: _KT, prompt: str,
                       prompt_fn: _Prompter = input,
-                      exclude: Container = set()) -> Any:
+                      exclude: Container[_KT] = set()) -> _VT | str:
     """ Return the value mapped to key in a_dict if one already exists; \
         else prompt the user to interactively provide it and return that.
 
@@ -93,8 +99,8 @@ def get_subset_from_lookups(a_dict: Mapping, to_look_up: Mapping[str, str],
             for key, path in to_look_up.items()}
 
 
-def getdefault(a_dict: Mapping, key: Hashable, default: Any = None,
-               exclude: Container = set()) -> Any:
+def getdefault(a_dict: Mapping[_KT, _VT], key: _KT, default: _D = None,
+               exclude: Container[_KT] = set()) -> _VT | _D:
     """ Return the value mapped to `key` in `a_dict`, if any; else return \
         `default`. Defined to add `exclude` option to `dict.get`.
 
@@ -108,8 +114,8 @@ def getdefault(a_dict: Mapping, key: Hashable, default: Any = None,
     return default if will_getdefault(a_dict, key, exclude) else a_dict[key]
 
 
-def has_all(a_dict: Mapping, keys: Iterable[Hashable],
-            exclude: Collection = set()) -> bool:
+def has_all(a_dict: Mapping[_KT, Any], keys: Iterable[_KT],
+            exclude: Collection[_KT] = set()) -> bool:
     """
     :param keys: Iterable[_K], keys to find in this Defaultionary.
     :param exclude: Collection, values to overlook/ignore such that if \
@@ -125,7 +131,22 @@ def has_all(a_dict: Mapping, keys: Iterable[Hashable],
         return True
 
 
-def invert(a_dict: dict, keep_keys: bool = False) -> dict:
+@overload
+def invert(a_dict: dict[_KT, _VT], keep_keys: Literal[True]
+           ) -> dict[_VT, list[_KT]]: ...
+
+
+@overload
+def invert(a_dict: dict[_KT, _VT], keep_keys: Literal["unpack"]
+           ) -> dict[_VT, _KT]: ...
+
+
+@overload
+def invert(a_dict: dict[_KT, _VT]) -> dict[_VT, _KT]: ...
+
+
+def invert(a_dict: dict[_KT, _VT],
+           keep_keys: bool | Literal["unpack"] = False):
     """ Swap keys and values. Inverting {1: 2, 3: 4} returns {2: 1, 4: 3}.
 
     When 2+ keys are mapped to the same value, then that value will be \
@@ -146,18 +167,19 @@ def invert(a_dict: dict, keep_keys: bool = False) -> dict:
 
         for key, value in a_dict.items():  # Swap values with keys
             if keep_keys == "unpack":  # TODO Use Shredder for recursion?
-                for subval in value:
+                for subval in cast(Iterable, value):
                     inverted[subval].append(key)
             else:
                 inverted[value].append(key)
+        inverted = dict(inverted)
     return inverted
 
 
-def lazyget(a_dict: Mapping, key: Hashable,
-            get_if_absent: Callable = always_none,
+def lazyget(a_dict: Mapping[_KT, _VT], key: _KT,
+            get_if_absent: _ValueGetter = always_none,
             getter_args: Iterable = list(),
             getter_kwargs: Mapping = dict(),
-            exclude: Container = set()) -> Any:
+            exclude: Container[_KT] = set()) -> _VT:
     """ Return the value for key if key is in the dictionary, else \
     return the result of calling the `get_if_absent` parameter with args \
     & kwargs. Adapted from `LazyButHonestDict.lazyget` from \
@@ -175,10 +197,11 @@ def lazyget(a_dict: Mapping, key: Hashable,
         will_getdefault(a_dict, key, exclude) else a_dict[key]
 
 
-def lazysetdefault(a_dict: MutableMapping, key: Hashable, get_if_absent:
-                   Callable = always_none, getter_args: Iterable = list(),
+def lazysetdefault(a_dict: MutableMapping[_KT, _VT], key: _KT,
+                   get_if_absent: _ValueGetter = always_none,
+                   getter_args: Iterable = list(),
                    getter_kwargs: Mapping = dict(),
-                   exclude: Container = set()) -> Any:
+                   exclude: Container[_KT] = set()) -> _VT:
     """ Return the value for key if key is in the dictionary; else add \
     that key to the dictionary, set its value to the result of calling \
     the `get_if_absent` parameter with args & kwargs, then return that \
@@ -198,7 +221,8 @@ def lazysetdefault(a_dict: MutableMapping, key: Hashable, get_if_absent:
     return a_dict[key]
 
 
-def lookup(a_dict: Mapping, path: str, sep: str = ".", default: Any = None) -> Any:
+def lookup(a_dict: Mapping, path: str, sep: str = ".", default: Any = None
+           ) -> Any:
     """ Get the value mapped to a key in nested structure. Adapted from \
         https://gist.github.com/miku/dc6d06ed894bc23dfd5a364b7def5ed8
 
@@ -223,8 +247,9 @@ def lookup(a_dict: Mapping, path: str, sep: str = ".", default: Any = None) -> A
     return default if keypath else retrieved
 
 
-def missing_keys(a_dict: Mapping, keys: Iterable, exclude: Collection = set()
-                 ) -> Generator[Any, None, None]:
+def missing_keys(a_dict: Mapping[_KT, Any], keys: Iterable[_KT],
+                 exclude: Collection[_KT] = set()
+                 ) -> Generator[_KT, None, None]:
     """
     :param keys: Iterable[_K], keys to find in this Defaultionary.
     :param exclude: Collection, values to overlook/ignore such that if \
@@ -245,9 +270,9 @@ def missing_keys(a_dict: Mapping, keys: Iterable, exclude: Collection = set()
                 yield key
 
 
-def setdefault_or_prompt_for(a_dict: MutableMapping, key: Hashable,
+def setdefault_or_prompt_for(a_dict: MutableMapping[_KT, _VT], key: _KT,
                              prompt: str, prompt_fn: _Prompter = input,
-                             exclude: Container = set()) -> Any:
+                             exclude: Container[_KT] = set()) -> _VT:
     """ Return the value mapped to key in a_dict if one already exists; \
         otherwise prompt the user to interactively provide it, store the \
         provided value by mapping it to key, and return that value.
@@ -302,8 +327,8 @@ def update(a_dict: _MM, from_map: FromMap = None, **kwargs: Any) -> _MM:
     return a_dict
 
 
-def will_getdefault(a_dict: Mapping, key: Hashable, exclude: Container = set()
-                    ) -> bool:
+def will_getdefault(a_dict: Mapping[_KT, Any], key: _KT,
+                    exclude: Container[_KT] = set()) -> bool:
     """
     :param key: Hashable
     :param exclude: Container, values to ignore or overwrite. If `a_dict` \

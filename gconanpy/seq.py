@@ -2,20 +2,16 @@
 
 """
 Lower-level utility functions and classes primarily to manipulate Sequences.
-Overlaps with:
-    DCAN-Labs:audit-ABCC/src/utilities.py, \
-    DCAN-Labs:abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-07-07
+Updated: 2025-07-16
 """
 # Import standard libraries
-from collections.abc import Hashable, Iterable, Mapping, Sequence
+from collections.abc import Collection, Hashable, Iterable, Mapping, Sequence
 from functools import reduce
 import itertools
 from pprint import pprint
-from typing import Any, get_args, TypeVar
-from unittest.mock import MagicMock
+from typing import Any, TypeVar
 
 # Import third-party PyPI libraries
 import numpy as np
@@ -148,6 +144,17 @@ def nan_rows_in(a_df: pd.DataFrame) -> pd.DataFrame:
              value in for at least 1 a_df column
     """
     return a_df[a_df.isna().any(axis=1)]
+
+
+def overlap_pct(**collections: Collection[Hashable]
+                ) -> dict[str, dict[str, float]]:
+    overlaps = dict()
+    for collname, collns in collections.items():
+        overlaps[collname] = dict()
+        for othername, othercollns in collections.items():
+            overlaps[collname][othername] = \
+                len(collns) / len(set(collns) | set(othercollns))
+    return overlaps
 
 
 def powers_of_ten(orders_of_magnitude: int = 4) -> list[int]:

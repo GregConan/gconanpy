@@ -4,7 +4,7 @@
 Base classes for unit tests in ../tests/ dir
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-07-09
+Updated: 2025-07-16
 """
 # Import standard libraries
 from abc import ABC
@@ -38,24 +38,29 @@ except (ImportError, ModuleNotFoundError):
 
 
 class Randoms:
-    _T = TypeVar("_T")
-    BIGINT = sys.maxunicode
-    CHARS = tuple(string.printable)
+    # Type hint class variables
+    _KT = TypeVar("_KT", bound=Hashable)  # for randict method
+    _VT = TypeVar("_VT")  # for randict method
+    _T = TypeVar("_T")  # for randsublist method
+
+    # Default parameter value class variables
+    BIGINT = sys.maxunicode  # Default arbitrary huge integer
+    CHARS = tuple(string.printable)  # String characters to randomly pick
     MIN = 1    # Default minimum number of items/tests
     MAX = 100  # Default maximum number of items/tests
 
     @classmethod
-    def randict(cls, keys: Sequence[Hashable] = CHARS,
-                values: Sequence = CHARS,
-                min_len: int = MIN, max_len: int = MAX) -> dict:
+    def randict(cls, keys: Sequence[_KT] = CHARS,
+                values: Sequence[_VT] = CHARS,
+                min_len: int = MIN, max_len: int = MAX) -> dict[_KT, _VT]:
         return {random.choice(keys): random.choice(values)
                 for _ in cls.randrange(min_len, max_len)}
 
     @classmethod
-    def randints(cls, min_len: int = MIN, max_len: int = MAX,
+    def randints(cls, min_n: int = MIN, max_n: int = MAX,
                  min_int: int = -BIGINT, max_int: int = BIGINT
                  ) -> Generator[int, None, None]:
-        for _ in cls.randrange(min_len, max_len):
+        for _ in cls.randrange(min_n, max_n):
             yield random.randint(min_int, max_int)
 
     @classmethod

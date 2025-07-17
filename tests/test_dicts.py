@@ -3,21 +3,21 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-07-09
+Updated: 2025-07-16
 """
 # Import standard libraries
-from collections.abc import Callable, Generator, Iterable, \
-    Mapping, MutableMapping
-from copy import copy, deepcopy
+from collections.abc import (Callable, Generator, Iterable,
+                             Mapping, MutableMapping)
 from typing import Any, TypeVar
 
 # Import local custom libraries
 # from gconanpy import attributes
-from gconanpy import attributes, mapping
+# from gconanpy import attributes, mapping
+from gconanpy import mapping
 from gconanpy.debug import StrictlyTime
 from gconanpy.lazy import Lazily
 from gconanpy.mapping import map_funcs
-from gconanpy.mapping.dicts import Cryptionary, Defaultionary, DotDict, DotPromptionary, Explictionary, FancyDict, Invertionary, LazyDict, LazyDotDict, Promptionary, SubCryptionary, Subsetionary, Updationary, Walktionary
+from gconanpy.mapping.dicts import *
 from gconanpy.meta.classes import TimeSpec
 # from tests import test_dicts
 from gconanpy.seq import powers_of_ten
@@ -236,7 +236,7 @@ class TestLazy(TestDictFunctions):
                   lazy_result: Any, input_obj: Any, **kwargs) -> None:
 
         with StrictlyTime(f"running {name} {sum(self.test_Ns)} times",
-                          timespec=self.UNIT):
+                          time_unit=self.UNIT):
             for eachN in self.test_Ns:
                 for _ in range(eachN):
                     for d in self.randicts:

@@ -4,14 +4,14 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-07-15
+Updated: 2025-07-16
 """
 # Import standard libraries
 from collections import defaultdict
 from collections.abc import (Callable, Collection, Container, Generator,
                              Hashable, Iterable, Mapping, Sequence)
 from configparser import ConfigParser
-from typing import Any, Literal, overload, TypeVar
+from typing import Any, cast, Literal, overload, TypeVar
 from typing_extensions import Self
 
 # Import third-party PyPI libraries
@@ -34,7 +34,7 @@ MapParts = Iterable[tuple[Hashable, Any]]
 FromMap = TypeVar("FromMap", Mapping, MapParts, None)
 
 
-class Explictionary(dict):
+class Explictionary[KT, VT](dict[KT, VT]):
     """ Custom dict base class that explicitly includes its class name in \
         its string representation(s) via __repr__ method. """
 
@@ -43,14 +43,14 @@ class Explictionary(dict):
         :return: str, string representation of custom dict class including \
                  its class name: "Explictionary({...})"
         """
-        return f"{name_of(self)}({super()})"
+        return f"{name_of(self)}({dict.__repr__(self)})"
 
     def copy(self) -> Self:
         """ `D.copy()` -> a shallow copy of `D`. Return another instance \
             of this same type of custom dictionary. """
         return self.__class__(self)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[KT, VT]:
         """
         :return: `dict` with all of the key-value pairings from this custom \
             dictionary. Retrieves values exclusively using `dict` methods. \
@@ -59,16 +59,16 @@ class Explictionary(dict):
         return {key: dict.__getitem__(self, key) for key in dict.keys(self)}
 
 
-class Defaultionary(Explictionary):
+class Defaultionary[KT, VT](Explictionary[KT, VT]):
     """ Custom dict class with extended functionality centered around the \
         `default=` option, functionality used by various other custom dicts. \
         The Defaultionary can ignore specified values as if they were blank \
         in its `get` method. It can also use `setdefault` on many different \
         elements at once via `setdefaults`. `LazyDict` base class.
     """
-    _K = TypeVar("_K", bound=Hashable)
+    _D = TypeVar("_D")  # Type hint for "default" parameter
 
-    def _will_getdefault(self, key: Hashable, exclude: Container = set()
+    def _will_getdefault(self, key: KT, exclude: Container[KT] = set()
                          ) -> bool:
         """
         :param key: Hashable
@@ -79,8 +79,8 @@ class Defaultionary(Explictionary):
         """
         return key not in self or self[key] in exclude
 
-    def chain_get(self, keys: Sequence[Hashable], default: Any = None,
-                  exclude: Container = set()) -> Any:
+    def chain_get(self, keys: Sequence[KT], default: _D = None,
+                  exclude: Container[KT] = set()) -> VT | _D:
         """ Return the value mapped to the first key if any, else return \
             the value mapped to the second key if any, ... etc. recursively. \
             Return `default` if this dict doesn't contain any of the `keys`.
@@ -96,8 +96,8 @@ class Defaultionary(Explictionary):
         return self.get(keys[0], self.chain_get(keys[1:], default), exclude
                         ) if keys else default
 
-    def get(self, key: Hashable, default: Any = None,
-            exclude: Container = set()) -> Any:
+    def get(self, key: KT, default: _D = None,
+            exclude: Container[KT] = set()) -> VT | _D:
         """ Return the value mapped to `key` in `self`, if any; else return \
             `default`. Defined to add `exclude` option to `dict.get`.
 
@@ -110,7 +110,8 @@ class Defaultionary(Explictionary):
         """
         return default if self._will_getdefault(key, exclude) else self[key]
 
-    def has_all(self, keys: Iterable, exclude: Collection = set()) -> bool:
+    def has_all(self, keys: Iterable[KT], exclude: Collection[KT] = set()
+                ) -> bool:
         """
         :param keys: Iterable[_K], keys to find in this Defaultionary.
         :param exclude: Collection, values to overlook/ignore such that if \
@@ -125,8 +126,8 @@ class Defaultionary(Explictionary):
         except StopIteration:
             return True
 
-    def missing_keys(self, keys: Iterable[_K], exclude: Collection = set()
-                     ) -> Generator[_K, None, None]:
+    def missing_keys(self, keys: Iterable[KT], exclude: Collection[KT] = set()
+                     ) -> Generator[KT, None, None]:
         """
         :param keys: Iterable[_K], keys to find in this Defaultionary.
         :param exclude: Collection, values to overlook/ignore such that if \
@@ -146,11 +147,11 @@ class Defaultionary(Explictionary):
                     yield key
 
     @overload
-    def setdefaults(self, **kwargs: Any) -> None: ...
+    def setdefaults(self, **kwargs: VT) -> None: ...
     @overload
-    def setdefaults(self, exclude: Collection, **kwargs: Any) -> None: ...
+    def setdefaults(self, exclude: Collection[KT], **kwargs: VT) -> None: ...
 
-    def setdefaults(self, exclude=set(), **kwargs) -> None:
+    def setdefaults(self, exclude=set(), **kwargs: VT) -> None:
         """ Fill any missing values in self from kwargs.
             dict.update prefers to overwrite old values with new ones.
             setdefaults is basically dict.update that prefers to keep old values.
@@ -161,8 +162,8 @@ class Defaultionary(Explictionary):
             same key in `kwargs`, as if `key is not in self`.
         :param kwargs: Mapping[str, Any] of values to add to self if needed.
         """
-        for key in self.missing_keys(kwargs.keys(), exclude):
-            self[key] = kwargs[key]
+        for key in self.missing_keys(cast(Iterable[KT], kwargs), exclude):
+            self[key] = kwargs[cast(str, key)]
 
 
 class Invertionary(Explictionary):
@@ -210,11 +211,11 @@ class Invertionary(Explictionary):
             self.update(inverted)
 
 
-class Subsetionary(Explictionary):
+class Subsetionary[KT, VT](Explictionary[KT, VT]):
 
     @classmethod
-    def from_subset_of(cls, from_map: Mapping, keys: Container[Hashable]
-                       = set(), values: Container = set(), include_keys:
+    def from_subset_of(cls, from_map: Mapping, keys: Container[KT] = set(),
+                       values: Container[VT] = set(), include_keys:
                        bool = False, include_values: bool = False) -> Self:
         """ Convert a subset of `from_map` into a new `Subsetionary`.
 
@@ -232,8 +233,8 @@ class Subsetionary(Explictionary):
         return mapping.Subset(keys, values, include_keys, include_values
                               ).of(from_map, cls)
 
-    def subset(self, keys: Container[Hashable] = set(),
-               values: Container = set(), include_keys: bool = False,
+    def subset(self, keys: Container[KT] = set(),
+               values: Container[VT] = set(), include_keys: bool = False,
                include_values: bool = False) -> Self:
         """ Create a new `Subsetionary` including only a subset of this one.
 
@@ -251,8 +252,9 @@ class Subsetionary(Explictionary):
                               ).of(self)
 
 
-class Updationary(Explictionary):
-    def __init__(self, from_map: FromMap = None, **kwargs) -> None:
+class Updationary[KT, VT](Explictionary[KT, VT]):
+
+    def __init__(self, from_map: FromMap = None, **kwargs: Any) -> None:
         """
         :param from_map: Mapping | Iterable[tuple[Hashable, Any]] | None, \
             Mapping to convert into a new instance of this class; `map` or \
@@ -288,12 +290,12 @@ class Updationary(Explictionary):
         run_update = super(Updationary, updated).update
         for each_map in from_map, kwargs:  # kwargs can overwrite from_map
             if each_map:
-                run_update(each_map)
+                run_update(each_map)  # type: ignore  # TODO
         if copy:
             return updated
 
 
-class Walktionary(Explictionary):
+class Walktionary[KT, VT](Explictionary[KT, VT]):
     def walk(self, only_yield_maps: bool = True) -> mapping.Walk:
         """ Recursively iterate over this dict and every dict inside it.
 
@@ -304,6 +306,24 @@ class Walktionary(Explictionary):
             recursively iterate over this Walktionary.
         """
         return mapping.Walk(self, only_yield_maps)
+
+
+class OverlapPercents[InverVT](Explictionary[str, Invertionary]):
+    def __init__(self, **collections: Collection[InverVT]) -> None:
+        for collname, collns in collections.items():
+            self[collname] = Invertionary()
+            for othername, othercollns in collections.items():
+                self[collname][othername] = \
+                    len(collns) / len(set(collns) | set(othercollns))
+
+    def sorted(self, key: str, descending: bool = True
+               ) -> Generator[InverVT, None, None]:
+        inverted = self[key].invert(copy=True, keep_keys=True)
+        vals = list(set(self[key].values()))
+        vals.sort(reverse=descending)
+        for pct in vals:
+            for each_item in inverted[pct]:
+                yield each_item
 
 
 class DotDict(Updationary, mapping.Traversible):
@@ -494,7 +514,7 @@ class DotDict(Updationary, mapping.Traversible):
         return default if keypath else retrieved
 
 
-class LazyDict(Updationary, Defaultionary):
+class LazyDict[KT, VT](Updationary[KT, VT], Defaultionary[KT, VT]):
     """ Dict that can get/set items and ignore the default parameter \
         until/unless it is needed, ONLY evaluating it after failing to \
         get/set an existing key. Benefit: The `default=` code does not \
@@ -505,10 +525,10 @@ class LazyDict(Updationary, Defaultionary):
     Keeps most core functionality of the Python `dict` type.
     Extended `LazyButHonestDict` from https://stackoverflow.com/q/17532929 """
 
-    def lazyget(self, key: Hashable, get_if_absent: Callable = always_none,
+    def lazyget(self, key: KT, get_if_absent: Callable[..., VT] = always_none,
                 getter_args: Iterable = list(),
                 getter_kwargs: Mapping = dict(),
-                exclude: Container = set()) -> Any:
+                exclude: Container[KT] = set()) -> VT:
         """ Return the value for key if key is in the dictionary, else \
         return the result of calling the `get_if_absent` parameter with args \
         & kwargs. Adapted from `LazyButHonestDict.lazyget` from \
@@ -525,10 +545,10 @@ class LazyDict(Updationary, Defaultionary):
         return get_if_absent(*getter_args, **getter_kwargs) if \
             self._will_getdefault(key, exclude) else self[key]
 
-    def lazysetdefault(self, key: Hashable, get_if_absent:
-                       Callable = always_none, getter_args: Iterable = list(),
+    def lazysetdefault(self, key: KT, get_if_absent: Callable[..., VT]
+                       = always_none, getter_args: Iterable = list(),
                        getter_kwargs: Mapping = dict(),
-                       exclude: Container = set()) -> Any:
+                       exclude: Container[KT] = set()) -> VT:
         """ Return the value for key if key is in the dictionary; else add \
         that key to the dictionary, set its value to the result of calling \
         the `get_if_absent` parameter with args & kwargs, then return that \
@@ -548,14 +568,13 @@ class LazyDict(Updationary, Defaultionary):
         return self[key]
 
 
-class Promptionary(LazyDict):
+class Promptionary[KT, VT](LazyDict[KT, VT]):
     """ LazyDict able to interactively prompt the user to fill missing values.
     """
-    _Prompter = Callable[[str], str]  # Prompt function to use as lazy getter
 
-    def get_or_prompt_for(self, key: Hashable, prompt: str,
-                          prompt_fn: _Prompter = input,
-                          exclude: Container = set()) -> Any:
+    def get_or_prompt_for(self, key: KT, prompt: str,
+                          prompt_fn: Callable[[str], VT] = input,
+                          exclude: Container[KT] = set()) -> VT:
         """ Return the value mapped to key in self if one already exists; \
             else prompt the user to interactively provide it and return that.
 
@@ -570,9 +589,9 @@ class Promptionary(LazyDict):
         """
         return self.lazyget(key, prompt_fn, [prompt], exclude=exclude)
 
-    def setdefault_or_prompt_for(self, key: Hashable, prompt: str,
-                                 prompt_fn: _Prompter = input,
-                                 exclude: Container = set()) -> Any:
+    def setdefault_or_prompt_for(self, key: KT, prompt: str,
+                                 prompt_fn: Callable[[str], VT] = input,
+                                 exclude: Container[KT] = set()) -> VT:
         """ Return the value mapped to key in self if one already exists; \
             otherwise prompt the user to interactively provide it, store the \
             provided value by mapping it to key, and return that value.
@@ -678,7 +697,7 @@ class Cryptionary(Promptionary, mapping.Bytesifier, Debuggable):
                 self[k] = v
 
 
-class LazyDotDict(DotDict, LazyDict):
+class LazyDotDict[KT, VT](DotDict, LazyDict[KT, VT]):
     """ LazyDict with dot.notation item access. It can get/set items...
 
     ...as object-attributes: `self.item is self['item']`. Benefit: You can \
@@ -696,15 +715,16 @@ class LazyDotDict(DotDict, LazyDict):
     Keeps most core functionality of the Python `dict` type. """
 
 
-class DotPromptionary(DotDict, Promptionary):
+class DotPromptionary[KT, VT](DotDict, Promptionary[KT, VT]):
     """ Promptionary with dot.notation item access. """
 
 
-class SubCryptionary(Cryptionary, Subsetionary):
+class SubCryptionary[KT, VT](Cryptionary, Subsetionary[KT, VT]):
     """ Cryptionary with subset access/creation methods. """
 
 
-class FancyDict(DotPromptionary, Invertionary, Subsetionary, Walktionary):
+class FancyDict[KT, VT](DotPromptionary[KT, VT], Invertionary,
+                        Subsetionary[KT, VT], Walktionary[KT, VT]):
     """ Custom dict combining as much functionality from the other classes \
         defined in this file and in `maptools.py` as possible: lazy methods, \
         enhanced default/update methods, prompt methods, invert method, \

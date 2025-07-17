@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-07-15
+Updated: 2025-07-16
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable
@@ -152,7 +152,7 @@ class TestStringify(Tester):
         a_str = ToString(OLD.join(("Foo", " baz", " hello", " world", "")))
         # a_str = ToString("Foo BAR baz BAR hello BAR world BAR")
         self.check_ToString(a_str.rreplace(ABSENT, NEW), a_str)
-        for i in Randoms.randints(min_len=n, max_len=n):
+        for i in Randoms.randints(min_n=n, max_n=n):
             self.check_ToString(a_str.rreplace(OLD, NEW, i),
                                 NEW.join(a_str.rsplit(OLD, i)))
             self.check_ToString(a_str.rreplace(ABSENT, NEW, i), a_str)
