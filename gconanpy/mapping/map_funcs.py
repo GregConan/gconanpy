@@ -4,7 +4,7 @@
 Useful/convenient functions to use on dicts. Taken from dicts.py classes
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-09
-Updated: 2025-07-16
+Updated: 2025-07-19
 """
 # Import standard libraries
 from collections import defaultdict
@@ -111,7 +111,19 @@ def getdefault(a_dict: Mapping[_KT, _VT], key: _KT, default: _D = None,
         maps `key` to one, then return True as if `key is not in a_dict`.
     :return: Any, value mapped to `key` in `a_dict` if any, else `default`
     """
-    return default if will_getdefault(a_dict, key, exclude) else a_dict[key]
+    return a_dict[key] if has(a_dict, key, exclude) else default
+
+
+def has(a_dict: Mapping[_KT, Any], key: _KT,
+        exclude: Container[_KT] = set()) -> bool:
+    """
+    :param key: Hashable
+    :param exclude: Container, values to ignore or overwrite. If `a_dict` \
+        maps `key` to one, then return False as if `key is not in a_dict`.
+    :return: bool, True if `key` is mapped to a value in `a_dict` and \
+        is not mapped to anything in `exclude`.
+    """
+    return key in a_dict and a_dict[key] not in exclude
 
 
 def has_all(a_dict: Mapping[_KT, Any], keys: Iterable[_KT],
@@ -193,8 +205,8 @@ def lazyget(a_dict: Mapping[_KT, _VT], key: _KT,
         `key` in `a_dict`) will not be returned; instead returning \
         `get_if_absent(*getter_args, **getter_kwargs)`
     """
-    return get_if_absent(*getter_args, **getter_kwargs) if \
-        will_getdefault(a_dict, key, exclude) else a_dict[key]
+    return a_dict[key] if has(a_dict, key, exclude) else \
+        get_if_absent(*getter_args, **getter_kwargs)
 
 
 def lazysetdefault(a_dict: MutableMapping[_KT, _VT], key: _KT,
@@ -216,7 +228,7 @@ def lazysetdefault(a_dict: MutableMapping[_KT, _VT], key: _KT,
         `get_if_absent(*getter_args, **getter_kwargs)` and return if \
         they are mapped to `key` in `a_dict`
     """
-    if will_getdefault(a_dict, key, exclude):
+    if not has(a_dict, key, exclude):
         a_dict[key] = get_if_absent(*getter_args, **getter_kwargs)
     return a_dict[key]
 
@@ -259,10 +271,8 @@ def missing_keys(a_dict: Mapping[_KT, Any], keys: Iterable[_KT],
         this Defaultionary or are mapped to a value in `exclude`.
     """
     if exclude:
-        example_exclude = next(iter(exclude))
         for key in keys:
-            if getdefault(a_dict, key, example_exclude, exclude
-                          ) is example_exclude:
+            if not has(a_dict, key, exclude):
                 yield key
     else:
         for key in keys:
@@ -325,15 +335,3 @@ def update(a_dict: _MM, from_map: FromMap = None, **kwargs: Any) -> _MM:
         if each_map is not None:
             a_dict.update(each_map)
     return a_dict
-
-
-def will_getdefault(a_dict: Mapping[_KT, Any], key: _KT,
-                    exclude: Container[_KT] = set()) -> bool:
-    """
-    :param key: Hashable
-    :param exclude: Container, values to ignore or overwrite. If `a_dict` \
-        maps `key` to one, then return True as if `key is not in a_dict`.
-    :return: bool, True if `key` is not mapped to a value in `a_dict` or \
-        is mapped to something in `exclude`
-    """
-    return key not in a_dict or a_dict[key] in exclude

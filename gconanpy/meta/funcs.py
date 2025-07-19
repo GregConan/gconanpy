@@ -4,7 +4,7 @@
 Functions to manipulate and define classes and/or other functions.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-20
-Updated: 2025-07-15
+Updated: 2025-07-19
 """
 # Import standard libraries
 from collections.abc import (Callable, Collection, Generator,
@@ -12,7 +12,7 @@ from collections.abc import (Callable, Collection, Generator,
 import itertools
 import more_itertools
 # from operator import attrgetter, methodcaller  # TODO?
-from typing import Any, NamedTuple
+from typing import Any, Literal, NamedTuple, overload
 
 # Import local custom libraries
 try:
@@ -61,15 +61,6 @@ def are_all_equal(comparables: Iterable, eq_meth: str | None = None,
 
 def bool_pair_to_cases(cond1, cond2) -> int:  # TODO cond*: Boolable
     return sum({x + 1 for x in which_of(cond1, cond2)})
-
-
-def classgetattr(an_obj: Any, attr_name: str) -> Any:
-    """
-    :param an_obj: Any, instance of type/class to get the attribute from
-    :param attr_name: str naming the attribute to return
-    :return: Any, the named attribute of either `an_obj` or its type/class
-    """
-    return getattr(an_obj, attr_name, getattr(type(an_obj), attr_name))
 
 
 def combinations_of_conditions(all_conditions: Sequence[str], cond_mappings:
@@ -169,15 +160,23 @@ def method(method_name: str) -> Callable:
     return call_method
 
 
-def name_of(an_obj: Any, get: str = "__name__") -> str:
+@overload
+def name_of(an_obj: Any) -> str: ...
+@overload
+def name_of(an_obj: Any, get: Literal["__name__", "__qualname__"]) -> str: ...
+@overload
+def name_of(an_obj: Any, get: Literal["__mro__"]) -> tuple[type, ...]: ...
+
+
+def name_of(an_obj: Any, get: str = "__name__"):
     """ Get the name of an object or of its type/class.
 
     :param an_obj: Any, object to get the name of.
-    :param get: str naming the attribute of `an_obj` (or of its type) to \
-        return. Defaults to "__name__".
+    :param attr_name: str naming the attribute of `an_obj` (or of its class) \
+        to return. Defaults to "__name__".
     :return: str naming an_obj, usually its type/class name.
     """
-    return classgetattr(an_obj, get)
+    return getattr(an_obj, get, getattr(type(an_obj), get))
 
 
 def name_type_class(is_all_of: Any = tuple(), isnt_any_of: Any = tuple(),
@@ -211,16 +210,6 @@ def names_of(objects: Collection, max_n: int | None = None,
         [get_name(x) for i, x in enumerate(objects) if i < max_n]
 
 
-def parents_of(an_obj: Any) -> tuple[type, ...]:
-    """ List the inheritance tree from `class object` to `an_obj`.
-
-    :param an_obj: Any
-    :return: tuple[*type], the method resolution order (`__mro__`) of \
-        `an_obj` or of `type(an_obj)`.
-    """
-    return classgetattr(an_obj, "__mro__")
-
-
 def pairs(*args: Any, **kwargs: Any
           ) -> Generator[tuple[Any, Any], None, None]:
     """ Iterate over pairs of items. Used for avoiding creating a dict only \
@@ -245,32 +234,23 @@ def rename_keys(a_dict: dict[str, Any], **renamings: str) -> dict:
     :param renamings: Mapping[str, str] of old keys to their replacements
     :return: dict, `a_dict` after replacing the specified keys with their \
         new replacements specified in `renamings`
-    """  # TODO Move to maptools?
+    """  # TODO Move to mapping.__init__ or mapping.map_funcs?
     for old_name, new_name in renamings.items():
         a_dict[new_name] = a_dict.pop(old_name)
     return a_dict
 
 
-def tuplify(an_obj: Any) -> tuple:
+def tuplify(an_obj: Any, split_string: bool = False) -> tuple:
     """
     :param an_obj: Any, object to convert into a tuple.
-    :return: tuple, either `an_obj` AS a tuple if `tuple(an_obj)` works or \
-        `an_obj` IN a single-item tuple if it doesn't.
+    :param split_string: bool, True to split a string into a tuple of \
+        its characters; else (by default) False to leave strings intact.
+    :return: tuple, either `an_obj` AS a tuple if `tuple(an_obj)` works (and \
+        `split_string=True` or `an_obj` isn't a string); else `an_obj` IN a \
+        single-item tuple.
     """
     try:
-        return tuple(an_obj)
-    except TypeError:
-        return (an_obj, )
-
-
-def tuplify_preserve_str(an_obj: Any) -> tuple:
-    """
-    :param an_obj: Any, object to convert into a tuple.
-    :return: tuple, `an_obj` IN a single-item tuple if `an_obj` is a string \
-        or `tuple(an_obj)` raises `TypeError`, else `an_obj` AS a tuple.
-    """
-    try:
-        assert not isinstance(an_obj, str)
+        assert split_string or not isinstance(an_obj, str)
         return tuple(an_obj)
     except (AssertionError, TypeError):
         return (an_obj, )

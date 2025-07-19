@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-07-16
+Updated: 2025-07-19
 """
 # Import standard libraries
 from collections import defaultdict
@@ -50,14 +50,6 @@ class Explictionary[KT, VT](dict[KT, VT]):
             of this same type of custom dictionary. """
         return self.__class__(self)
 
-    def to_dict(self) -> dict[KT, VT]:
-        """
-        :return: `dict` with all of the key-value pairings from this custom \
-            dictionary. Retrieves values exclusively using `dict` methods. \
-            Used by (e.g.) `Cryptionary.__repr__` to skip decryption.
-        """
-        return {key: dict.__getitem__(self, key) for key in dict.keys(self)}
-
 
 class Defaultionary[KT, VT](Explictionary[KT, VT]):
     """ Custom dict class with extended functionality centered around the \
@@ -67,17 +59,6 @@ class Defaultionary[KT, VT](Explictionary[KT, VT]):
         elements at once via `setdefaults`. `LazyDict` base class.
     """
     _D = TypeVar("_D")  # Type hint for "default" parameter
-
-    def _will_getdefault(self, key: KT, exclude: Container[KT] = set()
-                         ) -> bool:
-        """
-        :param key: Hashable
-        :param exclude: Container, values to ignore or overwrite. If `self` \
-            maps `key` to one, then return True as if `key is not in self`.
-        :return: bool, True if `key` is not mapped to a value in `self` or \
-            is mapped to something in `exclude`
-        """
-        return key not in self or self[key] in exclude
 
     def chain_get(self, keys: Sequence[KT], default: _D = None,
                   exclude: Container[KT] = set()) -> VT | _D:
@@ -93,8 +74,10 @@ class Defaultionary[KT, VT](Explictionary[KT, VT]):
         :return: Any, value mapped to the first key (of `keys`) in this dict \
             if any; otherwise `default` if no `keys` are in this dict.
         """
-        return self.get(keys[0], self.chain_get(keys[1:], default), exclude
-                        ) if keys else default
+        for key in keys:
+            if self.has(key, exclude):
+                return self[key]
+        return default
 
     def get(self, key: KT, default: _D = None,
             exclude: Container[KT] = set()) -> VT | _D:
@@ -102,13 +85,23 @@ class Defaultionary[KT, VT](Explictionary[KT, VT]):
             `default`. Defined to add `exclude` option to `dict.get`.
 
         :param key: Hashable, key mapped to the value to return
-        :param default: Any, object to return `if self.will_getdefault`, \
+        :param default: Any, object to return `if not self.has` the key, \
             i.e. `if key not in self or self[key] in exclude`
         :param exclude: Container, values to ignore or overwrite. If `self` \
             maps `key` to one, then return True as if `key is not in self`.
         :return: Any, value mapped to `key` in `self` if any, else `default`
         """
-        return default if self._will_getdefault(key, exclude) else self[key]
+        return self[key] if self.has(key, exclude) else default
+
+    def has(self, key: KT, exclude: Container[KT] = set()) -> bool:
+        """
+        :param key: Hashable
+        :param exclude: Container, values to ignore or overwrite. If `self` \
+            maps `key` to one, then return False as if `key is not in self`.
+        :return: bool, True if `key` is mapped to a value in `self` and \
+            is not mapped to anything in `exclude`.
+        """
+        return key in self and self[key] not in exclude
 
     def has_all(self, keys: Iterable[KT], exclude: Collection[KT] = set()
                 ) -> bool:
@@ -137,9 +130,8 @@ class Defaultionary[KT, VT](Explictionary[KT, VT]):
             this Defaultionary or are mapped to a value in `exclude`.
         """
         if exclude:
-            example_exclude = next(iter(exclude))
             for key in keys:
-                if self.get(key, example_exclude, exclude) is example_exclude:
+                if not self.has(key, exclude):
                     yield key
         else:
             for key in keys:
@@ -308,8 +300,8 @@ class Walktionary[KT, VT](Explictionary[KT, VT]):
         return mapping.Walk(self, only_yield_maps)
 
 
-class OverlapPercents[InverVT](Explictionary[str, Invertionary]):
-    def __init__(self, **collections: Collection[InverVT]) -> None:
+class OverlapPercents[InVT](Explictionary[str, Invertionary]):
+    def __init__(self, **collections: Collection[InVT]) -> None:
         for collname, collns in collections.items():
             self[collname] = Invertionary()
             for othername, othercollns in collections.items():
@@ -317,7 +309,7 @@ class OverlapPercents[InverVT](Explictionary[str, Invertionary]):
                     len(collns) / len(set(collns) | set(othercollns))
 
     def sorted(self, key: str, descending: bool = True
-               ) -> Generator[InverVT, None, None]:
+               ) -> Generator[InVT, None, None]:
         inverted = self[key].invert(copy=True, keep_keys=True)
         vals = list(set(self[key].values()))
         vals.sort(reverse=descending)
@@ -357,8 +349,7 @@ class DotDict(Updationary, mapping.Traversible):
 
         # Prevent overwriting method/attributes or treating them like items
         dict.__setattr__(self, self.PROTECTEDS,
-                         set(attributes.Of(self.__class__).method_names()
-                             ).union({self.PROTECTEDS}))
+                         {self.PROTECTEDS}.union(attributes.get_names(self)))
 
     def __delattr__(self, name: str) -> None:
         """ Implement `delattr(self, name)`. Same as `del self[name]`.
@@ -542,8 +533,8 @@ class LazyDict[KT, VT](Updationary[KT, VT], Defaultionary[KT, VT]):
             `key` in `self`) will not be returned; instead returning \
             `get_if_absent(*getter_args, **getter_kwargs)`
         """
-        return get_if_absent(*getter_args, **getter_kwargs) if \
-            self._will_getdefault(key, exclude) else self[key]
+        return self[key] if self.has(key) else \
+            get_if_absent(*getter_args, **getter_kwargs)
 
     def lazysetdefault(self, key: KT, get_if_absent: Callable[..., VT]
                        = always_none, getter_args: Iterable = list(),
@@ -563,7 +554,7 @@ class LazyDict[KT, VT](Updationary[KT, VT], Defaultionary[KT, VT]):
             `get_if_absent(*getter_args, **getter_kwargs)` and return if \
             they are mapped to `key` in `self`
         """
-        if self._will_getdefault(key, exclude):
+        if not self.has(key, exclude):
             self[key] = get_if_absent(*getter_args, **getter_kwargs)
         return self[key]
 
@@ -657,13 +648,6 @@ class Cryptionary(Promptionary, mapping.Bytesifier, Debuggable):
             return retrieved
         except (KeyError, TypeError) as e:
             self.debug_or_raise(e, locals())
-
-    def __repr__(self) -> str:
-        """
-        :return: str, string representation of Cryptionary including its \
-            class name without decrypting the encrypted values first.
-        """
-        return f"{name_of(self)}({self.to_dict()})"
 
     def __setitem__(self, key: Hashable, value: Any) -> None:
         """ Set self[dict_key] to dict_value after encrypting dict_value.

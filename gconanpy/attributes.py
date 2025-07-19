@@ -4,7 +4,7 @@
 Functions/classes to access and/or modify the attributes of any object(s).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-02
-Updated: 2025-07-09
+Updated: 2025-07-19
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Collection, Generator, \
@@ -52,9 +52,6 @@ def get_names(an_obj: Any) -> set[str]:
     :return: set[str], the name of every attribute of `an_obj`
     """
     names = set()
-
-    # Name some attributes of its class/type
-    names.update(dir(type(an_obj)))
 
     # If it's a class, name some attributes of its base class(es)
     bases = getattr(an_obj, "__bases__", None)

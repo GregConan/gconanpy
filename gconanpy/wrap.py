@@ -14,10 +14,10 @@ from typing_extensions import Self
 
 # Import local custom libraries
 try:
-    from meta.funcs import tuplify_preserve_str
+    from meta.funcs import tuplify
     from ToString import ToString
 except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy.meta.funcs import tuplify_preserve_str
+    from gconanpy.meta.funcs import tuplify
     from gconanpy.ToString import ToString
 
 
@@ -55,8 +55,8 @@ class WrapFunction:  # WrapFunction(partial):
             raise TypeError("the first argument must be callable")
 
         self.func = func
-        self.pre = tuplify_preserve_str(pre)
-        self.post = tuplify_preserve_str(post)
+        self.pre = tuplify(pre)
+        self.post = tuplify(post)
         self.keywords = keywords
 
     def __reduce__(self) -> tuple[type, tuple[Callable], _VarsTypes]:
