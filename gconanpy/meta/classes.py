@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-07-13
+Updated: 2025-07-20
 """
 # Import standard libraries
 import abc
@@ -17,7 +17,6 @@ from typing_extensions import Self
 
 # Import local custom libraries
 try:
-    from ..mapping.map_funcs import lazysetdefault
     from .funcs import DATA_ERRORS, has_method, make_metaclass, \
         metaclass_hasmethod, metaclass_issubclass, name_type_class
     from ..reg import DunderParser

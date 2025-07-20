@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-07-16
+Updated: 2025-07-20
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -11,12 +11,8 @@ from collections.abc import (Callable, Generator, Iterable,
 from typing import Any, TypeVar
 
 # Import local custom libraries
-# from gconanpy import attributes
-# from gconanpy import attributes, mapping
-from gconanpy import mapping
+from gconanpy import attributes, mapping
 from gconanpy.debug import StrictlyTime
-from gconanpy.lazy import Lazily
-from gconanpy.mapping import map_funcs
 from gconanpy.mapping.dicts import *
 from gconanpy.meta.classes import TimeSpec
 # from tests import test_dicts
@@ -91,7 +87,7 @@ class TestDictFunctions(DictTester):
     _M = TypeVar("_M", bound=MutableMapping)
 
     def check_setdefaults(self, expected: dict[str, int],
-                          setdefaults: Callable = map_funcs.setdefaults,
+                          setdefaults: Callable = mapping.setdefaults,
                           dict_class: type[dict] = dict,
                           **setdefaults_kwargs: Any) -> None:
         self.add_basics()
@@ -105,7 +101,7 @@ class TestDictFunctions(DictTester):
             self.check_result(result[k], v)
 
     def invert_test(self, in_dict: dict, out_dict: dict,
-                    invert: Callable = map_funcs.invert,
+                    invert: Callable = mapping.invert,
                     dict_class: type[dict] = dict,
                     **invert_kwargs: Any) -> None:
         to_invert = dict_class(in_dict)
@@ -119,16 +115,16 @@ class TestDictFunctions(DictTester):
                         # update: Callable = methods.update,
                         **expected: Any) -> _M:
         if from_map is None:
-            new_dict = map_funcs.update(a_dict, **expected)
+            new_dict = mapping.update(a_dict, **expected)
         else:
-            new_dict = map_funcs.update(a_dict, from_map, **expected)
+            new_dict = mapping.update(a_dict, from_map, **expected)
             expected.update(from_map)
         self.check_result(len(new_dict), expected_len)
         for k, v in expected.items():
             self.check_result(new_dict[k], v)
         return new_dict
 
-    def test_chain_get(self, chain_get: Callable = map_funcs.chain_get,
+    def test_chain_get(self, chain_get: Callable = mapping.chain_get,
                        dict_class: type[dict] = dict) -> None:
         self.add_basics()
         adict = dict_class(self.adict)
@@ -144,7 +140,7 @@ class TestDictFunctions(DictTester):
                            ("x", "y", "z", "a"), ["a"], ["d", "a"]):
             self.check_result(chain_get(adict, seq_with_a), adict["a"])
 
-    def test_has_all(self, has_all: Callable = map_funcs.has_all,
+    def test_has_all(self, has_all: Callable = mapping.has_all,
                      dict_class: type[dict] = dict) -> None:
         self.add_basics()
         dict1 = dict_class(self.adict)
@@ -154,19 +150,19 @@ class TestDictFunctions(DictTester):
         dict2["nothing"] = None
         assert not has_all(dict1, dict2.keys(), {None})
 
-    def test_invert_1(self, invert: Callable = map_funcs.invert,
+    def test_invert_1(self, invert: Callable = mapping.invert,
                       dict_class: type[dict] = dict) -> None:
         self.add_basics()
         self.invert_test(self.adict, {1: "a", 2: "b", 3: "c"},
                          invert, dict_class)
 
-    def test_invert_2(self, invert: Callable = map_funcs.invert,
+    def test_invert_2(self, invert: Callable = mapping.invert,
                       dict_class: type[dict] = dict) -> None:
         self.add_basics()
         self.invert_test(self.get_1s_dict(), {1: "d"},
                          invert, dict_class)
 
-    def test_invert_3(self, invert: Callable = map_funcs.invert,
+    def test_invert_3(self, invert: Callable = mapping.invert,
                       dict_class: type[dict] = dict) -> None:
         self.add_basics()
         # for holder_type in (list, set, tuple):  # TODO
@@ -174,7 +170,7 @@ class TestDictFunctions(DictTester):
                          {1: ["a", "b", "c", "d"]}, invert,
                          dict_class, keep_keys=True)
 
-    def test_invert_4(self, invert: Callable = map_funcs.invert,
+    def test_invert_4(self, invert: Callable = mapping.invert,
                       dict_class: type[dict] = dict) -> None:
         actual_err = None
         try:
@@ -184,7 +180,7 @@ class TestDictFunctions(DictTester):
             actual_err = expected_err
         assert isinstance(actual_err, TypeError)
 
-    def test_invert_5(self, invert: Callable = map_funcs.invert,
+    def test_invert_5(self, invert: Callable = mapping.invert,
                       dict_class: type[dict] = dict) -> None:
         invertable = dict_class(a="b", b="a")
         inverted = invert(invertable)
@@ -192,7 +188,7 @@ class TestDictFunctions(DictTester):
             inverted = invertable
         self.check_result(inverted, invertable)
 
-    def test_lookup(self, lookup: Callable = map_funcs.lookup,
+    def test_lookup(self, lookup: Callable = mapping.lookup,
                     args_class: type[dict] = dict,
                     creds_class: type[dict] = dict) -> None:
         cli_args = self.build_cli_args(args_class, creds_class)
@@ -201,12 +197,12 @@ class TestDictFunctions(DictTester):
             self.check_result(lookup(cli_args, f"a dict.{k}"), v)
 
     def test_setdefaults_1(self,
-                           setdefaults: Callable = map_funcs.setdefaults,
+                           setdefaults: Callable = mapping.setdefaults,
                            dict_class: type[dict] = dict) -> None:
         self.check_setdefaults(dict(b=2, c=3, d=1), setdefaults, dict_class)
 
     def test_setdefaults_2(self,
-                           setdefaults: Callable = map_funcs.setdefaults,
+                           setdefaults: Callable = mapping.setdefaults,
                            dict_class: type[dict] = dict) -> None:
         self.check_setdefaults(dict(b=2, c=1, d=1), setdefaults, dict_class,
                                exclude={3})
@@ -222,8 +218,8 @@ class TestDictFunctions(DictTester):
 
 
 class TestLazy(TestDictFunctions):
-    CLASSES = tuple[type[Lazily], ...]
-    TEST_CLASSES: CLASSES = (Lazily, )
+    CLASSES = tuple[type[attributes.Lazily], ...]
+    TEST_CLASSES: CLASSES = (attributes.Lazily, )
     UNIT: TimeSpec.UNIT = "seconds"
 
     def prep(self, n_tests_orders_of_magnitude: int = 4) -> None:
@@ -259,13 +255,13 @@ class TestLazy(TestDictFunctions):
                        result, self.Tripletters(), **kwargs)
         '''
         self.time_lazy("map_funcs.lazysetdefault",
-                       map_funcs.lazysetdefault, result, self.adict, **kwargs)
-        self.time_lazy("map_funcs.lazyget", map_funcs.lazyget, result,
+                       mapping.lazysetdefault, result, self.adict, **kwargs)
+        self.time_lazy("map_funcs.lazyget", mapping.lazyget, result,
                        self.adict, **kwargs)
-        self.time_lazy("Lazily.setdefault", Lazily.setdefault, result,
-                       self.adict, get_an="item", **kwargs)
-        self.time_lazy("Lazily.get", Lazily.get, result,
-                       self.adict, get_an="item", **kwargs)
+        self.time_lazy("Lazily.setdefault", attributes.Lazily.setdefault,
+                       result, self.adict, get_an="item", **kwargs)
+        self.time_lazy("Lazily.get", attributes.Lazily.get,
+                       result, self.adict, get_an="item", **kwargs)
         assert False
 
 

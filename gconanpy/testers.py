@@ -4,7 +4,7 @@
 Base classes for unit tests in ../tests/ dir
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-07-16
+Updated: 2025-07-20
 """
 # Import standard libraries
 from abc import ABC
@@ -23,14 +23,12 @@ from bs4 import BeautifulSoup
 # Import local custom libraries
 try:
     from . import attributes, mapping, ROOT_DIR
-    from mapping import map_funcs
     from extend import classes_in_module
     from find import ErrIterChecker
     from meta.funcs import has_method, name_of
     from seq import powers_of_ten
 except (ImportError, ModuleNotFoundError):
     from gconanpy import attributes, mapping, ROOT_DIR
-    from gconanpy.mapping import map_funcs
     from gconanpy.extend import classes_in_module
     from gconanpy.find import ErrIterChecker
     from gconanpy.meta.funcs import has_method, name_of
@@ -180,7 +178,7 @@ class TimeTester:
             avg_of[tester_name] = elapsed[tester_name] / n_tests
             print(f"{tester_name} took {avg_of[tester_name]} seconds")
 
-        which_avg = map_funcs.invert(avg_of)
+        which_avg = mapping.invert(avg_of)
         min_avg = min(which_avg)
         faster = which_avg[min_avg]
         ratios = list()

@@ -6,12 +6,14 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-06-28
+Updated: 2025-07-20
 """
 # Import standard libraries
 from abc import ABC
-from collections.abc import Callable, Mapping
+from collections import defaultdict
+from collections.abc import Callable, Iterable, Mapping
 import datetime as dt
+import graphlib
 from io import TextIOWrapper
 import logging
 import os
@@ -29,15 +31,17 @@ from pympler.asizeof import asizeof
 
 # Import local custom libraries
 try:
+    from convert import stringify_dt, stringify_iter
+    from IO.local import walk_dir
     from meta.classes import TimeSpec
     from meta.funcs import name_of
     from seq import uniqs_in
-    from ToString import stringify_dt, stringify_iter
 except ModuleNotFoundError:  # TODO DRY?
+    from gconanpy.convert import stringify_dt, stringify_iter
+    from gconanpy.IO.local import walk_dir
     from gconanpy.meta.classes import TimeSpec
     from gconanpy.meta.funcs import name_of
     from gconanpy.seq import uniqs_in
-    from gconanpy.ToString import stringify_dt, stringify_iter
 
 # Constants
 LOGGER_NAME = __package__ if __package__ else __file__
@@ -217,10 +221,10 @@ class StrictlyTime(ShowTimeTaken):
     """Context manager to time and log the duration of any block of code."""
     TIMESPECS = TimeSpec()
 
-    def __init__(self, doing_what: str, show: Callable[..., Any] = print,
-                 timespec: TimeSpec.UNIT = "milliseconds") -> None:
+    def __init__(self, doing_what: str, show: Callable = print,
+                 time_unit: TimeSpec.UNIT = "milliseconds") -> None:
         super().__init__(doing_what, show)
-        self.unit: TimeSpec.UNIT = timespec
+        self.unit: TimeSpec.UNIT = time_unit
 
     def __enter__(self) -> Self:
         self.start: int = perf_counter_ns()
@@ -324,10 +328,6 @@ class SplitLogger(logging.getLoggerClass()):
         sublogger.log(level, msg)
 
 
-def start_debug() -> None:
-    tracemalloc.start()
-
-
 def take_snapshot(logger: logging.Logger, how: str = "lineno"
                   ) -> tracemalloc.Snapshot:
     snapshot = tracemalloc.take_snapshot()
@@ -369,4 +369,4 @@ def verbosity_is_at_least(verbosity: int, logger_name: str =
 
 
 if __name__ == "__main__":
-    start_debug()
+    tracemalloc.start()
