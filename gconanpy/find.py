@@ -16,15 +16,15 @@ from typing_extensions import Self
 
 # Import remote custom libraries
 try:
+    from convert import WrapFunction
     from meta.classes import KeepSkippingExceptions, IgnoreExceptions
     from meta.funcs import DATA_ERRORS
     from trivial import is_not_none, always_none
-    from wrap import WrapFunction
 except ModuleNotFoundError:  # TODO DRY?
+    from gconanpy.convert import WrapFunction
     from gconanpy.meta.classes import KeepSkippingExceptions, IgnoreExceptions
     from gconanpy.meta.funcs import DATA_ERRORS
     from gconanpy.trivial import is_not_none, always_none
-    from gconanpy.wrap import WrapFunction
 
 
 # TODO Figure out standard way to centralize, reuse, & document TypeVars?

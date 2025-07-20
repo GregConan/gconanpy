@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2025-07-13
+Updated: 2025-07-20
 """
 # Import standard libraries
 from collections.abc import (Callable, Container, Generator,
@@ -20,16 +20,16 @@ from makefun import create_function, with_signature
 # Import local custom libraries
 try:
     import attributes
+    from convert import ToString
     from meta.classes import HasSlots
     from meta.funcs import name_of, pairs
     from seq import merge
-    from ToString import ToString
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy import attributes
+    from gconanpy.convert import ToString
     from gconanpy.meta.classes import HasSlots
     from gconanpy.meta.funcs import name_of, pairs
     from gconanpy.seq import merge
-    from gconanpy.ToString import ToString
 
 
 # Function wrapper type variable  # TODO DRY (can't import it from metafunc?)

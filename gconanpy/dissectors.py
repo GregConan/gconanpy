@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-06-20
+Updated: 2025-07-20
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable, Iterator
@@ -14,23 +14,23 @@ from typing import Any, no_type_check, SupportsFloat, TypeVar
 
 # Import local custom libraries
 try:
+    from convert import stringify_iter
     from debug import Debuggable
     import mapping
     from meta.classes import IgnoreExceptions, KeepTryingUntilNoErrors
     from meta.funcs import are_all_equal, DATA_ERRORS, has_method, \
         method, name_of
     from seq import differentiate_sets, get_key_set, uniqs_in
-    from ToString import stringify_iter
     from trivial import always_true
 except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy.debug import Debuggable
     from gconanpy import mapping
+    from gconanpy.convert import stringify_iter
+    from gconanpy.debug import Debuggable
     from gconanpy.meta.classes import \
         IgnoreExceptions, KeepTryingUntilNoErrors
     from gconanpy.meta.funcs import are_all_equal, DATA_ERRORS, has_method, \
         method, name_of
     from gconanpy.seq import differentiate_sets, get_key_set, uniqs_in
-    from gconanpy.ToString import stringify_iter
     from gconanpy.trivial import always_true
 
 

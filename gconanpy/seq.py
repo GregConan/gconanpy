@@ -4,7 +4,7 @@
 Lower-level utility functions and classes primarily to manipulate Sequences.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-07-16
+Updated: 2025-07-20
 """
 # Import standard libraries
 from collections.abc import Collection, Hashable, Iterable, Mapping, Sequence
@@ -19,13 +19,13 @@ import pandas as pd
 
 # Import local custom libraries
 try:
+    from convert import stringify
     from meta.classes import MutableItemStore, Updatable
     from meta.funcs import tuplify
-    from ToString import stringify
 except ModuleNotFoundError:  # TODO DRY?
+    from gconanpy.convert import stringify
     from gconanpy.meta.classes import MutableItemStore, Updatable
     from gconanpy.meta.funcs import tuplify
-    from gconanpy.ToString import stringify
 
 # Constant: TypeVars for...
 S = TypeVar("S")  # ...differentiate_sets & get_key_set
