@@ -14,11 +14,9 @@ from typing import Any, Literal, NamedTuple, TypeVar
 
 # Import local custom libraries
 try:
-    from convert import WrapFunction
     from seq import merge
     from trivial import always_none, always_true
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.convert import WrapFunction
     from gconanpy.seq import merge
     from gconanpy.trivial import always_none, always_true
 
@@ -186,13 +184,6 @@ class Filter:
         """
         self.include = {"names": include_names, "values": include_values}
         self.selectors = {"names": if_names, "values": if_values}
-
-    def add(self, which: _WHICH, func: Callable,
-            pre: Iterable = list(), post: Iterable = list(),
-            **kwargs: Any) -> None:
-
-        self.selectors[which].append(WrapFunction(func, pre, post,
-                                                  **kwargs))
 
     def build(self) -> FilterFunction:
         """

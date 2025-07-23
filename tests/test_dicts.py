@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-07-20
+Updated: 2025-07-22
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -71,7 +71,7 @@ class TestCryptionary(DictTester):
             cli_args = self.build_cli_args(args_type, dict_class)
             self.check_result(cli_args.creds["password"], "my_password")
 
-    def test_repr(self, args_type: type = DotDict,
+    def test_repr(self, args_type: type[DotDict] = DotDict,
                   classes: CLASSES = TEST_CLASSES) -> None:
         for dict_class in classes:
             cli_args = self.build_cli_args(args_type, dict_class)
@@ -84,6 +84,8 @@ class TestCryptionary(DictTester):
 
 class TestDictFunctions(DictTester):
     # has_setdefaults = type("has_setdefaults", (dict, ), dict(setdefaults=""))
+    _KT = TypeVar("_KT")
+    _VT = TypeVar("_VT")
     _M = TypeVar("_M", bound=MutableMapping)
 
     def check_setdefaults(self, expected: dict[str, int],
@@ -99,6 +101,14 @@ class TestDictFunctions(DictTester):
             result = new_dict
         for k, v in expected.items():
             self.check_result(result[k], v)
+
+    def check_sorted_by(self, expected: list[tuple[_KT, _VT]],
+                        a_dict: dict[_KT, _VT], by: Literal["keys", "values"],
+                        sorted_by: Callable = mapping.sorted_by):
+        print(locals())
+        self.check_result(list(sorted_by(a_dict, by)), expected)
+        self.check_result(list(sorted_by(a_dict, by, descending=True)),
+                          list(reversed(expected)))
 
     def invert_test(self, in_dict: dict, out_dict: dict,
                     invert: Callable = mapping.invert,
@@ -207,6 +217,19 @@ class TestDictFunctions(DictTester):
         self.check_setdefaults(dict(b=2, c=1, d=1), setdefaults, dict_class,
                                exclude={3})
 
+    def test_sorted_by_1(self, sorted_by: Callable = mapping.sorted_by):
+        self.add_basics()
+        for which in ("keys", "values"):
+            self.check_sorted_by([("a", 1), ("b", 2), ("c", 3)],
+                                 self.adict, which, sorted_by)
+
+    def test_sorted_by_2(self, sorted_by: Callable = mapping.sorted_by):
+        revdict = dict(c=1, b=2, a=3)
+        self.check_sorted_by([("a", 3), ("b", 2), ("c", 1)],
+                             revdict, "keys", sorted_by)
+        self.check_sorted_by([("c", 1), ("b", 2), ("a", 3)],
+                             revdict, "values", sorted_by)
+
     def test_update_1(self) -> None:
         self.add_basics()
         self.one_update_test(self.adict, 4, d=4)
@@ -217,7 +240,7 @@ class TestDictFunctions(DictTester):
         self.one_update_test(new_dict, 4, dict(a=3), c=1)
 
 
-class TestLazy(TestDictFunctions):
+class TestLazy(DictTester):
     CLASSES = tuple[type[attributes.Lazily], ...]
     TEST_CLASSES: CLASSES = (attributes.Lazily, )
     UNIT: TimeSpec.UNIT = "seconds"
@@ -265,28 +288,28 @@ class TestLazy(TestDictFunctions):
         assert False
 
 
-class TestDefaultionary(TestDictFunctions):
+class TestDefaultionary(DictTester):
     CLASSES = tuple[type[Defaultionary], ...]
     TEST_CLASSES: CLASSES = (Defaultionary, FancyDict, LazyDict, LazyDotDict)
 
     def test_chain_get(self, classes: CLASSES = TEST_CLASSES) -> None:
         for DictClass in classes:
-            return super().test_chain_get(DictClass.chain_get, DictClass)
+            return TestDictFunctions().test_chain_get(DictClass.chain_get, DictClass)
 
     def test_has_all(self, classes: CLASSES = TEST_CLASSES) -> None:
         for DictClass in classes:
-            super().test_has_all(DictClass.has_all, DictClass)
+            TestDictFunctions().test_has_all(DictClass.has_all, DictClass)
 
     def test_setdefaults_1(self, classes: CLASSES = TEST_CLASSES) -> None:
         for DictClass in classes:
-            super().test_setdefaults_1(DictClass.setdefaults, DictClass)
+            TestDictFunctions().test_setdefaults_1(DictClass.setdefaults, DictClass)
 
     def test_setdefaults_2(self, classes: CLASSES = TEST_CLASSES) -> None:
         for DictClass in classes:
-            super().test_setdefaults_2(DictClass.setdefaults, DictClass)
+            TestDictFunctions().test_setdefaults_2(DictClass.setdefaults, DictClass)
 
 
-class TestDotDicts(TestDictFunctions):
+class TestDotDicts(DictTester):
     CLASSES = tuple[type[DotDict], ...]
     TEST_CLASSES: CLASSES = (DotDict, DotPromptionary, DotWalktionary,
                              FancyDict, LazyDotDict, SubDotDict)
@@ -329,7 +352,7 @@ class TestDotDicts(TestDictFunctions):
     def test_lookup(self, classes: CLASSES = TEST_CLASSES,
                     crypty_type: type = Cryptionary) -> None:
         for DictClass in classes:
-            super().test_lookup(DictClass.lookup, DictClass, crypty_type)
+            TestDictFunctions().test_lookup(DictClass.lookup, DictClass, crypty_type)
 
     def test_protected(self, classes: CLASSES = (
             FancyDict, LazyDotDict)) -> None:
@@ -358,7 +381,7 @@ class TestDotDicts(TestDictFunctions):
                               dict(a="sub1", b="sub2", c="sub3"))
 
 
-class TestInvertionary(TestDictFunctions):
+class TestInvertionary(DictTester):
     # TODO Add InvertCryptionary and make it decrypt before inverting
     CLASSES = tuple[type[Invertionary], ...]
     TEST_CLASSES: CLASSES = (
@@ -371,25 +394,38 @@ class TestInvertionary(TestDictFunctions):
             tester_method(DictClass.invert, DictClass)
 
     def test_invert_1(self) -> None:
-        self.check_all_classes(super().test_invert_1)
+        self.check_all_classes(TestDictFunctions().test_invert_1)
 
     def test_invert_2(self) -> None:
-        self.check_all_classes(super().test_invert_2)
+        self.check_all_classes(TestDictFunctions().test_invert_2)
 
     def test_invert_3(self) -> None:
-        self.check_all_classes(super().test_invert_3)
+        self.check_all_classes(TestDictFunctions().test_invert_3)
 
     def test_invert_4(self) -> None:
-        self.check_all_classes(super().test_invert_4)
+        self.check_all_classes(TestDictFunctions().test_invert_4)
 
     def test_invert_5(self) -> None:
-        self.check_all_classes(super().test_invert_5)
+        self.check_all_classes(TestDictFunctions().test_invert_5)
 
     def test_cant_invert(self, classes: tuple[type[dict], ...] = (
             Promptionary, Updationary)) -> None:
         # TODO Use combinations(...) of custom_kwargs
         for DictClass in classes:
             self.cant_call("invert", DictClass)
+
+
+class TestSortionary(DictTester):
+    CLASSES = tuple[type[Sortionary], ...]
+    TEST_CLASSES: CLASSES = (FancyDict, Sortionary)
+
+    def test_sorted_by_1(self, classes: CLASSES = TEST_CLASSES) -> None:
+        for DictClass in classes:
+            TestDictFunctions().test_sorted_by_1(DictClass.sorted_by)
+
+    def test_sorted_by_2(self, classes: CLASSES = TEST_CLASSES) -> None:
+        for DictClass in classes:
+            TestDictFunctions().test_sorted_by_2(DictClass.sorted_by)
 
 
 class TestUpdationary(DictTester):

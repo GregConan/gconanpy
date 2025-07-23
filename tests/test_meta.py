@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-07
-Updated: 2025-07-20
+Updated: 2025-07-22
 """
 # Import standard libraries
 import builtins
@@ -70,10 +70,13 @@ from typing import Mapping
 
 try:
     from gconanpy.meta.funcs import method
-    from gconanpy.trivial import BareObject
 except (ImportError, ModuleNotFoundError):
     from meta.funcs import method
-    from trivial import BareObject
+
+
+class BareObject():
+    ''' Bare/empty object to freely add new attributes to. Must be defined in
+        the same file where it is used. '''
 
 method_get = method('get')
 method_getattribute = method('__getattribute__')

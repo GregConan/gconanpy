@@ -4,7 +4,7 @@
 Functions to import/export data from/to remote files/pages/APIs on the Web.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-13
-Updated: 2025-07-13
+Updated: 2025-07-20
 """
 # Import standard libraries
 from collections.abc import Mapping
@@ -19,9 +19,9 @@ import bs4
 
 # Import local custom libraries
 try:
-    from ..ToString import BasicTree, ToString
+    from ..convert import BasicTree, ToString
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.ToString import BasicTree, ToString
+    from gconanpy.convert import BasicTree, ToString
 
 
 def download_GET(path_URL: str, headers: Mapping[str, Any]) -> Any:

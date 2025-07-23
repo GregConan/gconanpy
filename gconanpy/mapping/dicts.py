@@ -4,15 +4,22 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-07-19
+Updated: 2025-07-22
 """
 # Import standard libraries
 from collections import defaultdict
 from collections.abc import (Callable, Collection, Container, Generator,
                              Hashable, Iterable, Mapping, Sequence)
 from configparser import ConfigParser
-from typing import Any, cast, Literal, overload, TypeVar
+from operator import itemgetter
+from typing import Any, cast, Literal, overload, TypeVar, TYPE_CHECKING
 from typing_extensions import Self
+
+# Import variables for type hinting (can't import _typeshed at runtime)
+if TYPE_CHECKING:
+    from _typeshed import SupportsRichComparison
+else:
+    SupportsRichComparison = Any
 
 # Import third-party PyPI libraries
 from cryptography.fernet import Fernet
@@ -158,9 +165,37 @@ class Defaultionary[KT, VT](Explictionary[KT, VT]):
             self[key] = kwargs[cast(str, key)]
 
 
+class Sortionary[KT: SupportsRichComparison, VT: SupportsRichComparison
+                 ](Explictionary[KT, VT]):
+    """ Custom dict class that can yield a generator of its key-value pairs \
+        sorted in order of either keys or values. """
+
+    def sorted_by(self, by: Literal["keys", "values"],
+                  descending: bool = False
+                  ) -> Generator[tuple[KT, VT], None, None]:
+        """ Adapted from https://stackoverflow.com/a/50569360
+
+        :param by: Literal["keys", "values"], "keys" to yield key-value \
+            pairings sorted by keys; else "values" to sort them by values
+        :param descending: bool, True to yield the key-value pairings with \
+            the largest ones first; else False to yield the smallest first; \
+            defaults to False
+        :yield: Generator[tuple[KT, VT], None, None], each key-value pairing \
+            in this Sortionary as a tuple, sorted `by` keys or values in \
+            ascending or `descending` order
+        """
+        match by:
+            case "keys":
+                for k in sorted(self, reverse=descending):
+                    yield (k, self[k])
+            case "values":
+                for k, v in sorted(self.items(), key=itemgetter(1),
+                                   reverse=descending):
+                    yield (k, v)
+
+
 class Invertionary(Explictionary):
     # Type variables for invert method
-    _T = TypeVar("_T")
     _K = bool | Literal["unpack"]  # type[Collection]  # TODO
 
     # def invert(self, keep_keys_in: _KeyBag = None) -> None: ...  # TODO
@@ -707,8 +742,9 @@ class SubCryptionary[KT, VT](Cryptionary, Subsetionary[KT, VT]):
     """ Cryptionary with subset access/creation methods. """
 
 
-class FancyDict[KT, VT](DotPromptionary[KT, VT], Invertionary,
-                        Subsetionary[KT, VT], Walktionary[KT, VT]):
+class FancyDict[KT: SupportsRichComparison, VT: SupportsRichComparison
+                ](DotPromptionary[KT, VT], Invertionary, Sortionary[KT, VT],
+                  Subsetionary[KT, VT], Walktionary[KT, VT]):
     """ Custom dict combining as much functionality from the other classes \
         defined in this file and in `maptools.py` as possible: lazy methods, \
         enhanced default/update methods, prompt methods, invert method, \

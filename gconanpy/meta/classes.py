@@ -159,9 +159,12 @@ class NonIterable(metaclass=metaclass_hasmethod("__iter__", include=False)):
     """ Any object that isn't an Iterable is a NonIterable. """
 
 
-class PureIterable(metaclass=metaclass_issubclass(
-        is_all_of=(Iterable, ), isnt_any_of=(str, bytes, Mapping),
-        name="PureIterableMeta")):
+class PureIterableMeta(MultiTypeMeta):
+    IS_A = (Iterable, )
+    ISNT_A = (str, bytes, Mapping)
+
+
+class PureIterable(metaclass=PureIterableMeta):
     """ Iterables that aren't strings, bytes, or Mappings are "Pure." """
 
 

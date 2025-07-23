@@ -5,7 +5,7 @@ Useful/convenient functions for dicts (taken from dicts.py class methods) \
     and useful/convenient classes to work with Python dicts/Mappings.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-07-20
+Updated: 2025-07-22
 """
 # Import standard libraries
 from collections import defaultdict
@@ -13,8 +13,16 @@ from collections.abc import Callable, Collection, Container, Generator, \
     Hashable, Iterable, Mapping, MutableMapping, Sequence
 from configparser import ConfigParser
 import itertools
+from operator import itemgetter
 import sys
-from typing import Any, cast, Literal, overload, SupportsBytes, TypeVar
+from typing import Any, cast, Literal, overload, SupportsBytes, TypeVar, \
+    TYPE_CHECKING
+
+# Import variables for type hinting (can't import _typeshed at runtime)
+if TYPE_CHECKING:
+    from _typeshed import SupportsRichComparison
+else:
+    SupportsRichComparison = Any
 
 # Import local custom libraries
 try:
@@ -36,6 +44,7 @@ _T = TypeVar("_T")  # For invert
 CollisionHandler = None | Callable[[list[_T]], Iterable[_T]]  # For invert
 FromMap = TypeVar("FromMap", Mapping, Iterable[tuple[Hashable, Any]], None
                   )  # For update function input parameters
+Sortable = TypeVar("Sortable", bound=SupportsRichComparison)  # For sorted_by
 
 
 def chain_get(a_dict: Mapping[_KT, _VT], keys: Sequence[_KT],
@@ -152,7 +161,7 @@ def invert(a_dict: dict[_KT, _VT], keep_keys: Literal[True]
 
 
 @overload
-def invert(a_dict: dict[_KT, _VT], keep_keys: Literal["unpack"]
+def invert(a_dict: dict[_KT, _VT], keep_keys: Literal[False, "unpack"]
            ) -> dict[_VT, _KT]: ...
 
 
@@ -317,6 +326,40 @@ def setdefaults(a_dict: _MM, exclude: Collection = set(),
     for key in missing_keys(a_dict, kwargs.keys(), exclude):
         a_dict[key] = kwargs[key]
     return a_dict
+
+
+@overload
+def sorted_by(a_map: Mapping[_KT, Sortable], by: Literal["keys"],
+              descending: bool) -> Generator[tuple[_KT, Sortable]]: ...
+
+
+@overload
+def sorted_by(a_map: Mapping[Sortable, _VT], by: Literal["values"],
+              descending: bool) -> Generator[tuple[Sortable, _VT]]: ...
+
+
+def sorted_by(a_map: Mapping, by: Literal["keys", "values"],
+              descending: bool = False) -> Generator[tuple, None, None]:
+    """ Adapted from https://stackoverflow.com/a/50569360
+
+    :param a_map: Mapping[_KT, _VT] to yield every key-value pairing from
+    :param by: Literal["keys", "values"], "keys" to yield key-value \
+        pairings sorted by keys; else "values" to sort them by values
+    :param descending: bool, True to yield the key-value pairings with \
+        the largest ones first; else False to yield the smallest first; \
+        defaults to False
+    :yield: Generator[tuple[_KT, _VT], None, None], each key-value pairing \
+        in this Sortionary as a tuple, sorted `by` keys or values in \
+        ascending or `descending` order
+    """
+    match by:
+        case "keys":
+            for k in sorted(a_map, reverse=descending):
+                yield (k, a_map[k])
+        case "values":
+            for k, v in sorted(a_map.items(), key=itemgetter(1),
+                               reverse=descending):
+                yield (k, v)
 
 
 def update(a_dict: _MM, from_map: FromMap = None, **kwargs: Any) -> _MM:
