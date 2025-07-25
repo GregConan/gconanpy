@@ -165,35 +165,6 @@ class Defaultionary[KT, VT](Explictionary[KT, VT]):
             self[key] = kwargs[cast(str, key)]
 
 
-class Sortionary[KT: SupportsRichComparison, VT: SupportsRichComparison
-                 ](Explictionary[KT, VT]):
-    """ Custom dict class that can yield a generator of its key-value pairs \
-        sorted in order of either keys or values. """
-
-    def sorted_by(self, by: Literal["keys", "values"],
-                  descending: bool = False
-                  ) -> Generator[tuple[KT, VT], None, None]:
-        """ Adapted from https://stackoverflow.com/a/50569360
-
-        :param by: Literal["keys", "values"], "keys" to yield key-value \
-            pairings sorted by keys; else "values" to sort them by values
-        :param descending: bool, True to yield the key-value pairings with \
-            the largest ones first; else False to yield the smallest first; \
-            defaults to False
-        :yield: Generator[tuple[KT, VT], None, None], each key-value pairing \
-            in this Sortionary as a tuple, sorted `by` keys or values in \
-            ascending or `descending` order
-        """
-        match by:
-            case "keys":
-                for k in sorted(self, reverse=descending):
-                    yield (k, self[k])
-            case "values":
-                for k, v in sorted(self.items(), key=itemgetter(1),
-                                   reverse=descending):
-                    yield (k, v)
-
-
 class Invertionary(Explictionary):
     # Type variables for invert method
     _K = bool | Literal["unpack"]  # type[Collection]  # TODO
@@ -236,6 +207,35 @@ class Invertionary(Explictionary):
         else:
             self.clear()
             self.update(inverted)
+
+
+class Sortionary[KT: SupportsRichComparison, VT: SupportsRichComparison
+                 ](Explictionary[KT, VT]):
+    """ Custom dict class that can yield a generator of its key-value pairs \
+        sorted in order of either keys or values. """
+
+    def sorted_by(self, by: Literal["keys", "values"],
+                  descending: bool = False
+                  ) -> Generator[tuple[KT, VT], None, None]:
+        """ Adapted from https://stackoverflow.com/a/50569360
+
+        :param by: Literal["keys", "values"], "keys" to yield key-value \
+            pairings sorted by keys; else "values" to sort them by values
+        :param descending: bool, True to yield the key-value pairings with \
+            the largest ones first; else False to yield the smallest first; \
+            defaults to False
+        :yield: Generator[tuple[KT, VT], None, None], each key-value pairing \
+            in this Sortionary as a tuple, sorted `by` keys or values in \
+            ascending or `descending` order
+        """
+        match by:
+            case "keys":
+                for k in sorted(self, reverse=descending):
+                    yield (k, self[k])
+            case "values":
+                for k, v in sorted(self.items(), key=itemgetter(1),
+                                   reverse=descending):
+                    yield (k, v)
 
 
 class Subsetionary[KT, VT](Explictionary[KT, VT]):
@@ -335,22 +335,20 @@ class Walktionary[KT, VT](Explictionary[KT, VT]):
         return mapping.Walk(self, only_yield_maps)
 
 
-class OverlapPercents[InVT](Explictionary[str, Invertionary]):
-    def __init__(self, **collections: Collection[InVT]) -> None:
-        for collname, collns in collections.items():
-            self[collname] = Invertionary()
-            for othername, othercollns in collections.items():
-                self[collname][othername] = \
-                    len(collns) / len(set(collns) | set(othercollns))
+class OverlapPercents[Sortable: SupportsRichComparison
+                      ](Explictionary[str, Sortionary[Sortable, float]]):
+    def __init__(self, **collectns: Collection[Sortable]) -> None:
+        for collecname, collec in collectns.items():
+            sorty = Sortionary()
+            for othername, othercollns in collectns.items():
+                sorty[othername] = \
+                    len(collec) / len(set(collec) | set(othercollns))
+            self[collecname] = sorty
 
     def sorted(self, key: str, descending: bool = True
-               ) -> Generator[InVT, None, None]:
-        inverted = self[key].invert(copy=True, keep_keys=True)
-        vals = list(set(self[key].values()))
-        vals.sort(reverse=descending)
-        for pct in vals:
-            for each_item in inverted[pct]:
-                yield each_item
+               ) -> Generator[Sortable, None, None]:
+        for sortable_subkey, _ in self[key].sorted_by("values", descending):
+            yield sortable_subkey
 
 
 class DotDict(Updationary, mapping.Traversible):
