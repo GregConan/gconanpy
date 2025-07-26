@@ -186,9 +186,14 @@ class Invertionary(Explictionary):
         mapped either to a `keep_collisions_in` container of all of those \
         keys or (by default) to only the most recently-added key.
 
-        :param keep_collisions_in: CollisionHandler, type of container to \
-            map a value to when multiple keys were mapped to that value; \
-            e.g. `list`, `tuple`, or `set`
+        :param keep_keys: True to map each value to a list of the keys that \
+            previously were mapped to it, False to only keep the last key mapped \
+            to each value, or "unpack" (if every value is iterable) to map each \
+            element of each value to a list of the previously-mapped keys.
+        :param copy: bool, True to return an inverted copy of this \
+            Invertionary instead of inverting the original; else False to \
+            invert the original and return None. Defaults to False
+        :return: Self if `copy=True`, else None
         """
         # If we are NOT keeping all keys mapped to the same value, then
         # just keep whichever key was added most recently
@@ -523,8 +528,8 @@ class DotDict[KT: str, VT](Updationary[KT, VT], mapping.Traversible):
 
         :param path: str, path to key in nested structure, e.g. "a.b.c"
         :param sep: str, separator between keys in path; defaults to "."
-        :param default: Any, value to return if key is not found
-        :return: Any, the value mapped to the nested key
+        :param default: _D: Any, value to return if key is not found
+        :return: _VT | _D, value mapped to nested key, if any; else default
         """
         keypath = list(reversed(path.split(sep)))
         retrieved = self
@@ -557,19 +562,19 @@ class LazyDict[KT, VT](Updationary[KT, VT], Defaultionary[KT, VT]):
                 getter_args: Iterable = list(),
                 getter_kwargs: Mapping = dict(),
                 exclude: Container[VT] = set()) -> VT:
-        """ Return the value for key if key is in the dictionary, else \
-        return the result of calling the `get_if_absent` parameter with args \
-        & kwargs. Adapted from `LazyButHonestDict.lazyget` from \
-        https://stackoverflow.com/q/17532929
+        """ Adapted from `LazyButHonestDict.lazyget` from \
+            https://stackoverflow.com/q/17532929
 
-        :param key: Hashable to use as a dict key to map to value
-        :param get_if_absent: function that returns the default value
-        :param getter_args: Iterable[Any] of get_if_absent arguments
-        :param getter_kwargs: Mapping of get_if_absent keyword arguments
-        :param exclude: set of possible values which (if they are mapped to \
-            `key` in `self`) will not be returned; instead returning \
+        :param key: KT, a key this LazyDict might map to the value to return
+        :param get_if_absent: Callable that returns the default value
+        :param getter_args: Iterable[Any], `get_if_absent` arguments
+        :param getter_kwargs: Mapping, `get_if_absent` keyword arguments
+        :param exclude: Container[VT] of possible values which (if they are \
+            mapped to `key` in `self`) won't be returned; instead returning \
             `get_if_absent(*getter_args, **getter_kwargs)`
-        """  # TODO return self[key] if self.has(key, exclude) else \
+        :return: VT, the value that this dict maps to `key`, if that value \
+            isn't in `exclude`; else `return get_if_absent(*args, **kwargs)`
+        """
         return self[key] if self.has(key, exclude) else \
             get_if_absent(*getter_args, **getter_kwargs)
 
@@ -577,19 +582,22 @@ class LazyDict[KT, VT](Updationary[KT, VT], Defaultionary[KT, VT]):
                        = always_none, getter_args: Iterable = list(),
                        getter_kwargs: Mapping = dict(),
                        exclude: Container[VT] = set()) -> VT:
-        """ Return the value for key if key is in the dictionary; else add \
-        that key to the dictionary, set its value to the result of calling \
-        the `get_if_absent` parameter with args & kwargs, then return that \
-        result. Adapted from `LazyButHonestDict.lazysetdefault` from \
+        """ Return the value for key if key is in this `LazyDict` and not \
+            in `exclude`; else add that key to this `LazyDict`, set its \
+            value to `get_if_absent(*args, **kwargs)`, and then return that.
+
+        Adapted from `LazyButHonestDict.lazysetdefault` from \
         https://stackoverflow.com/q/17532929
 
-        :param key: Hashable to use as a dict key to map to value
+        :param key: KT, a key this LazyDict might map to the value to return
         :param get_if_absent: Callable, function to set & return default value
-        :param getter_args: Iterable[Any] of get_if_absent arguments
-        :param getter_kwargs: Mapping[Any] of get_if_absent keyword arguments
+        :param getter_args: Iterable[Any], `get_if_absent` arguments
+        :param getter_kwargs: Mapping, `get_if_absent` keyword arguments
         :param exclude: Container[VT] of possible values to replace with \
             `get_if_absent(*getter_args, **getter_kwargs)` and return if \
-            they are mapped to `key` in `self`
+            they are mapped to `key` in `self` but not in `exclude`
+        :return: VT, the value that this dict maps to `key`, if that value \
+            isn't in `exclude`; else `return get_if_absent(*args, **kwargs)`
         """
         if not self.has(key, exclude):
             self[key] = get_if_absent(*getter_args, **getter_kwargs)
@@ -603,17 +611,19 @@ class Promptionary[KT, VT](LazyDict[KT, VT]):
     def get_or_prompt_for(self, key: KT, prompt: str,
                           prompt_fn: Callable[[str], VT] = input,
                           exclude: Container[VT] = set()) -> VT:
-        """ Return the value mapped to key in self if one already exists; \
-            else prompt the user to interactively provide it and return that.
+        """ Return the value mapped to key in self if one already exists and \
+            is not in `exclude`; else prompt the user to interactively \
+            provide it and return that.
 
-        :param key: str mapped to the value to retrieve
+        :param key: str possibly mapped to the value to retrieve
         :param prompt: str to display when prompting the user.
         :param prompt_fn: Callable that interactively prompts the user to \
                           get a string, like `input` or `getpass.getpass`.
-        :param exclude: Container, values to ignore or overwrite. If `self` \
-            maps `key` to one, prompt the user as if `key is not in self`.
-        :return: Any, the value mapped to key if one exists, else the value \
-                 that the user interactively provided
+        :param exclude: Container[VT], values to ignore or overwrite. If \
+            `self` maps `key` to one, prompt the user as if \
+            `key is not in self`.
+        :return: Any, the value mapped to `key` if one exists, else the \
+                 value that the user interactively provided
         """
         return self.lazyget(key, prompt_fn, [prompt], exclude=exclude)
 
@@ -624,7 +634,7 @@ class Promptionary[KT, VT](LazyDict[KT, VT]):
             otherwise prompt the user to interactively provide it, store the \
             provided value by mapping it to key, and return that value.
 
-        :param key: str mapped to the value to retrieve
+        :param key: str possibly mapped to the value to retrieve
         :param prompt: str to display when prompting the user.
         :param prompt_fn: Callable that interactively prompts the user to \
                           get a string, like `input` or `getpass.getpass`.
@@ -649,6 +659,7 @@ class Cryptionary(Promptionary, mapping.Bytesifier, Debuggable):
         :param from_map: MapParts to convert into a new Cryptionary.
         :param debugging: bool, True to pause and interact on error, else \
             False to raise errors/exceptions; defaults to False.
+        :param kwargs: Mapping[str, Any] of values to encrypt and add.
         """
         try:  # Create encryption mechanism
             self.encrypted = set()
