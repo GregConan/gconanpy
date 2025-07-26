@@ -19,7 +19,7 @@ from typing_extensions import Self
 try:
     from .funcs import DATA_ERRORS, has_method, make_metaclass, \
         metaclass_hasmethod, metaclass_issubclass, name_type_class
-    from ..reg import DunderParser
+    from reg import DunderParser
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.meta.funcs import DATA_ERRORS, has_method, make_metaclass, \
         metaclass_hasmethod, metaclass_issubclass, name_type_class

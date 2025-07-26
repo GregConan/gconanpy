@@ -26,8 +26,8 @@ else:
 
 # Import local custom libraries
 try:
-    from ..meta.funcs import DATA_ERRORS
-    from ..trivial import always_none
+    from meta.funcs import DATA_ERRORS
+    from trivial import always_none
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.meta.funcs import DATA_ERRORS
     from gconanpy.trivial import always_none
@@ -245,8 +245,8 @@ def lazysetdefault(a_dict: MutableMapping[_KT, _VT], key: _KT,
     return a_dict[key]
 
 
-def lookup(a_dict: Mapping, path: str, sep: str = ".", default: Any = None
-           ) -> Any:
+def lookup(a_dict: Mapping[_KT, _VT], path: str, sep: str = ".",
+           default: _D = None) -> _VT | _D:
     """ Get the value mapped to a key in nested structure. Adapted from \
         https://gist.github.com/miku/dc6d06ed894bc23dfd5a364b7def5ed8
 
@@ -261,14 +261,14 @@ def lookup(a_dict: Mapping, path: str, sep: str = ".", default: Any = None
         while keypath:
             key = keypath.pop()
             try:
-                retrieved = retrieved[key]
+                retrieved = cast(Mapping[str, _VT], retrieved)[key]
             except KeyError:
-                retrieved = retrieved[int(key)]
+                retrieved = cast(Mapping[int, _VT], retrieved)[int(key)]
 
     # If value is not found, then return the default value
     except DATA_ERRORS:
-        pass
-    return default if keypath else retrieved
+        retrieved = default
+    return default if keypath else cast(_VT, retrieved)
 
 
 def missing_keys(a_dict: Mapping[_KT, Any], keys: Iterable[_KT],
@@ -523,6 +523,14 @@ class Combinations:
         """
         for keys in cls.of_seq(a_map):
             yield Subset(keys=keys, include_keys=True).of(a_map)
+
+    @classmethod
+    def excluding(cls, objects: Collection[_T], exclude: Iterable[_T]
+                  ) -> Generator[tuple[_T, ...], None, None]:
+        excluset = set(exclude)
+        for combo in cls.of_seq(objects):
+            if set(combo).isdisjoint(excluset):
+                yield combo
 
     @staticmethod
     def of_seq(objects: Collection[_T]) -> itertools.chain[tuple[_T, ...]]:

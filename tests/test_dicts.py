@@ -3,11 +3,12 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-07-22
+Updated: 2025-07-25
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
                              Mapping, MutableMapping)
+from math import prod
 from typing import Any, TypeVar
 
 # Import local custom libraries
@@ -18,6 +19,7 @@ from gconanpy.meta.classes import TimeSpec
 # from tests import test_dicts
 from gconanpy.seq import powers_of_ten
 from gconanpy.testers import Randoms, Tester  # , TimeTester
+from gconanpy.trivial import always_false, always_none, always_true
 
 
 DotInvertionary = type("DotInvertionary", (DotDict, Invertionary), dict())
@@ -46,7 +48,7 @@ class DictTester(Tester):
 
     def map_test(self, method_to_test: Callable, map_type: type[dict],
                  in_dict: dict, out_dict: dict,
-                 *method_args, **method_kwargs) -> None:
+                 *method_args: Any, **method_kwargs: Any) -> None:
         a_map = map_type(in_dict)
         method_to_test(a_map, *method_args, **method_kwargs)
         self.check_result(a_map, map_type(out_dict))
@@ -87,6 +89,7 @@ class TestDictFunctions(DictTester):
     _KT = TypeVar("_KT")
     _VT = TypeVar("_VT")
     _M = TypeVar("_M", bound=MutableMapping)
+    TRIVIALS = {always_none: None, always_true: True, always_false: False}
 
     def check_setdefaults(self, expected: dict[str, int],
                           setdefaults: Callable = mapping.setdefaults,
@@ -104,11 +107,19 @@ class TestDictFunctions(DictTester):
 
     def check_sorted_by(self, expected: list[tuple[_KT, _VT]],
                         a_dict: dict[_KT, _VT], by: Literal["keys", "values"],
-                        sorted_by: Callable = mapping.sorted_by):
-        print(locals())
-        self.check_result(list(sorted_by(a_dict, by)), expected)
-        self.check_result(list(sorted_by(a_dict, by, descending=True)),
-                          list(reversed(expected)))
+                        sorted_by: Callable = mapping.sorted_by,
+                        dict_class: type[dict] = dict,
+                        print_vars: bool = True):
+        sorty = dict_class(a_dict)
+        if print_vars:  # If the check fails, show local vars to debug why
+            print(locals())
+            self.check_result(list(sorted_by(sorty, by)), expected)
+            self.check_result(list(sorted_by(sorty, by, descending=True)),
+                              list(reversed(expected)))
+        else:
+            assert list(sorted_by(sorty, by)) == expected
+            assert list(sorted_by(sorty, by, descending=True)) \
+                == list(reversed(expected))
 
     def invert_test(self, in_dict: dict, out_dict: dict,
                     invert: Callable = mapping.invert,
@@ -119,6 +130,11 @@ class TestDictFunctions(DictTester):
         if inverted is None:
             inverted = to_invert
         self.check_result(dict(inverted), out_dict)
+
+    @staticmethod
+    def multiply_subtract(*multiply: int | float, **subtract: int | float
+                          ) -> int | float:
+        return prod(multiply) - sum(subtract.values())
 
     def one_update_test(self, a_dict: _M, expected_len: int,
                         from_map: Mapping | None = None,
@@ -198,37 +214,74 @@ class TestDictFunctions(DictTester):
             inverted = invertable
         self.check_result(inverted, invertable)
 
+    def test_lazyget_1(self, lazyget: Callable = mapping.lazyget,
+                       dict_class: type[dict] = dict) -> None:
+        self.add_basics()
+        a_dict = dict_class(self.adict)
+        for k, v in a_dict.items():
+            self.check_result(lazyget(a_dict, k), v)
+            for triv_fn, triv_out in self.TRIVIALS.items():
+                for args in list(), tuple(), self.alist:
+                    for kwargs in dict(), self.adict:
+
+                        # Return the value to get if we do not exclude it
+                        for exclude in mapping.Combinations.excluding(
+                                a_dict.values(), {v}):
+                            self.check_result(lazyget(a_dict, k, triv_fn,
+                                              args, kwargs, exclude), v)
+
+                        # If we exclude the value to get, return the default
+                        self.check_result(lazyget(a_dict, k, triv_fn, args,
+                                                  kwargs, {v}), triv_out)
+
+    def test_lazyget_2(self, lazyget: Callable = mapping.lazyget,
+                       dict_class: type[dict] = dict) -> None:
+        self.add_basics()
+        a_dict = dict_class(self.adict)
+        for nonkey in (None, 50, "hello", dict, dict_class, 3.14, lazyget):
+            for args in Randoms.randintsets(min_n=20, max_n=20):
+                kwargs = Randoms.randict(values=tuple(
+                    Randoms.randints(min_n=0, max_n=5)))
+
+                # Verify that lazyget correctly runs the function it's given
+                self.check_result(lazyget(
+                    a_dict, nonkey, self.multiply_subtract, args, kwargs
+                ), self.multiply_subtract(*args, **kwargs))
+
     def test_lookup(self, lookup: Callable = mapping.lookup,
                     args_class: type[dict] = dict,
                     creds_class: type[dict] = dict) -> None:
         cli_args = self.build_cli_args(args_class, creds_class)
-        self.check_result(lookup(cli_args, f"a dict"), self.adict)
+        print(locals())
+        self.check_result(lookup(cli_args, "a dict"), self.adict)
         for k, v in self.adict.items():
             self.check_result(lookup(cli_args, f"a dict.{k}"), v)
 
-    def test_setdefaults_1(self,
-                           setdefaults: Callable = mapping.setdefaults,
+    def test_setdefaults_1(self, setdefaults: Callable = mapping.setdefaults,
                            dict_class: type[dict] = dict) -> None:
         self.check_setdefaults(dict(b=2, c=3, d=1), setdefaults, dict_class)
 
-    def test_setdefaults_2(self,
-                           setdefaults: Callable = mapping.setdefaults,
+    def test_setdefaults_2(self, setdefaults: Callable = mapping.setdefaults,
                            dict_class: type[dict] = dict) -> None:
         self.check_setdefaults(dict(b=2, c=1, d=1), setdefaults, dict_class,
                                exclude={3})
 
-    def test_sorted_by_1(self, sorted_by: Callable = mapping.sorted_by):
+    def test_sorted_by_1(self, sorted_by: Callable = mapping.sorted_by,
+                         dict_class: type[dict] = dict,
+                         show: bool = True) -> None:
         self.add_basics()
         for which in ("keys", "values"):
-            self.check_sorted_by([("a", 1), ("b", 2), ("c", 3)],
-                                 self.adict, which, sorted_by)
+            self.check_sorted_by([("a", 1), ("b", 2), ("c", 3)], self.adict,
+                                 which, sorted_by, dict_class, show)
 
-    def test_sorted_by_2(self, sorted_by: Callable = mapping.sorted_by):
+    def test_sorted_by_2(self, sorted_by: Callable = mapping.sorted_by,
+                         dict_class: type[dict] = dict,
+                         show: bool = True) -> None:
         revdict = dict(c=1, b=2, a=3)
-        self.check_sorted_by([("a", 3), ("b", 2), ("c", 1)],
-                             revdict, "keys", sorted_by)
-        self.check_sorted_by([("c", 1), ("b", 2), ("a", 3)],
-                             revdict, "values", sorted_by)
+        self.check_sorted_by([("a", 3), ("b", 2), ("c", 1)], revdict,
+                             "keys", sorted_by, dict_class, show)
+        self.check_sorted_by([("c", 1), ("b", 2), ("a", 3)], revdict,
+                             "values", sorted_by, dict_class, show)
 
     def test_update_1(self) -> None:
         self.add_basics()
@@ -240,7 +293,7 @@ class TestDictFunctions(DictTester):
         self.one_update_test(new_dict, 4, dict(a=3), c=1)
 
 
-class TestLazy(DictTester):
+class TestLazily(DictTester):
     CLASSES = tuple[type[attributes.Lazily], ...]
     TEST_CLASSES: CLASSES = (attributes.Lazily, )
     UNIT: TimeSpec.UNIT = "seconds"
@@ -415,17 +468,47 @@ class TestInvertionary(DictTester):
             self.cant_call("invert", DictClass)
 
 
+class TestLazyDict(DictTester):
+    CLASSES = tuple[type[LazyDict], ...]
+    TEST_CLASSES: CLASSES = (FancyDict, LazyDict, LazyDotDict,
+                             Promptionary, DotPromptionary)
+
+    def test_lazyget_1(self, classes: CLASSES = TEST_CLASSES) -> None:
+        for DictClass in classes:
+            TestDictFunctions().test_lazyget_1(DictClass.lazyget, DictClass)
+
+    def test_lazyget_2(self, classes: CLASSES = TEST_CLASSES) -> None:
+        for DictClass in classes:
+            TestDictFunctions().test_lazyget_2(DictClass.lazyget, DictClass)
+
+
 class TestSortionary(DictTester):
     CLASSES = tuple[type[Sortionary], ...]
     TEST_CLASSES: CLASSES = (FancyDict, Sortionary)
 
     def test_sorted_by_1(self, classes: CLASSES = TEST_CLASSES) -> None:
         for DictClass in classes:
-            TestDictFunctions().test_sorted_by_1(DictClass.sorted_by)
+            TestDictFunctions().test_sorted_by_1(
+                DictClass.sorted_by, DictClass)
 
     def test_sorted_by_2(self, classes: CLASSES = TEST_CLASSES) -> None:
         for DictClass in classes:
-            TestDictFunctions().test_sorted_by_2(DictClass.sorted_by)
+            TestDictFunctions().test_sorted_by_2(
+                DictClass.sorted_by, DictClass)
+
+    # Remove the initial underscore to run time test
+    def _test_time_sorted_by(self, classes: CLASSES = TEST_CLASSES,
+                             n_tests_orders_of_magnitude: int = 5) -> None:
+        testNs = powers_of_ten(n_tests_orders_of_magnitude)
+        with StrictlyTime(f"running {sum(testNs)} Sortionary tests"):
+            tester = TestDictFunctions()
+            for n in testNs:
+                for _ in range(n):
+                    for DictClass in classes:
+                        params = (DictClass.sorted_by, DictClass, False)
+                        tester.test_sorted_by_1(*params)
+                        tester.test_sorted_by_2(*params)
+        assert False  # Show time taken
 
 
 class TestUpdationary(DictTester):

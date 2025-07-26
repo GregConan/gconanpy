@@ -4,7 +4,7 @@
 Base classes for unit tests in ../tests/ dir
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-07-20
+Updated: 2025-07-25
 """
 # Import standard libraries
 from abc import ABC
@@ -52,7 +52,8 @@ class Randoms:
                 values: Sequence[_VT] = CHARS,
                 min_len: int = MIN, max_len: int = MAX) -> dict[_KT, _VT]:
         return {random.choice(keys): random.choice(values)
-                for _ in cls.randrange(min_len, max_len)}
+                for _ in cls.randrange(min_len, max_len)
+                } if keys and values else dict()
 
     @classmethod
     def randints(cls, min_n: int = MIN, max_n: int = MAX,

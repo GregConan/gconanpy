@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-07-22
+Updated: 2025-07-25
 """
 # Import standard libraries
 from collections import defaultdict
@@ -26,10 +26,11 @@ from cryptography.fernet import Fernet
 
 # Import local custom libraries
 try:
-    from .. import attributes, mapping
-    from ..debug import Debuggable
-    from ..meta.funcs import DATA_ERRORS, name_of
-    from ..trivial import always_none
+    import attributes
+    from debug import Debuggable
+    import mapping
+    from meta.funcs import DATA_ERRORS, name_of
+    from trivial import always_none
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy import attributes, mapping
     from gconanpy.debug import Debuggable
@@ -68,14 +69,15 @@ class Defaultionary[KT, VT](Explictionary[KT, VT]):
     _D = TypeVar("_D")  # Type hint for "default" parameter
 
     def chain_get(self, keys: Sequence[KT], default: _D = None,
-                  exclude: Container[KT] = set()) -> VT | _D:
+                  exclude: Container[VT] = set()) -> VT | _D:
         """ Return the value mapped to the first key if any, else return \
             the value mapped to the second key if any, ... etc. recursively. \
             Return `default` if this dict doesn't contain any of the `keys`.
 
-        :param keys: Sequence[Hashable], keys mapped to the value to return
-        :param default: Any, object to return if no `keys` are in this dict
-        :param exclude: Container, values to ignore or overwrite. If one \
+        :param keys: Sequence[KT], keys mapped to the value to return
+        :param default: _D: Any, object to return if none of the `keys` are \
+            in this Defaultionary
+        :param exclude: Container[VT], values to ignore or overwrite. If one \
             of the `keys` is mapped to a value in `exclude`, then skip that \
             key as if `key is not in self`.
         :return: Any, value mapped to the first key (of `keys`) in this dict \
@@ -87,35 +89,36 @@ class Defaultionary[KT, VT](Explictionary[KT, VT]):
         return default
 
     def get(self, key: KT, default: _D = None,
-            exclude: Container[KT] = set()) -> VT | _D:
+            exclude: Container[VT] = set()) -> VT | _D:
         """ Return the value mapped to `key` in `self`, if any; else return \
             `default`. Defined to add `exclude` option to `dict.get`.
 
-        :param key: Hashable, key mapped to the value to return
-        :param default: Any, object to return `if not self.has` the key, \
+        :param key: KT: Hashable, key mapped to the value to return
+        :param default: _D: Any, object to return `if not self.has` the key, \
             i.e. `if key not in self or self[key] in exclude`
         :param exclude: Container, values to ignore or overwrite. If `self` \
             maps `key` to one, then return True as if `key is not in self`.
-        :return: Any, value mapped to `key` in `self` if any, else `default`
+        :return: VT | _D, value `self` maps to `key` if any; else `default`
         """
         return self[key] if self.has(key, exclude) else default
 
-    def has(self, key: KT, exclude: Container[KT] = set()) -> bool:
+    def has(self, key: KT, exclude: Container[VT] = set()) -> bool:
         """
-        :param key: Hashable
-        :param exclude: Container, values to ignore or overwrite. If `self` \
-            maps `key` to one, then return False as if `key is not in self`.
+        :param key: KT: Hashable
+        :param exclude: Container[VT], values to ignore or overwrite. If \
+            `self` maps `key` to one, then return False as if \
+            `key is not in self`.
         :return: bool, True if `key` is mapped to a value in `self` and \
             is not mapped to anything in `exclude`.
         """
         return key in self and self[key] not in exclude
 
-    def has_all(self, keys: Iterable[KT], exclude: Collection[KT] = set()
+    def has_all(self, keys: Iterable[KT], exclude: Container[VT] = set()
                 ) -> bool:
         """
-        :param keys: Iterable[_K], keys to find in this Defaultionary.
-        :param exclude: Collection, values to overlook/ignore such that if \
-            `self` maps a key to one of those values, then this function \
+        :param keys: Iterable[KT], keys to find in this Defaultionary.
+        :param exclude: Container[VT], values to overlook/ignore such that \
+            if `self` maps a key to one of those values, then this method \
             will return False as if `key is not in self`.
         :return: bool, True if every key in `keys` is mapped to a value that \
             is not in `exclude`; else False.
@@ -126,14 +129,14 @@ class Defaultionary[KT, VT](Explictionary[KT, VT]):
         except StopIteration:
             return True
 
-    def missing_keys(self, keys: Iterable[KT], exclude: Collection[KT] = set()
+    def missing_keys(self, keys: Iterable[KT], exclude: Container[VT] = set()
                      ) -> Generator[KT, None, None]:
         """
-        :param keys: Iterable[_K], keys to find in this Defaultionary.
-        :param exclude: Collection, values to overlook/ignore such that if \
-            `self` maps a key to one of those values, then this function \
+        :param keys: Iterable[KT], keys to find in this Defaultionary.
+        :param exclude: Container[VT], values to overlook/ignore such that \
+            if `self` maps a key to one of those values, then this method \
             will yield that key as if `key is not in self`.
-        :yield: Generator[_K, None, None], all `keys` that either are not in \
+        :yield: Generator[KT, None, None], all `keys` that either are not in \
             this Defaultionary or are mapped to a value in `exclude`.
         """
         if exclude:
@@ -148,15 +151,15 @@ class Defaultionary[KT, VT](Explictionary[KT, VT]):
     @overload
     def setdefaults(self, **kwargs: VT) -> None: ...
     @overload
-    def setdefaults(self, exclude: Collection[KT], **kwargs: VT) -> None: ...
+    def setdefaults(self, exclude: Container[VT], **kwargs: VT) -> None: ...
 
     def setdefaults(self, exclude=set(), **kwargs: VT) -> None:
         """ Fill any missing values in self from kwargs.
             dict.update prefers to overwrite old values with new ones.
             setdefaults is basically dict.update that prefers to keep old values.
 
-        :param exclude: Collection, values to overlook/ignore such that if \
-            `self` maps `key` to one of those values, then this function \
+        :param exclude: Container[VT], values to overlook/ignore such that \
+            if `self` maps `key` to one of those values, then this method \
             will try to overwrite that value with a value mapped to the \
             same key in `kwargs`, as if `key is not in self`.
         :param kwargs: Mapping[str, Any] of values to add to self if needed.
@@ -213,9 +216,11 @@ class Sortionary[KT: SupportsRichComparison, VT: SupportsRichComparison
                  ](Explictionary[KT, VT]):
     """ Custom dict class that can yield a generator of its key-value pairs \
         sorted in order of either keys or values. """
+    _BY = Literal["keys", "values"]
+    _WHICH: dict[_BY, itemgetter] = {"keys": itemgetter(0),
+                                     "values": itemgetter(1)}
 
-    def sorted_by(self, by: Literal["keys", "values"],
-                  descending: bool = False
+    def sorted_by(self, by: _BY, descending: bool = False
                   ) -> Generator[tuple[KT, VT], None, None]:
         """ Adapted from https://stackoverflow.com/a/50569360
 
@@ -228,14 +233,9 @@ class Sortionary[KT: SupportsRichComparison, VT: SupportsRichComparison
             in this Sortionary as a tuple, sorted `by` keys or values in \
             ascending or `descending` order
         """
-        match by:
-            case "keys":
-                for k in sorted(self, reverse=descending):
-                    yield (k, self[k])
-            case "values":
-                for k, v in sorted(self.items(), key=itemgetter(1),
-                                   reverse=descending):
-                    yield (k, v)
+        for k, v in sorted(self.items(), key=self._WHICH[by],
+                           reverse=descending):
+            yield (k, v)
 
 
 class Subsetionary[KT, VT](Explictionary[KT, VT]):
@@ -339,11 +339,13 @@ class OverlapPercents[Sortable: SupportsRichComparison
                       ](Explictionary[str, Sortionary[Sortable, float]]):
     def __init__(self, **collectns: Collection[Sortable]) -> None:
         for collecname, collec in collectns.items():
+            # Define & fill before adding to self in order to appease pylance
             sorty = Sortionary()
             for othername, othercollns in collectns.items():
                 sorty[othername] = \
                     len(collec) / len(set(collec) | set(othercollns))
-            self[collecname] = sorty
+
+            self[collecname] = sorty  # Add to self
 
     def sorted(self, key: str, descending: bool = True
                ) -> Generator[Sortable, None, None]:
@@ -351,7 +353,7 @@ class OverlapPercents[Sortable: SupportsRichComparison
             yield sortable_subkey
 
 
-class DotDict(Updationary, mapping.Traversible):
+class DotDict[KT: str, VT](Updationary[KT, VT], mapping.Traversible):
     """ dict with dot.notation item access. Compare `sklearn.utils.Bunch`.
         DotDict can get/set items as attributes: if `name` is not protected, \
         then `self.name is self["name"]`.
@@ -363,6 +365,8 @@ class DotDict(Updationary, mapping.Traversible):
     `attrdict` from https://stackoverflow.com/a/45354473 and `dotdict` from \
     https://github.com/dmtlvn/dotdict/blob/main/dotdict/dotdict.py
     """
+    _D = TypeVar("_D")  # Default option input parameter type hint for lookup
+
     # Name of set[str] of attributes, methods, and other keywords that should
     # not be accessible/modifiable as keys/values/items
     PROTECTEDS = "__protected_keywords__"
@@ -384,7 +388,7 @@ class DotDict(Updationary, mapping.Traversible):
         dict.__setattr__(self, self.PROTECTEDS,
                          {self.PROTECTEDS}.union(attributes.get_names(self)))
 
-    def __delattr__(self, name: str) -> None:
+    def __delattr__(self, name: KT) -> None:
         """ Implement `delattr(self, name)`. Same as `del self[name]`.
             Deletes item (key-value pair) instead of attribute.
 
@@ -395,7 +399,7 @@ class DotDict(Updationary, mapping.Traversible):
             else super(DotDict, self).__delattr__
         return _delattr(name)
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: KT) -> Any:
         """ `__getattr__(self, name) == getattr(self, name) == self.<name>`
             If name is not protected, then `self.name is self["name"]`
 
@@ -421,7 +425,7 @@ class DotDict(Updationary, mapping.Traversible):
         """ Required for pickling per https://stackoverflow.com/a/36968114 """
         return self
 
-    def __setattr__(self, name: str, value: Any) -> None:
+    def __setattr__(self, name: KT, value: Any) -> None:
         """ Implement `setattr(self, name, value)`. Same as \
             `self[name] = value`. Explicitly defined to include \
             `_is_ready_to` check preventing user from overwriting \
@@ -435,7 +439,7 @@ class DotDict(Updationary, mapping.Traversible):
             else super(DotDict, self).__setattr__
         return _setattr(name, value)
 
-    def __setitem__(self, key: str, value: Any) -> None:
+    def __setitem__(self, key: KT, value: Any) -> None:
         """ Set self[key] to value. Explicitly defined to include \
             `_is_ready_to` check preventing user from overwriting \
             protected attributes/methods.
@@ -452,7 +456,7 @@ class DotDict(Updationary, mapping.Traversible):
         :param state: Mapping, _description_
         """
         self.update(state)
-        self.__dict__ = self
+        self.__dict__: dict[KT, Any] = self
 
     def _is_ready_to(self, alter: str, attr_name: str, err_type:
                      type[BaseException]) -> bool:
@@ -482,19 +486,19 @@ class DotDict(Updationary, mapping.Traversible):
         self.homogenize()
         return self
 
-    def get_subset_from_lookups(self, to_look_up: Mapping[str, str],
+    def get_subset_from_lookups(self, to_look_up: Mapping[KT, str],
                                 sep: str = ".", default: Any = None) -> Self:
         """ `self.get_subset_from_lookups({"a": "b/c"}, sep="/")` \
             -> `DotDict({"a": self.b.c})`
 
         :param to_look_up: Mapping[str, str] of every key to put in the \
-            returned DotDict to the path to its value in this DotDict (self)
-        :param sep: str, separator between subkeys in to_look_up.values(), \
+            returned DotDict to the path to its value in this DotDict (`self`)
+        :param sep: str, separator between subkeys in `to_look_up.values()`, \
             defaults to "."
-        :param default: Any, value to use map to any keys not found in self; \
+        :param default: Any, value to map to any keys not found in `self`; \
             defaults to None
-        :return: self.__class__ mapping every key in to_look_up to the value \
-            at its mapped path in self
+        :return: Self mapping every key in `to_look_up` to the value \
+            at its mapped path in `self`
         """
         return self.__class__({key: self.lookup(path, sep, default)
                                for key, path in to_look_up.items()})
@@ -511,9 +515,9 @@ class DotDict(Updationary, mapping.Traversible):
             if self._will_now_traverse(v) and isinstance(v, replace):
                 if not isinstance(v, cls):
                     self[k] = cls(v)
-                self[k].homogenize()
+                cast(DotDict, self[k]).homogenize()
 
-    def lookup(self, path: str, sep: str = ".", default: Any = None) -> Any:
+    def lookup(self, path: str, sep: str = ".", default: _D = None) -> VT | _D:
         """ Get the value mapped to a key in nested structure. Adapted from \
             https://gist.github.com/miku/dc6d06ed894bc23dfd5a364b7def5ed8
 
@@ -528,14 +532,14 @@ class DotDict(Updationary, mapping.Traversible):
             while keypath:
                 key = keypath.pop()
                 try:
-                    retrieved = retrieved[key]
+                    retrieved = cast(Mapping[str, VT], retrieved)[key]
                 except KeyError:
-                    retrieved = retrieved[int(key)]
+                    retrieved = cast(Mapping[int, VT], retrieved)[int(key)]
 
         # If value is not found, then return the default value
         except DATA_ERRORS:
-            pass
-        return default if keypath else retrieved
+            retrieved = default
+        return default if keypath else cast(VT, retrieved)
 
 
 class LazyDict[KT, VT](Updationary[KT, VT], Defaultionary[KT, VT]):
@@ -552,7 +556,7 @@ class LazyDict[KT, VT](Updationary[KT, VT], Defaultionary[KT, VT]):
     def lazyget(self, key: KT, get_if_absent: Callable[..., VT] = always_none,
                 getter_args: Iterable = list(),
                 getter_kwargs: Mapping = dict(),
-                exclude: Container[KT] = set()) -> VT:
+                exclude: Container[VT] = set()) -> VT:
         """ Return the value for key if key is in the dictionary, else \
         return the result of calling the `get_if_absent` parameter with args \
         & kwargs. Adapted from `LazyButHonestDict.lazyget` from \
@@ -565,14 +569,14 @@ class LazyDict[KT, VT](Updationary[KT, VT], Defaultionary[KT, VT]):
         :param exclude: set of possible values which (if they are mapped to \
             `key` in `self`) will not be returned; instead returning \
             `get_if_absent(*getter_args, **getter_kwargs)`
-        """
-        return self[key] if self.has(key) else \
+        """  # TODO return self[key] if self.has(key, exclude) else \
+        return self[key] if self.has(key, exclude) else \
             get_if_absent(*getter_args, **getter_kwargs)
 
     def lazysetdefault(self, key: KT, get_if_absent: Callable[..., VT]
                        = always_none, getter_args: Iterable = list(),
                        getter_kwargs: Mapping = dict(),
-                       exclude: Container[KT] = set()) -> VT:
+                       exclude: Container[VT] = set()) -> VT:
         """ Return the value for key if key is in the dictionary; else add \
         that key to the dictionary, set its value to the result of calling \
         the `get_if_absent` parameter with args & kwargs, then return that \
@@ -583,7 +587,7 @@ class LazyDict[KT, VT](Updationary[KT, VT], Defaultionary[KT, VT]):
         :param get_if_absent: Callable, function to set & return default value
         :param getter_args: Iterable[Any] of get_if_absent arguments
         :param getter_kwargs: Mapping[Any] of get_if_absent keyword arguments
-        :param exclude: Container of possible values to replace with \
+        :param exclude: Container[VT] of possible values to replace with \
             `get_if_absent(*getter_args, **getter_kwargs)` and return if \
             they are mapped to `key` in `self`
         """
@@ -598,7 +602,7 @@ class Promptionary[KT, VT](LazyDict[KT, VT]):
 
     def get_or_prompt_for(self, key: KT, prompt: str,
                           prompt_fn: Callable[[str], VT] = input,
-                          exclude: Container[KT] = set()) -> VT:
+                          exclude: Container[VT] = set()) -> VT:
         """ Return the value mapped to key in self if one already exists; \
             else prompt the user to interactively provide it and return that.
 
@@ -615,7 +619,7 @@ class Promptionary[KT, VT](LazyDict[KT, VT]):
 
     def setdefault_or_prompt_for(self, key: KT, prompt: str,
                                  prompt_fn: Callable[[str], VT] = input,
-                                 exclude: Container[KT] = set()) -> VT:
+                                 exclude: Container[VT] = set()) -> VT:
         """ Return the value mapped to key in self if one already exists; \
             otherwise prompt the user to interactively provide it, store the \
             provided value by mapping it to key, and return that value.

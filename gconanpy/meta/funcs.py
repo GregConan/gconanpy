@@ -17,8 +17,8 @@ from typing import Any, Literal, NamedTuple, overload
 # Import local custom libraries
 try:
     from . import MatcherBase
-    from ..reg import DunderParser
-    from ..trivial import call_method_of
+    from reg import DunderParser
+    from trivial import call_method_of
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.meta import MatcherBase
     from gconanpy.reg import DunderParser
