@@ -4,7 +4,7 @@
 Functions to manipulate and define classes and/or other functions.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-20
-Updated: 2025-07-19
+Updated: 2025-07-27
 """
 # Import standard libraries
 from collections.abc import (Callable, Collection, Generator,
@@ -226,18 +226,6 @@ def pairs(*args: Any, **kwargs: Any
         yield (arg, arg)
     for key, value in kwargs.items():
         yield (key, value)
-
-
-def rename_keys(a_dict: dict[str, Any], **renamings: str) -> dict:
-    """
-    :param a_dict: dict with keys to rename
-    :param renamings: Mapping[str, str] of old keys to their replacements
-    :return: dict, `a_dict` after replacing the specified keys with their \
-        new replacements specified in `renamings`
-    """  # TODO Move to mapping.__init__ or mapping.map_funcs?
-    for old_name, new_name in renamings.items():
-        a_dict[new_name] = a_dict.pop(old_name)
-    return a_dict
 
 
 def tuplify(an_obj: Any, split_string: bool = False) -> tuple:

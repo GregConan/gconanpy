@@ -5,7 +5,7 @@ Useful/convenient functions for dicts (taken from dicts.py class methods) \
     and useful/convenient classes to work with Python dicts/Mappings.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-07-25
+Updated: 2025-07-27
 """
 # Import standard libraries
 from collections import defaultdict
@@ -38,6 +38,7 @@ _KT = TypeVar("_KT", bound=Hashable)
 _VT = TypeVar("_VT")
 
 _MM = TypeVar("_MM", bound=MutableMapping)  # For update and setdefaults
+_MM_str = TypeVar("_MM_str", bound=MutableMapping[str, Any])
 _ValueGetter = Callable[..., _VT]
 _Prompter = Callable[[str], _VT]  # Prompt function to use as lazy getter
 _T = TypeVar("_T")  # For invert
@@ -310,6 +311,18 @@ def missing_keys(a_map: Mapping[_KT, _VT], keys: Iterable[_KT],
         for key in keys:
             if key not in a_map:
                 yield key
+
+
+def rename_keys(a_map: _MM_str, **renamings: str) -> _MM_str:
+    """
+    :param a_map: MutableMapping[str, Any] with keys to rename
+    :param renamings: Mapping[str, str] of old keys to their replacements
+    :return: MutableMapping[str, Any], `a_map` after replacing its keys in \
+        `renamings` with the respective values in `renamings`
+    """
+    for old_name, new_name in renamings.items():
+        a_map[new_name] = a_map.pop(old_name)
+    return a_map
 
 
 def setdefault_or_prompt_for(a_map: MutableMapping[_KT, _VT], key: _KT,
