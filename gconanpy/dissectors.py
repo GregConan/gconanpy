@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-07-20
+Updated: 2025-07-27
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable, Iterator
@@ -255,74 +255,7 @@ class Peeler(IteratorFactory):
         return to_peel
 
 
-class SimpleShredder(mapping.Traversible):
-    SHRED_ERRORS = (AttributeError, TypeError)
-
-    def __init__(self) -> None:
-        self.reset()
-
-    def _collect(self, an_obj: Any) -> None:
-        """ Recursively collect/save the attributes, items, and/or elements \
-            of an_obj regardless of how deeply they are nested.
-
-        :param an_obj: Any, object to get the parts of
-        """
-        try:  # If it's a string, then it's not shreddable, so save it
-            self.parts.add(an_obj.strip())
-        except self.SHRED_ERRORS:
-
-            try:  # If it's a non-str Iterable, then shred it
-                iter(an_obj)
-                self._shred_iterable(an_obj)
-
-            # Hashable but not Iterable means not shreddable, so save it
-            except TypeError:
-                self.parts.add(an_obj)
-
-    def _shred_iterable(self, an_obj: Iterable) -> None:
-        """ Save every item in an Iterable regardless of how deeply nested, \
-            unless that item is "shreddable" (a non-string data container).
-
-        :param an_obj: Iterable to save the "shreddable" elements of.
-        """
-        # If we already shredded it, then don't shred it again
-        if self._will_now_traverse(an_obj):
-
-            try:  # If it has a __dict__, then shred that
-                self._shred_iterable(an_obj.__dict__)
-            except self.SHRED_ERRORS:
-                pass
-
-            # Shred or save each of an_obj's...
-            try:  # ...values if it's a Mapping
-                for v in an_obj.values():  # type: ignore
-                    self._collect(v)
-            except self.SHRED_ERRORS:
-
-                # ...elements if it's not a Mapping
-                for element in an_obj:
-                    self._collect(element)
-
-    def reset(self) -> None:
-        """
-        Remove all previously collected parts and their traversal record.
-        """
-        super(SimpleShredder, self).__init__()
-        self.parts: set = set()
-
-    def shred(self, an_obj: Any) -> set:
-        """ Recursively collect/save the attributes, items, and/or elements \
-            of an_obj regardless of how deeply they are nested. Return only \
-            the Hashable data in an_obj, not the Containers they're in.
-
-        :param an_obj: Any, object to return the parts of.
-        :return: set of the particular Hashable non-Container data in an_obj
-        """
-        self._collect(an_obj)
-        return self.parts
-
-
-class Shredder(SimpleShredder, Debuggable):
+class Shredder(mapping.SimpleShredder, Debuggable):
     _T = TypeVar("_T")
 
     def __init__(self, max_shreds: int = 500, debugging: bool = False,
@@ -360,33 +293,12 @@ class Shredder(SimpleShredder, Debuggable):
             try:  # ...values if it's a Mapping
                 for k, v in an_obj.items():  # type: ignore
                     if has_method(v, "items") or self.filter(k, v):
-                        self._collect(v)
+                        self.shred(v)
             except self.SHRED_ERRORS:
 
                 # ...elements if it's not a Mapping
                 for element in an_obj:
-                    self._collect(element)
-
-    def shred(self, an_obj: Any, remember: bool = False) -> set:
-        """ Recursively collect/save the attributes, items, and/or elements \
-            of an_obj regardless of how deeply they are nested. Return only \
-            the Hashable data in an_obj, not the Containers they're in.
-
-        :param an_obj: Any, object to return the parts of.
-        :param remember: bool, True to keep previously collected items; else \
-            False to reset the max_shreds counter and return only the items \
-            found in this .shred(...) call
-        :return: set of the particular Hashable non-Container data in an_obj
-        """
-        try:
-            if not remember:
-                self.reset()
-            to_return = super(Shredder, self).shred(an_obj)
-            if not remember:
-                self.reset()
-        except RecursionError as err:
-            self.debug_or_raise(err, locals())
-        return to_return
+                    self.shred(element)
 
 
 class Comparer(IteratorFactory):
@@ -497,6 +409,7 @@ class Corer(Shredder, Comparer):
             self.debug_or_raise(err, locals())
 
     def core(self, to_core: Iterable, default: _T | None = None,
+             reset_first: bool = True,
              compare_their: Comparer.ToNumber = len,
              make_comparable: Comparer.ToComparable = str
              ) -> _T | None:
@@ -504,6 +417,9 @@ class Corer(Shredder, Comparer):
 
         :param to_core: Iterable, especially a nested container data structure
         :param default: Any, item to return if nothing is found in `to_core`.
+        :param reset_first: bool, True to make this Corer forget what it \
+            previously traversed and start this traversal fresh; else False \
+            to skip anything it previously traversed; defaults to True.
         :param compare_their: Callable[[Any], SupportsFloat], comparison \
             function that converts an item into a numerical value that can \
             be compared to find (and return) the largest; defaults to `len`
@@ -513,11 +429,14 @@ class Corer(Shredder, Comparer):
             item size to return the largest item; defaults to `str` function
         :return: Any, the longest datum buried in to_core's nested layers
         """
+        if reset_first:
+            self.reset()
         return self._choose(self.shred(to_core), default, compare_their,
                             make_comparable)
 
     def safe_core(self, to_core: Iterable, as_type: type[_T], default:
-                  _T | None = None, compare_their: Comparer.ToNumber = len,
+                  _T | None = None, reset_first: bool = True,
+                  compare_their: Comparer.ToNumber = len,
                   make_comparable: Comparer.ToComparable = str) -> _T:
         """ Extract the largest datum of a specific type from a \
             nested data structure.
@@ -525,6 +444,9 @@ class Corer(Shredder, Comparer):
         :param to_core: Iterable, especially a nested container data structure
         :param as_type: type of object to extract from `to_core` and return
         :param default: Any, item to return if nothing is found in `to_core`.
+        :param reset_first: bool, True to make this Corer forget what it \
+            previously traversed and start this traversal fresh; else False \
+            to skip anything it previously traversed; defaults to True.
         :param compare_their: Callable[[Any], SupportsFloat], comparison \
             function that converts an item into a numerical value that can \
             be compared to find (and return) the largest; defaults to `len`
@@ -534,6 +456,8 @@ class Corer(Shredder, Comparer):
             item size to return the largest item; defaults to `str` function
         :return: Any, the longest datum buried in to_core's nested layers
         """
+        if reset_first:
+            self.reset()
         parts = {p for p in self.shred(to_core) if isinstance(p, as_type)}
         cored = self._choose(parts, default, compare_their, make_comparable)
         if cored is None:

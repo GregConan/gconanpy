@@ -4,7 +4,7 @@ Totally redundant/trivial functions to use as callable default \
     values of optional parameters in other classes' methods.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-10
-Updated: 2025-06-01
+Updated: 2025-07-27
 """
 # Import standard libraries
 from typing import Any, Literal, TypeVar
@@ -46,6 +46,10 @@ def call_method_of(an_obj: Any, method_name: str,
 
 def is_not_none(x: Any) -> bool:
     return x is not None
+
+
+def is_type(an_obj: Any, a_type: type) -> bool:
+    return type(an_obj) is a_type
 
 
 def return_self(self: T) -> T:

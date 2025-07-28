@@ -3,27 +3,27 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-07-08
+Updated: 2025-07-27
 """
 # Import standard libraries
 from typing import Any
 
 # Import local custom libraries
-from gconanpy.dissectors import Corer, DifferenceBetween, \
-    Shredder, SimpleShredder, Xray
+from gconanpy.dissectors import Corer, DifferenceBetween, Shredder, Xray
 from gconanpy import mapping
 from gconanpy.mapping.dicts import Cryptionary, DotDict
 from gconanpy.testers import Tester
 
 
 class TestShredders(Tester):
-    TEST_CLASSES: tuple[type[SimpleShredder], ...] = (
-        Corer, Shredder, SimpleShredder)
+    TEST_CLASSES: tuple[type[mapping.SimpleShredder], ...] = (
+        Corer, Shredder, mapping.SimpleShredder)
 
     def test_1(self):
         self.add_basics()
         for shredder_type in self.TEST_CLASSES:  # (Shredder, SimpleShredder):
-            shredded = shredder_type().shred(('OK', [self.bytes_nums]))
+            shredder = shredder_type()
+            shredded = shredder.shred(('OK', [self.bytes_nums]))
             self.check_result(shredded, {'OK', self.bytes_nums.strip()})
 
     def test_2(self):
@@ -88,6 +88,7 @@ class TestCorers(Tester):
 
     def test_5(self):
         cli_args = self.build_cli_args(DotDict, Cryptionary)
+        print(f"cli_args: {cli_args}")
         excluder = mapping.Subset(keys={"b"}, include_keys=True).filter
         self.core_tests(cli_args, 2, map_filter=excluder)
 

@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-07-25
+Updated: 2025-07-27
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -554,7 +554,7 @@ class TestWalktionary(DictTester):
             self.check_result([k for k in adict.walk(False).keys()],
                               [k for k in adict.keys()])
 
-    def test_walk_keys_2(self, args_type: type = DotWalktionary,
+    def test_walk_keys_2(self, args_type: type[Walktionary] = DotWalktionary,
                          crypty_type: type = Cryptionary) -> None:
         cli_args = self.build_cli_args(args_type, crypty_type)
         keys = {k for k in cli_args.walk(only_yield_maps=False)}

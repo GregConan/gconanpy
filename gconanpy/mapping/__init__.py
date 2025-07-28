@@ -584,6 +584,64 @@ class Traversible:
         return not_traversed
 
 
+class SimpleShredder(Traversible):
+    SHRED_ERRORS = (AttributeError, TypeError)
+
+    def shred(self, an_obj: Any) -> set:
+        """ Recursively collect/save the attributes, items, and/or elements \
+            of an_obj regardless of how deeply they are nested. Return only \
+            the Hashable data in an_obj, not the Containers they're in.
+
+        :param an_obj: Any, object to return the parts of.
+        :return: set of the particular Hashable non-Container data in an_obj
+        """
+        try:  # If it's a string, then it's not shreddable, so save it
+            self.parts.add(an_obj.strip())
+        except self.SHRED_ERRORS:
+
+            try:  # If it's a non-str Iterable, then shred it
+                iter(an_obj)
+                self._shred_iterable(an_obj)
+
+            # Hashable but not Iterable means not shreddable, so save it
+            except TypeError:
+                self.parts.add(an_obj)
+        return self.parts
+
+    def _shred_iterable(self, an_obj: Iterable) -> None:
+        """ Save every item in an Iterable regardless of how deeply nested, \
+            unless that item is "shreddable" (a non-string data container).
+
+        :param an_obj: Iterable to save the "shreddable" elements of.
+        """
+        # If we already shredded it, then don't shred it again
+        if self._will_now_traverse(an_obj):
+
+            try:  # If it has a __dict__, then shred that
+                self._shred_iterable(an_obj.__dict__)
+            except self.SHRED_ERRORS:
+                pass
+
+            # Shred or save each of an_obj's...
+            try:  # ...values if it's a Mapping
+                for v in an_obj.values():  # type: ignore
+                    self.shred(v)
+            except self.SHRED_ERRORS:
+
+                # ...elements if it's not a Mapping
+                for element in an_obj:
+                    self.shred(element)
+
+    def reset(self) -> None:
+        """
+        Remove all previously collected parts and their traversal record.
+        """
+        Traversible.__init__(self)
+        self.parts: set = set()
+
+    __init__ = reset
+
+
 class Walk(Traversible, IterableMap):
     """ Recursively iterate over a Mapping and the Mappings nested in it. """
     _Walker = Generator[tuple[Hashable, Mapping], None, None]

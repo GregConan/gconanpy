@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-06
-Updated: 2025-07-09
+Updated: 2025-07-27
 """
 # Import standard libraries
 from collections.abc import Sequence
@@ -81,8 +81,9 @@ class TestMerge(Tester):
             expected = sets[0].union(*sets[1:])
             self.check_result(merge(sets), expected)
 
-    def test_times(self, n_tests: int = 10, n_reps: int = 100,
-                   max_len: int = 25):
+    # Remove the initial underscore to run time test
+    def _test_times(self, n_tests: int = 10, n_reps: int = 100,
+                    max_len: int = 25):
         merges = {"union": "set.union",
                   "update": "lambda x,y: x.update(y) or x"}
         SETUP = "from functools import reduce\nsets={}"

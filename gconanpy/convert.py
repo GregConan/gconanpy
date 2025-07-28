@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-07-20
+Updated: 2025-07-27
 """
 # Import standard libraries
 # from collections import UserString  # TODO?
@@ -582,7 +582,7 @@ class BasicTree(tuple[str, list]):
 
 class WrapFunction:  # WrapFunction(partial):
     """ Function wrapper that also stores some of its input parameters.
-        `functools.partial` modified to prepend OR append parameters. """
+        `functools.partial` modified to prepend AND/OR append parameters. """
     _VarsTypes = tuple[Callable, tuple, tuple, dict | None]
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
