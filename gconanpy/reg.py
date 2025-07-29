@@ -4,7 +4,7 @@
 Classes that parse strings and text data, especially using Regex.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
-Updated: 2025-07-11
+Updated: 2025-07-28
 """
 # Import standard libraries
 from collections.abc import Container, Generator
@@ -17,9 +17,9 @@ import regex
 
 # Import local custom libraries
 try:
-    import mapping
+    from iters import MapSubset
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy import mapping
+    from gconanpy.iters import MapSubset
 
 
 class Abbreviator:
@@ -140,9 +140,9 @@ class Regextract:
         """
         parsed = pattern.search(txt)
         parsed = parsed.groupdict(default=default) if parsed else dict()
-        return mapping.Subset(keys=parsed.keys(), include_keys=True,
-                              values=exclude, include_values=False
-                              ).of(parsed) if exclude else parsed
+        return MapSubset(keys=parsed.keys(), include_keys=True,
+                         values=exclude, include_values=False
+                         ).of(parsed) if exclude else parsed
 
 
 class DunderParser:

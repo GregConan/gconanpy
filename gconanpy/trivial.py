@@ -4,13 +4,15 @@ Totally redundant/trivial functions to use as callable default \
     values of optional parameters in other classes' methods.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-10
-Updated: 2025-07-27
+Updated: 2025-07-28
 """
 # Import standard libraries
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal, Mapping, TypeVar
 
 
-T = TypeVar("T")  # For return_self/noop
+# Constants: TypeVars for...
+S = TypeVar("S")  # ...get_key_set
+T = TypeVar("T")  # ...return_self/noop
 
 
 def always_false(*_: Any, **_kwargs: Any) -> Literal[False]:
@@ -42,6 +44,10 @@ def call_method_of(an_obj: Any, method_name: str,
         specified `args` and `kwargs`
     """
     return getattr(an_obj, method_name)(*args, **kwargs)
+
+
+def get_key_set(a_map: Mapping[S, Any]) -> set[S]:
+    return set(a_map.keys())
 
 
 def is_not_none(x: Any) -> bool:

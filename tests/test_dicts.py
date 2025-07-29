@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-07-27
+Updated: 2025-07-28
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -12,13 +12,13 @@ from math import prod
 from typing import Any, TypeVar
 
 # Import local custom libraries
-from gconanpy import attributes, mapping
+from gconanpy import mapping
 from gconanpy.debug import StrictlyTime
+from gconanpy.iters import Combinations, MapWalker, powers_of_ten, Randoms
 from gconanpy.mapping.dicts import *
-from gconanpy.meta.classes import TimeSpec
+from gconanpy.meta import Lazily, TimeSpec
 # from tests import test_dicts
-from gconanpy.seq import powers_of_ten
-from gconanpy.testers import Randoms, Tester  # , TimeTester
+from gconanpy.testers import Tester  # , TimeTester
 from gconanpy.trivial import always_false, always_none, always_true
 
 
@@ -225,7 +225,7 @@ class TestDictFunctions(DictTester):
                     for kwargs in dict(), self.adict:
 
                         # Return the value to get if we do not exclude it
-                        for exclude in mapping.Combinations.excluding(
+                        for exclude in Combinations.excluding(
                                 a_dict.values(), {v}):
                             self.check_result(lazyget(a_dict, k, triv_fn,
                                               args, kwargs, exclude), v)
@@ -294,8 +294,8 @@ class TestDictFunctions(DictTester):
 
 
 class TestLazily(DictTester):
-    CLASSES = tuple[type[attributes.Lazily], ...]
-    TEST_CLASSES: CLASSES = (attributes.Lazily, )
+    CLASSES = tuple[type[Lazily], ...]
+    TEST_CLASSES: CLASSES = (Lazily, )
     UNIT: TimeSpec.UNIT = "seconds"
 
     def prep(self, n_tests_orders_of_magnitude: int = 4) -> None:
@@ -334,9 +334,9 @@ class TestLazily(DictTester):
                        mapping.lazysetdefault, result, self.adict, **kwargs)
         self.time_lazy("map_funcs.lazyget", mapping.lazyget, result,
                        self.adict, **kwargs)
-        self.time_lazy("Lazily.setdefault", attributes.Lazily.setdefault,
+        self.time_lazy("Lazily.setdefault", Lazily.setdefault,
                        result, self.adict, get_an="item", **kwargs)
-        self.time_lazy("Lazily.get", attributes.Lazily.get,
+        self.time_lazy("Lazily.get", Lazily.get,
                        result, self.adict, get_an="item", **kwargs)
         assert False
 
@@ -398,7 +398,7 @@ class TestDotDicts(DictTester):
                            dd.testdict["world"].foo):  # type: ignore
                 assert not isinstance(a_dict, type(dd))
             dd.homogenize()
-            for a_map in mapping.Walk(dd, only_yield_maps=True).values():
+            for a_map in MapWalker(dd, only_yield_maps=True).values():
                 print(f"a_map: {a_map}")
                 assert isinstance(a_map, type(dd))
 

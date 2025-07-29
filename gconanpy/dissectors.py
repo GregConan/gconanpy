@@ -5,33 +5,32 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-07-27
+Updated: 2025-07-28
 """
 # Import standard libraries
-from collections.abc import Callable, Hashable, Iterable, Iterator
+from collections.abc import Callable, Hashable, Iterable
 from operator import getitem
-from typing import Any, no_type_check, SupportsFloat, TypeVar
+from typing import Any, TypeVar
 
 # Import local custom libraries
 try:
-    from convert import stringify_iter
     from debug import Debuggable
-    import mapping
-    from meta.classes import IgnoreExceptions, KeepTryingUntilNoErrors
-    from meta.funcs import are_all_equal, DATA_ERRORS, has_method, \
-        method, name_of
-    from seq import differentiate_sets, get_key_set, uniqs_in
-    from trivial import always_true
+    from iters import (are_all_equal, differentiate_sets,
+                       MapSubset, SimpleShredder)
+    from meta import (Comparer, DATA_ERRORS, has_method,
+                      IgnoreExceptions, IteratorFactory, name_of)
+    from seq import uniqs_in
+    from trivial import always_true, get_key_set
+    from wrappers import stringify_iter
 except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy import mapping
-    from gconanpy.convert import stringify_iter
     from gconanpy.debug import Debuggable
-    from gconanpy.meta.classes import \
-        IgnoreExceptions, KeepTryingUntilNoErrors
-    from gconanpy.meta.funcs import are_all_equal, DATA_ERRORS, has_method, \
-        method, name_of
-    from gconanpy.seq import differentiate_sets, get_key_set, uniqs_in
-    from gconanpy.trivial import always_true
+    from gconanpy.iters import (are_all_equal, differentiate_sets,
+                                MapSubset, SimpleShredder)
+    from gconanpy.meta import (Comparer, DATA_ERRORS, has_method,
+                               IgnoreExceptions, IteratorFactory, name_of)
+    from gconanpy.seq import uniqs_in
+    from gconanpy.trivial import always_true, get_key_set
+    from gconanpy.wrappers import stringify_iter
 
 
 class DifferenceBetween:
@@ -195,38 +194,6 @@ class DifferenceBetween:
             return list()
 
 
-class IteratorFactory:
-    _T = TypeVar("_T")
-
-    @classmethod
-    def first_element_of(cls, an_obj: Iterable[_T] | _T) -> _T:
-        """ Get `an_obj`'s first element if `an_obj` is iterable; \
-            else simply return `an_obj` unchanged.
-
-        :param an_obj: Iterable to return the first element of, or Any.
-        :return: Any, the first element of `an_obj` if `an_obj` is iterable; \
-                 else `an_obj`
-        """
-        return next(cls.iterate(an_obj))
-
-    @no_type_check
-    @classmethod
-    def iterate(cls, an_obj: Iterable[_T] | _T) -> Iterator[_T]:
-        """ Iterate `an_obj`.
-
-        :param an_obj: Iterable to iterate over, or Any.
-        :return: Iterator over `an_obj` or its elements/values.
-        """
-        with KeepTryingUntilNoErrors(*DATA_ERRORS) as next_try:
-            with next_try():
-                iterator = iter(an_obj.values())
-            with next_try():
-                iterator = iter(an_obj)
-            with next_try():
-                iterator = iter([an_obj])
-        return iterator
-
-
 class Peeler(IteratorFactory):
     _P = TypeVar("_P")  # Item(s) to extract from a "peeled" container.
 
@@ -255,17 +222,17 @@ class Peeler(IteratorFactory):
         return to_peel
 
 
-class Shredder(mapping.SimpleShredder, Debuggable):
+class Shredder(SimpleShredder, Debuggable):
     _T = TypeVar("_T")
 
     def __init__(self, max_shreds: int = 500, debugging: bool = False,
-                 map_filter: mapping.Subset.Filter = always_true) -> None:
+                 map_filter: MapSubset.Filter = always_true) -> None:
         """ 
         :param max_shreds: int, the maximum number of times to "shred" a \
             data container to collect the data inside; defaults to 500
         :param debugging: bool, True to pause and interact on error, else \
             False to raise errors/exceptions; defaults to False.
-        :param map_filter: Callable[[str, Any], bool], mapping.Subset.Filter \
+        :param map_filter: Callable[[str, Any], bool], MapSubset.Filter \
             function to exclude certain keys and/or values from the returned \
             result; by default, no keys/values will be excluded.
         """
@@ -299,81 +266,6 @@ class Shredder(mapping.SimpleShredder, Debuggable):
                 # ...elements if it's not a Mapping
                 for element in an_obj:
                     self.shred(element)
-
-
-class Comparer(IteratorFactory):
-    # Class type variables for type hints
-    Comparable = TypeVar("Comparable")  # Comparison function input arg(s)
-    Comparee = TypeVar("Comparee")      # Item being compared to other items
-    Comparison = Callable[[Comparable, Comparable], bool]  # Comparer function
-    ToNumber = Callable[[Comparable], SupportsFloat]  # Sizer function
-    ToComparable = Callable[[Comparee], Comparable]   # Sizer metafunction
-
-    @classmethod
-    def comparison(cls, smallest: bool = False, earliest: bool = False
-                   ) -> Comparison:
-        """ Get function that compares two `SupportsFloat` objects.
-
-        smallest & earliest => `x.__lt__(y)` (Less Than),
-        biggest & latest => `x.__ge__(y)` (Greater than or Equal to), etc.
-
-        :param smallest: bool,_description_, defaults to False
-        :param earliest: bool,_description_, defaults to False
-        :return: Comparison, function that takes 2 `SupportsFloat` objects, \
-            calls an inequality method of the first's on the second, and \
-            returns the (boolean) result.
-        """
-        return method(f'__{"l" if smallest else "g"}'
-                      f'{"t" if earliest else "e"}__')
-
-    @classmethod
-    def size_of(cls, item: Any, get_size: ToNumber,
-                make_comparable: ToComparable) -> SupportsFloat:
-        """ Get an item's size as a float.
-
-        :param item: Any, item to return the size of
-        :param get_size: Callable[[Any], SupportsFloat], comparison \
-            function that converts an item into a numerical value to return
-        :param make_comparable: Callable[[Any], Any], secondary comparison \
-            function that converts an item into an input acceptable by \
-            `compare_their` to convert to a numerical value to return
-        :return: SupportsFloat, size of `item`
-        """
-        try:
-            item_size = get_size(item)
-        except DATA_ERRORS:
-            try:
-                item_size = get_size(make_comparable(item))
-            except DATA_ERRORS:
-                item_size = 1.0
-        return item_size
-
-    @classmethod
-    def compare(cls, items: Iterable[Comparee], compare_their: ToNumber = len,
-                make_comparable: ToComparable = str,
-                smallest: bool = False, earliest: bool = False) -> Comparee:
-        """ Get the biggest (or smallest) item in `items`. 
-
-        :param items: Iterable[Any], things to compare.
-        :param compare_their: Callable[[Any], SupportsFloat], comparison \
-            function, defaults to `len`
-        :param make_comparable: Callable[[Any], Any], comparison \
-            function, defaults to `str`
-        :param default: Any, starting item to compare other items against
-        :return: Any, item with the largest value returned by calling \
-            `compare_their(make_comparable(`item`))`.
-        """
-        if not items:
-            raise ValueError("No items for Comparer.compare to compare!")
-        compare = cls.comparison(smallest, earliest)
-        biggest = cls.first_element_of(items)
-        max_size = cls.size_of(biggest, compare_their, make_comparable)
-        for item in items:
-            item_size = cls.size_of(item, compare_their, make_comparable)
-            if compare(item_size, max_size):  # item_size >= max_size:
-                biggest = item
-                max_size = item_size
-        return biggest
 
 
 class Corer(Shredder, Comparer):

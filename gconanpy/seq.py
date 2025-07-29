@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 
 """
-Lower-level utility functions and classes primarily to manipulate Sequences.
+Utility functions and classes to manipulate Sequences and numpy/pandas data.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-07-20
+Updated: 2025-07-28
 """
 # Import standard libraries
-from collections.abc import Collection, Hashable, Iterable, Mapping, Sequence
-from functools import reduce
-import itertools
+from collections.abc import Hashable, Iterable, Mapping, Sequence
 from pprint import pprint
-from typing import Any, TypeVar
+from typing import Any
 
 # Import third-party PyPI libraries
 import numpy as np
@@ -19,29 +17,14 @@ import pandas as pd
 
 # Import local custom libraries
 try:
-    from convert import stringify
-    from meta.classes import MutableItemStore, Updatable
-    from meta.funcs import tuplify
+    from wrappers import stringify
 except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy.convert import stringify
-    from gconanpy.meta.classes import MutableItemStore, Updatable
-    from gconanpy.meta.funcs import tuplify
-
-# Constant: TypeVars for...
-S = TypeVar("S")  # ...differentiate_sets & get_key_set
-U = TypeVar("U", bound=Updatable)  # ...merge
+    from gconanpy.wrappers import stringify
 
 # NOTE All functions/classes below are in alphabetical order.
 
 
-def combine_lists(lists: Iterable[list]) -> list:
-    """
-    :param lists: Iterable[list], objects to combine
-    :return: list combining all of the `lists` into one
-    """
-    return list(itertools.chain.from_iterable(lists))
-
-
+# TODO Move to numpandas.py?
 def count_uniqs_in_cols(a_df: pd.DataFrame) -> dict[str, int]:
     cols_uniqs = {colname: a_df[colname].value_counts().shape[0]
                   for colname in a_df.columns}
@@ -50,93 +33,7 @@ def count_uniqs_in_cols(a_df: pd.DataFrame) -> dict[str, int]:
     return cols_uniqs
 
 
-def default_pop(poppable: Any, key: Any = None,
-                default: Any = None) -> Any:
-    """
-    :param poppable: Any object which implements the .pop() method
-    :param key: Input parameter for .pop(), or None to call with no parameters
-    :param default: Object to return if running .pop() raises an error
-    :return: Object popped from poppable.pop(key), if any; otherwise default
-    """
-    try:
-        to_return = poppable.pop() if key is None else poppable.pop(key)
-    except (AttributeError, IndexError, KeyError):
-        to_return = default
-    return to_return
-
-
-def differentiate_sets(sets: list[set[S]]) -> list[set[S]]:
-    """ Remove all shared/non-unique items from sets until they no longer \
-    overlap/intersect at all.
-
-    :param sets: Iterable[set[T]], _description_
-    :return: list[set[T]], unique items in each set
-    """
-    to_return = list()
-    for i in range(len(sets)):
-        for other_set in sets[:i] + sets[i+1:]:
-            to_return[i] = sets[i] - other_set
-    return to_return
-
-
-def get_key_set(a_map: Mapping[S, Any]) -> set[S]:
-    return set(a_map.keys())
-
-
-class Recursively:
-    _KT = Hashable | tuple[Hashable, ...]
-
-    @staticmethod
-    def getitem(an_obj: MutableItemStore, key: _KT) -> Any:
-        for k in tuplify(key):
-            an_obj = an_obj[k]
-        return an_obj
-
-    @classmethod
-    def getattribute(cls, an_obj: Any, *attr_names: str) -> Any:
-        if attr_names:
-            return getattr(an_obj, attr_names[0],
-                           cls.getattribute(an_obj, *attr_names[1:]))
-
-    @classmethod
-    def setitem(cls, an_obj: MutableItemStore, key: _KT, value: Any) -> None:
-        keys = tuplify(key)
-        if len(keys) == 1:
-            an_obj[keys[0]] = value
-        else:
-            cls.setitem(an_obj[keys[0]], keys[1:], value)
-
-
-def link_to_markdown(a_string: str, a_URL: str) -> str:
-    a_string = a_string.replace("[", r"\[").replace("]", r"\]")
-    a_URL = a_URL.replace("(", r"\(").replace(")", r"\)")
-    return f"[{a_string}]({a_URL})"
-
-
-def list_to_dict(a_list: list[str], delimiter: str = ": ") -> dict[str, str]:
-    a_dict = dict()
-    for eachstr in a_list:
-        k, v = eachstr.split(delimiter)
-        a_dict[k] = v
-    return a_dict
-
-
-def markdown_to_link(md_link_text: str) -> tuple[str, str]:
-    md_link_text = md_link_text.strip()
-    assert md_link_text[0] == "[" and md_link_text[-1] == ")"
-    md_link_parts = md_link_text[1:-1].split("](")
-    return md_link_parts[0], md_link_parts[1]
-
-
-def merge(updatables: Iterable[U]) -> U:
-    """ Merge dicts, sets, or things of any type with an `update` method.
-
-    :param updatables: Iterable[Updatable], objects to combine
-    :return: Updatable combining all of the `updatables` into one
-    """
-    return reduce(lambda x, y: x.update(y) or x, updatables)
-
-
+# TODO Move to numpandas.py?
 def nan_rows_in(a_df: pd.DataFrame) -> pd.DataFrame:
     """
     :param a_df: pd.DataFrame
@@ -146,29 +43,7 @@ def nan_rows_in(a_df: pd.DataFrame) -> pd.DataFrame:
     return a_df[a_df.isna().any(axis=1)]
 
 
-def overlap_pct(**collections: Collection[Hashable]
-                ) -> dict[str, dict[str, float]]:
-    overlaps = dict()
-    for collname, collns in collections.items():
-        overlaps[collname] = dict()
-        for othername, othercollns in collections.items():
-            overlaps[collname][othername] = \
-                len(collns) / len(set(collns) | set(othercollns))
-    return overlaps
-
-
-def powers_of_ten(orders_of_magnitude: int = 4) -> list[int]:
-    return [10 ** i for i in range(orders_of_magnitude + 1)]
-
-
-def pprint_val_lens(a_map: Mapping) -> None:
-    """ Pretty-print each key in a_map and the length of its mapped value.
-
-    :param a_map: Mapping to pretty-print the lengths of values from
-    """
-    pprint({k: len(v) for k, v in a_map.items()})
-
-
+# TODO Move to numpandas.py?
 def search_sequence_numpy(arr: np.ndarray, subseq: np.ndarray) -> list[int]:
     """ Find sequence in an array using NumPy only. "Approach #1" of the \
         code at https://stackoverflow.com/a/36535397 with an extra line to \

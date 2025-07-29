@@ -6,7 +6,7 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-07-20
+Updated: 2025-07-28
 """
 # Import standard libraries
 from abc import ABC
@@ -31,17 +31,15 @@ from pympler.asizeof import asizeof
 
 # Import local custom libraries
 try:
-    from convert import stringify_dt, stringify_iter
     from IO.local import walk_dir
-    from meta.classes import TimeSpec
-    from meta.funcs import name_of
+    from meta import name_of, HumanBytes, TimeSpec
     from seq import uniqs_in
+    from wrappers import stringify_dt, stringify_iter
 except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy.convert import stringify_dt, stringify_iter
     from gconanpy.IO.local import walk_dir
-    from gconanpy.meta.classes import TimeSpec
-    from gconanpy.meta.funcs import name_of
+    from gconanpy.meta import name_of, HumanBytes, TimeSpec
     from gconanpy.seq import uniqs_in
+    from gconanpy.wrappers import stringify_dt, stringify_iter
 
 # Constants
 LOGGER_NAME = __package__ if __package__ else __file__
@@ -93,60 +91,6 @@ class Debuggable:
             debug(an_err, local_vars)
         else:
             raise an_err
-
-
-class HumanBytes:
-    """ Shamelessly stolen from https://stackoverflow.com/a/63839503 """
-    METRIC_LABELS: list[str] = ["B", "kB", "MB", "GB", "TB", "PB",
-                                "EB", "ZB", "YB"]
-    BINARY_LABELS: list[str] = ["B", "KiB", "MiB", "GiB", "TiB",
-                                "PiB", "EiB", "ZiB", "YiB"]
-
-    # PREDEFINED FOR SPEED
-    PRECISION_OFFSETS: list[float] = [0.5, 0.05, 0.005, 0.0005]
-    PRECISION_FORMATS: list[str] = ["{}{:.0f} {}", "{}{:.1f} {}",
-                                    "{}{:.2f} {}", "{}{:.3f} {}"]
-
-    @staticmethod
-    def format(num: int | float, metric: bool = False,
-               precision: int = 1) -> str:
-        """
-        Human-readable formatting of bytes, using binary (powers of 1024)
-        or metric (powers of 1000) representation.
-        """
-        assert isinstance(num, (int, float)), "num must be an int or float"
-        assert isinstance(metric, bool), "metric must be a bool"
-        assert isinstance(precision, int) and 0 <= precision <= 3, \
-            "precision must be an int (range 0-3)"
-
-        unit_labels = (HumanBytes.METRIC_LABELS if metric
-                       else HumanBytes.BINARY_LABELS)
-        last_label = unit_labels[-1]
-        unit_step = 1000 if metric else 1024
-        unit_step_thresh = unit_step - HumanBytes.PRECISION_OFFSETS[precision]
-
-        is_negative = num < 0
-        if is_negative:  # Faster than ternary assignment or always running abs().
-            num = abs(num)
-
-        for unit in unit_labels:
-            if num < unit_step_thresh:
-                # VERY IMPORTANT:
-                # Only accepts the CURRENT unit if we're BELOW the threshold where
-                # float rounding behavior would place us into the NEXT unit: F.ex.
-                # when rounding a float to 1 decimal, any number ">= 1023.95" will
-                # be rounded to "1024.0". Obviously we don't want ugly output such
-                # as "1024.0 KiB", since the proper term for that is "1.0 MiB".
-                break
-            if unit != last_label:
-                # We only shrink the number if we HAVEN'T reached the last unit.
-                # NOTE: These looped divisions accumulate floating point rounding
-                # errors, but each new division pushes the rounding errors further
-                # and further down in the decimals, so it doesn't matter.
-                num /= unit_step
-
-        return HumanBytes.PRECISION_FORMATS[precision].format(
-            "-" if is_negative else "", num, unit)
 
 
 # TODO Replace "print()" calls with "log()" calls after making log calls

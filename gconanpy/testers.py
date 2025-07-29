@@ -4,16 +4,13 @@
 Base classes for unit tests in ../tests/ dir
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-07-25
+Updated: 2025-07-28
 """
 # Import standard libraries
 from abc import ABC
-from collections.abc import Generator, Hashable, Iterable, Sequence
+from collections.abc import Hashable, Iterable
 import datetime as dt
 import os
-import random
-import string
-import sys
 from types import ModuleType
 from typing import Any, TypeVar
 
@@ -22,63 +19,19 @@ from bs4 import BeautifulSoup
 
 # Import local custom libraries
 try:
-    from . import attributes, mapping, ROOT_DIR
+    from attributes import AttrsOf
     from extend import classes_in_module
     from find import ErrIterChecker
-    from meta.funcs import has_method, name_of
-    from seq import powers_of_ten
+    from iters import MapSubset, powers_of_ten
+    from . import mapping, ROOT_DIR
+    from meta import has_method, name_of
 except (ImportError, ModuleNotFoundError):
-    from gconanpy import attributes, mapping, ROOT_DIR
+    from gconanpy.attributes import AttrsOf
     from gconanpy.extend import classes_in_module
     from gconanpy.find import ErrIterChecker
-    from gconanpy.meta.funcs import has_method, name_of
-    from gconanpy.seq import powers_of_ten
-
-
-class Randoms:
-    # Type hint class variables
-    _KT = TypeVar("_KT", bound=Hashable)  # for randict method
-    _VT = TypeVar("_VT")  # for randict method
-    _T = TypeVar("_T")  # for randsublist method
-
-    # Default parameter value class variables
-    BIGINT = sys.maxunicode  # Default arbitrary huge integer
-    CHARS = tuple(string.printable)  # String characters to randomly pick
-    MIN = 1    # Default minimum number of items/tests
-    MAX = 100  # Default maximum number of items/tests
-
-    @classmethod
-    def randict(cls, keys: Sequence[_KT] = CHARS,
-                values: Sequence[_VT] = CHARS,
-                min_len: int = MIN, max_len: int = MAX) -> dict[_KT, _VT]:
-        return {random.choice(keys): random.choice(values)
-                for _ in cls.randrange(min_len, max_len)
-                } if keys and values else dict()
-
-    @classmethod
-    def randints(cls, min_n: int = MIN, max_n: int = MAX,
-                 min_int: int = -BIGINT, max_int: int = BIGINT
-                 ) -> Generator[int, None, None]:
-        for _ in cls.randrange(min_n, max_n):
-            yield random.randint(min_int, max_int)
-
-    @classmethod
-    def randintsets(cls, min_n: int = 2, max_n: int = MAX,
-                    min_len: int = MIN, max_len: int = MAX,
-                    min_int: int = -BIGINT, max_int: int = BIGINT
-                    ) -> list[set[int]]:
-        return [set(cls.randints(min_len, max_len, min_int, max_int))
-                for _ in cls.randrange(min_n, max_n)]
-
-    @staticmethod
-    def randrange(min_len: int = MIN, max_len: int = MAX) -> range:
-        return range(random.randint(min_len, max_len))
-
-    @staticmethod
-    def randsublist(seq: Sequence[_T], min_len: int = 0,
-                    max_len: int = 100) -> list[_T]:
-        return random.choices(seq, k=random.randint(
-            min_len, min(max_len, len(seq))))
+    from gconanpy.iters import MapSubset, powers_of_ten
+    from gconanpy import mapping, ROOT_DIR
+    from gconanpy.meta import has_method, name_of
 
 
 class Tester(ABC):
@@ -100,7 +53,7 @@ class Tester(ABC):
                            "debugging": True, "a dict": self.adict,
                            "a list": [*self.alist, _class],
                            "to remove": True, "bytes_nums": self.bytes_nums})
-        cli_args["creds"] = mapping.Subset(
+        cli_args["creds"] = MapSubset(
             keys={"address", "debugging", "password"},
             values={None}, include_keys=True, include_values=False
         ).of(cli_args, as_type=_creds_type)
@@ -145,8 +98,7 @@ class TimeTester:
     def repeat_tests(self, tester: Tester, n: int):
         # start_time = dt.datetime.now()
         for _ in range(n):
-            for method_name, method_to_test in attributes.Of(tester
-                                                             ).methods():
+            for method_name, method_to_test in AttrsOf(tester).methods():
                 if method_name.startswith("test_"):
                     method_to_test()
         # elapsed = dt.datetime.now() - start_time
@@ -183,7 +135,7 @@ class TimeTester:
         min_avg = min(which_avg)
         faster = which_avg[min_avg]
         ratios = list()
-        for slower, slow_time in mapping.Subset(keys={faster}, include_keys=False
-                                                ).of(avg_of).items():
+        for slower, slow_time in MapSubset(keys={faster}, include_keys=False
+                                           ).of(avg_of).items():
             ratios.append(f"{slow_time/min_avg} times faster than {slower}")
         return f"{faster} is {' and '.join(ratios)}."

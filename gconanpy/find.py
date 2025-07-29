@@ -5,7 +5,7 @@ Classes and functions that iterate and then break once they find what \
     they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-06-21
+Updated: 2025-07-28
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -16,22 +16,21 @@ from typing_extensions import Self
 
 # Import remote custom libraries
 try:
-    from convert import WrapFunction
-    from meta.classes import KeepSkippingExceptions, IgnoreExceptions
-    from meta.funcs import DATA_ERRORS
+    from meta import DATA_ERRORS, KeepSkippingExceptions, IgnoreExceptions
     from trivial import is_not_none, always_none
+    from wrappers import WrapFunction
 except ModuleNotFoundError:  # TODO DRY?
-    from gconanpy.convert import WrapFunction
-    from gconanpy.meta.classes import KeepSkippingExceptions, IgnoreExceptions
-    from gconanpy.meta.funcs import DATA_ERRORS
+    from gconanpy.meta import DATA_ERRORS, \
+        KeepSkippingExceptions, IgnoreExceptions
     from gconanpy.trivial import is_not_none, always_none
+    from gconanpy.wrappers import WrapFunction
 
 
 # TODO Figure out standard way to centralize, reuse, & document TypeVars?
 Gotten = TypeVar("Gotten")  # for spliterate function
 Item = TypeVar("Item")  # Element in BasicRange/ReadyChecker
 IterfindItem = TypeVar("IterfindItem")  # Element in iterfind
-IterfindDefault = TypeVar("IterfindDefault")
+IterfindDefault = TypeVar("IterfindDefault")  # Default iterfind return
 StrChecker = Callable[[str | None], bool] | Callable[[str], bool]
 
 

@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-06
-Updated: 2025-07-27
+Updated: 2025-07-28
 """
 # Import standard libraries
 from collections.abc import Sequence
@@ -11,8 +11,9 @@ from timeit import timeit
 from typing import Any
 
 # Import local custom libraries
-from gconanpy.seq import combine_lists, merge, Recursively
-from gconanpy.testers import Randoms, Tester
+from gconanpy.iters import combine_lists, merge, Randoms
+from gconanpy.meta import Recursively
+from gconanpy.testers import Tester
 
 
 class TestSeq(Tester):

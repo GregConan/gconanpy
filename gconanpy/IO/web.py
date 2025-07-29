@@ -4,10 +4,11 @@
 Functions to import/export data from/to remote files/pages/APIs on the Web.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-13
-Updated: 2025-07-20
+Updated: 2025-07-28
 """
 # Import standard libraries
 from collections.abc import Mapping
+from dataclasses import dataclass
 import requests
 from typing import Any
 from typing_extensions import Self
@@ -19,9 +20,9 @@ import bs4
 
 # Import local custom libraries
 try:
-    from ..convert import BasicTree, ToString
+    from ..wrappers import BasicTree, ToString
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.convert import BasicTree, ToString
+    from gconanpy.wrappers import BasicTree, ToString
 
 
 def download_GET(path_URL: str, headers: Mapping[str, Any]) -> Any:
@@ -105,3 +106,21 @@ class URL:
         :return: str, URL but without any parameters
         """
         return f"{self.parsed.scheme}://{''.join(self.parsed[1:3])}"
+
+
+@dataclass
+class Link:
+    text: str
+    url: str
+
+    @classmethod
+    def from_markdown(cls, markdown_link_text: str) -> Self:
+        markdown_link_text = markdown_link_text.strip()
+        assert markdown_link_text[0] == "[" and markdown_link_text[-1] == ")"
+        md_link_parts = markdown_link_text[1:-1].split("](")
+        return cls(md_link_parts[0], md_link_parts[1])
+
+    def to_markdown(self) -> str:
+        a_string = self.text.replace("[", r"\[").replace("]", r"\]")
+        a_URL = self.url.replace("(", r"\(").replace(")", r"\)")
+        return f"[{a_string}]({a_URL})"

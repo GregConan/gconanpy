@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-07
-Updated: 2025-07-22
+Updated: 2025-07-28
 """
 # Import standard libraries
 import builtins
@@ -13,7 +13,6 @@ from copy import deepcopy
 from pprint import pprint
 import random
 import string
-import time
 from timeit import timeit
 from typing import Any, TypeVar
 
@@ -23,12 +22,11 @@ import pandas as pd
 # Import local custom libraries
 from gconanpy import attributes
 from gconanpy.debug import StrictlyTime
-from gconanpy.mapping import Combinations
+from gconanpy.iters import Combinations
 from gconanpy.mapping.dicts import Cryptionary, Defaultionary, DotDict, \
     Explictionary, LazyDict, LazyDotDict
-from gconanpy.meta.classes import Boolable, MultiTypeMeta, TimeSpec
-from gconanpy.meta.funcs import metaclass_issubclass, name_of, \
-    name_type_class, names_of
+from gconanpy.meta import Boolable, MultiTypeMeta, name_of, names_of, TimeSpec
+from gconanpy.meta.metaclass import MakeMetaclass, name_type_class
 from gconanpy.testers import Tester
 from gconanpy.trivial import always_false, always_none, always_true
 
@@ -135,7 +133,7 @@ class TestAttributesOf(Tester):
 
     def test_but_not(self) -> None:
         self.add_basics()
-        self.check_result(attributes.Of(self.alist).but_not(self.adict),
+        self.check_result(attributes.AttrsOf(self.alist).but_not(self.adict),
                           set(dir(list)) - set(dir(dict)))
 
     def check_lazy(self, an_obj: Any, name: str, lazy_meths:
@@ -191,7 +189,7 @@ class TestMetaClasses(Tester):
 
 class TestMetaFunctions(Tester):
     DISJOINT_CLASSES: set[type] = {
-        list, tuple, dict, pd.DataFrame, attributes.Of}
+        list, tuple, dict, pd.DataFrame, attributes.AttrsOf}
 
     def test_names_of(self) -> None:
         for classes in Combinations.of_seq(self.DISJOINT_CLASSES):
@@ -225,7 +223,7 @@ class TestMetaFunctions(Tester):
         subclasses = (dict, Explictionary, Defaultionary, DotDict)
         not_subclasses = (LazyDict, LazyDotDict, Cryptionary)
 
-        class DictTestType(metaclass=metaclass_issubclass(
+        class DictTestType(metaclass=MakeMetaclass.for_classes(
                 isnt_any_of=not_subclasses, is_all_of=subclasses)):
             ...
 

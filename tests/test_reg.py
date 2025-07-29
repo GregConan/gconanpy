@@ -4,10 +4,10 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
-Updated: 2025-07-11
+Updated: 2025-07-28
 """
 # Import local custom libraries
-from gconanpy.meta.funcs import metaclass_hasmethod
+from gconanpy.meta.metaclass import MakeMetaclass
 from gconanpy.reg import DunderParser, Regextract
 from gconanpy.testers import Tester
 
@@ -15,9 +15,9 @@ from gconanpy.testers import Tester
 class TestDunderParser(Tester):
     def pascaltest(self, method_name: str, pascalized: str) -> None:
         self.check_result(self.dp.pascalize(method_name), pascalized)
-        new_type = metaclass_hasmethod(method_name, include=True)
+        new_type = MakeMetaclass.for_methods(method_name, include=True)
         self.check_result(new_type.__name__, f"Supports{pascalized}Meta")
-        new_type = metaclass_hasmethod(method_name, include=False)
+        new_type = MakeMetaclass.for_methods(method_name, include=False)
         self.check_result(new_type.__name__, f"Lacks{pascalized}Meta")
 
     def test_pascalize(self) -> None:

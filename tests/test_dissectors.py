@@ -3,21 +3,21 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-07-27
+Updated: 2025-07-28
 """
 # Import standard libraries
 from typing import Any
 
 # Import local custom libraries
 from gconanpy.dissectors import Corer, DifferenceBetween, Shredder, Xray
-from gconanpy import mapping
+from gconanpy.iters import MapSubset, SimpleShredder
 from gconanpy.mapping.dicts import Cryptionary, DotDict
 from gconanpy.testers import Tester
 
 
 class TestShredders(Tester):
-    TEST_CLASSES: tuple[type[mapping.SimpleShredder], ...] = (
-        Corer, Shredder, mapping.SimpleShredder)
+    TEST_CLASSES: tuple[type[SimpleShredder], ...] = (
+        Corer, Shredder, SimpleShredder)
 
     def test_1(self):
         self.add_basics()
@@ -47,7 +47,7 @@ class TestCorers(Tester):
                           corer.safe_core(to_core, as_type=as_type)):
                 self.check_result(cored, expected_result)
 
-    def check_excluder(self, subsetter: mapping.Subset, expected_result: Any,
+    def check_excluder(self, subsetter: MapSubset, expected_result: Any,
                        **corer_kwargs: Any):
         self.core_tests(self.build_cli_args(DotDict, Cryptionary),
                         expected_result, map_filter=subsetter.filter,
@@ -61,7 +61,7 @@ class TestCorers(Tester):
 
     def test_2(self):
         self.add_basics()
-        self.check_excluder(mapping.Subset(keys={"__doc__"}, include_keys=False),
+        self.check_excluder(MapSubset(keys={"__doc__"}, include_keys=False),
                             self.bytes_nums.strip())
 
     def test_3(self):
@@ -89,7 +89,7 @@ class TestCorers(Tester):
     def test_5(self):
         cli_args = self.build_cli_args(DotDict, Cryptionary)
         print(f"cli_args: {cli_args}")
-        excluder = mapping.Subset(keys={"b"}, include_keys=True).filter
+        excluder = MapSubset(keys={"b"}, include_keys=True).filter
         self.core_tests(cli_args, 2, map_filter=excluder)
 
     def test_6(self):
@@ -141,8 +141,8 @@ class TestDifferenceBetween(Tester):
 
     def test_attr_diff(self):
         self.add_basics()
-        sub1 = mapping.Subset(keys=self.alist)
-        sub2 = mapping.Subset(values=self.alist)
+        sub1 = MapSubset(keys=self.alist)
+        sub2 = MapSubset(values=self.alist)
         sub_diff = DifferenceBetween(sub1, sub2)
         assert sub_diff.difference
         assert sub_diff.difference.startswith("unique attribute(s)")

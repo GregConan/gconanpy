@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-07-25
+Updated: 2025-07-28
 """
 # Import standard libraries
 from collections import defaultdict
@@ -14,6 +14,8 @@ from configparser import ConfigParser
 from operator import itemgetter
 from typing import Any, cast, Literal, overload, TypeVar, TYPE_CHECKING
 from typing_extensions import Self
+
+from gconanpy import mapping
 
 # Import variables for type hinting (can't import _typeshed at runtime)
 if TYPE_CHECKING:
@@ -28,13 +30,14 @@ from cryptography.fernet import Fernet
 try:
     import attributes
     from debug import Debuggable
-    import mapping
-    from meta.funcs import DATA_ERRORS, name_of
+    from iters import Bytesifier, MapSubset, MapWalker
+    from meta import DATA_ERRORS, name_of, Traversible
     from trivial import always_none
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy import attributes, mapping
+    from gconanpy import attributes
     from gconanpy.debug import Debuggable
-    from gconanpy.meta.funcs import DATA_ERRORS, name_of
+    from gconanpy.iters import Bytesifier, MapSubset, MapWalker
+    from gconanpy.meta import DATA_ERRORS, name_of, Traversible
     from gconanpy.trivial import always_none
 
 # Type variables for .__init__(...) and .update(...) method input parameters
@@ -262,8 +265,8 @@ class Subsetionary[KT, VT](Explictionary[KT, VT]):
             NONE OF the provided `values`.
         :return: Subsetionary including only the specified keys and values.       
         """
-        return mapping.Subset(keys, values, include_keys, include_values
-                              ).of(from_map, cls)
+        return MapSubset(keys, values, include_keys, include_values
+                         ).of(from_map, cls)
 
     def subset(self, keys: Container[KT] = set(),
                values: Container[VT] = set(), include_keys: bool = False,
@@ -280,8 +283,8 @@ class Subsetionary[KT, VT](Explictionary[KT, VT]):
             NONE OF the provided `values`.
         :return: Subsetionary including only the specified keys and values.       
         """
-        return mapping.Subset(keys, values, include_keys, include_values
-                              ).of(self)
+        return MapSubset(keys, values, include_keys, include_values
+                         ).of(self)
 
 
 class Updationary[KT, VT](Explictionary[KT, VT]):
@@ -328,16 +331,16 @@ class Updationary[KT, VT](Explictionary[KT, VT]):
 
 
 class Walktionary[KT, VT](Explictionary[KT, VT]):
-    def walk(self, only_yield_maps: bool = True) -> mapping.Walk:
+    def walk(self, only_yield_maps: bool = True) -> MapWalker:
         """ Recursively iterate over this dict and every dict inside it.
 
         :param only_yield_maps: bool, True for this iterator to return \
             key-value pairs only if the value is also a Mapping; else False \
             to return every item iterated over. Defaults to True.
-        :return: mapping.Walk with `keys`, `values`, and `items` methods to \
+        :return: MapWalker with `keys`, `values`, and `items` methods to \
             recursively iterate over this Walktionary.
         """
-        return mapping.Walk(self, only_yield_maps)
+        return MapWalker(self, only_yield_maps)
 
 
 class OverlapPercents[Sortable: SupportsRichComparison
@@ -358,7 +361,7 @@ class OverlapPercents[Sortable: SupportsRichComparison
             yield sortable_subkey
 
 
-class DotDict[KT: str, VT](Updationary[KT, VT], mapping.Traversible):
+class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
     """ dict with dot.notation item access. Compare `sklearn.utils.Bunch`.
         DotDict can get/set items as attributes: if `name` is not protected, \
         then `self.name is self["name"]`.
@@ -387,7 +390,7 @@ class DotDict[KT: str, VT](Updationary[KT, VT], mapping.Traversible):
         Updationary.__init__(self, from_map, **kwargs)
 
         # Initialize self as a Traversible for self.homogenize() method
-        mapping.Traversible.__init__(self)
+        Traversible.__init__(self)
 
         # Prevent overwriting method/attributes or treating them like items
         dict.__setattr__(self, self.PROTECTEDS,
@@ -646,7 +649,7 @@ class Promptionary[KT, VT](LazyDict[KT, VT]):
         return self.lazysetdefault(key, prompt_fn, [prompt], exclude=exclude)
 
 
-class Cryptionary(Promptionary, mapping.Bytesifier, Debuggable):
+class Cryptionary(Promptionary, Bytesifier, Debuggable):
     """ Extended Promptionary that automatically encrypts values before \
         storing them and automatically decrypts values before returning them.
         Created to store user credentials slightly more securely, and to \

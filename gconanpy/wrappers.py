@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 
 """
+Classes that wrap other classes to provide additional functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-07-27
+Updated: 2025-07-28
 """
 # Import standard libraries
+import argparse
 # from collections import UserString  # TODO?
 from collections.abc import Callable, Collection, Generator, Iterable, Mapping
 import datetime as dt
+from functools import wraps
 import os
 import re
 import sys
-from typing import Any, Literal, NamedTuple
+from typing import Any, Concatenate, Literal, NamedTuple, ParamSpec, TypeVar
 from typing_extensions import Self
 
 # Import third-party PyPI libraries
@@ -21,39 +24,90 @@ import pathvalidate
 
 # Import local custom libraries
 try:
-    import mapping
-    from meta.classes import ClassWrapper, TimeSpec
-    from meta.funcs import bool_pair_to_cases, name_of, tuplify
+    from iters import MapSubset
+    from meta import (bool_pair_to_cases, Boolable, HasClass,
+                      name_of, TimeSpec, tuplify)
     from reg import Regextract
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy import mapping
-    from gconanpy.meta.classes import ClassWrapper, TimeSpec
-    from gconanpy.meta.funcs import bool_pair_to_cases, name_of, tuplify
+    from gconanpy.iters import MapSubset
+    from gconanpy.meta import (bool_pair_to_cases, Boolable, HasClass,
+                               name_of, TimeSpec, tuplify)
     from gconanpy.reg import Regextract
 
 
-# TODO Reorganize into fewer files:
-# - attributes.py  (attributes.OfObject, &c)
-# - dicts.py  (dicts.DotDict, &c)
-# - dissect.py?  (dissect.Xray, dissect.Shredder, &c)
-# - func.py  (func.Wrap, &c)
-# - iterables.py?  (iterables.merge, &c?)
-# - iterable.py?  (iterable.Shred, &c?)
-# - mapping.py  (mapping.has, mapping.lazyget, &c)
-# - numpandas.py  (numpandas.search_sequence, numpandas.nan_rows_in, &c?)
-# - ToString.py? stringify.py?  (ToString)
+class ClassWrapper:
+    # MethodWrapper type hint vars for return_as_* methods
+    _P = ParamSpec("_P")  # _P means (*args, **kwargs)
+    _T = TypeVar("_T")  # _T means self.__class__ means type(self)
+    UnwrappedMethod = Callable[Concatenate[_T, _P], Any]
+    WrappedMethod = Callable[Concatenate[_T, _P], _T]
+
+    # New type hint variables for other ClassWrapper methods
+    _Super = TypeVar("_Super")
+    _S = TypeVar("_S")
+    ASSIGNED = ("__doc__", "__name__", "__text_signature__")
+
+    def __init__(self, superclass: type[_Super]) -> None:
+        self.superclass = superclass
+        self.attr_names = dir(superclass)
+
+    def _wrap_method_of(self, subclass: type[_S], func: Callable):
+        @wraps(func, assigned=self.ASSIGNED)
+        def inner(*args, **kwargs):
+            result = func(*args, **kwargs)
+            return result if not isinstance(result, self.superclass) \
+                else subclass(result)  # type: ignore
+
+        # setattr(inner, "__objclass__", subclass)
+        setattr(inner, "__self__", subclass)
+        inner.__qualname__ = f"{subclass.__name__}.{inner.__name__}"
+        return inner
+
+    def class_decorator(self, subclass: type[_S]) -> type[_S]:
+        self.subclass = subclass
+        for attr_name in self.attr_names:
+            if not attr_name.startswith("__"):
+                superattr = getattr(self.superclass, attr_name, None)
+                subattr = getattr(subclass, attr_name, None)
+                if callable(superattr) and callable(subattr):
+                    setattr(subclass, attr_name,
+                            self._wrap_method_of(subclass, superattr))
+        return subclass
+
+    @classmethod
+    def return_as_its_class(cls, meth: UnwrappedMethod) -> WrappedMethod:
+        S = TypeVar("S", bound=HasClass)
+
+        @wraps(meth, assigned=cls.ASSIGNED)
+        def inner(self: S, *args: Any, **kwargs: Any) -> S:
+            return self.__class__(meth(self, *args, **kwargs))
+
+        # TODO
+        # setattr(inner, "__self__", self.subclass)
+        # inner.__qualname__ = f"{self.subclass.__name__}.{inner.__name__}"
+        # inner.__annotations__["return"] = self.subclass
+        return inner
+
+    @classmethod
+    def return_self_if_no_value(cls, meth: WrappedMethod) -> WrappedMethod:
+        S = TypeVar("S")
+
+        @wraps(meth, assigned=cls.ASSIGNED)
+        def inner(self: S, value: Boolable) -> S:
+            return meth(self, value) if value else self
+        return inner
 
 
 # Wrap every str method that returns str to return a ToString instance instead
-wrapper = ClassWrapper(str)
+str_wrapper = ClassWrapper(str)
 
 
-@wrapper.class_decorator
+@str_wrapper.class_decorator
 class ToString(str):
     # Filter to call fromIterable in quotate method using the recursive
     # iter_kwargs input parameter without adding a parameter exclusive to
     # fromMapping method (and not fromIterable)
-    _ITER_SUBSET = mapping.Subset(keys="join_on", include_keys=False)
+    _ITER_SUBSET = MapSubset(keys="join_on", include_keys=False)
 
     # Type hint for passing own methods to others as input parameters
     Stringifier = Callable[[Any], Self]
@@ -72,7 +126,7 @@ class ToString(str):
         """
         return self.__class__(super().__add__(value)) if value else self
 
-    @wrapper.return_as_its_class  # method returns ToString
+    @str_wrapper.return_as_its_class  # method returns ToString
     def __sub__(self, value: str | None) -> str:
         """ Remove `value` from the end of `self`. Implements `self - value`.
             Defined as a shorter but still intuitive alias for `removesuffix`.
@@ -460,7 +514,7 @@ class ToString(str):
         return [cls.quotate(an_obj, quote, quote_numbers, max_len=max_len,
                             **kwargs) for an_obj in objects]
 
-    @wrapper.return_as_its_class  # method returns ToString
+    @str_wrapper.return_as_its_class  # method returns ToString
     def replace_all(self, replacements: Mapping[str, str], count: int = -1,
                     reverse: bool = False) -> str:
         """ Repeatedly run the `replace` (or `rreplace`) method.
@@ -483,7 +537,7 @@ class ToString(str):
             string = replace(string, old, new, count)
         return string
 
-    @wrapper.return_as_its_class  # method returns ToString
+    @str_wrapper.return_as_its_class  # method returns ToString
     def rreplace(self, old: str, new: str, count: int = -1) -> Self:
         """ Return a copy with occurrences of substring old replaced by new.
             Like `str.replace`, but replaces the last `old` occurrences first.
@@ -507,7 +561,7 @@ class ToString(str):
         """
         return self if not suffix or self.endswith(suffix) else self + suffix
 
-    @wrapper.return_as_its_class  # method returns ToString
+    @str_wrapper.return_as_its_class  # method returns ToString
     def that_starts_with(self, prefix: str | None) -> str:
         """ Prepend `suffix` at index 0 of `self` unless it is already there.
 
@@ -521,6 +575,13 @@ class ToString(str):
         # TODO Use independent truncate() function here again (DRY)?
         return self if max_len is None or len(self) <= max_len else \
             self.__class__(self[:max_len - len(suffix)] + suffix)
+
+
+# Shorter names to export
+stringify = ToString.fromAny
+stringify_dt = ToString.fromDateTime
+stringify_map = ToString.fromMapping
+stringify_iter = ToString.fromIterable
 
 
 class Branches(NamedTuple):
@@ -583,6 +644,7 @@ class BasicTree(tuple[str, list]):
 class WrapFunction:  # WrapFunction(partial):
     """ Function wrapper that also stores some of its input parameters.
         `functools.partial` modified to prepend AND/OR append parameters. """
+    # Instance variables for (g/s)etstate: func, pre, post, & keywords
     _VarsTypes = tuple[Callable, tuple, tuple, dict | None]
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
@@ -614,17 +676,13 @@ class WrapFunction:  # WrapFunction(partial):
             raise TypeError("the first argument must be callable")
 
         self.func = func
+        self.keywords = keywords
         self.pre = tuplify(pre)
         self.post = tuplify(post)
-        self.keywords = keywords
 
-    def __reduce__(self) -> tuple[type, tuple[Callable], _VarsTypes]:
+    def __reduce__(self) -> tuple[type[Self], tuple[Callable], _VarsTypes]:
         return type(self), (self.func, ), (self.func, self.pre, self.post,
                                            self.keywords or None)
-
-    def __setstate__(self, state: _VarsTypes) -> None:
-        self.func, self.pre, self.post, keywords = state
-        self.keywords = keywords if keywords else dict()
 
     def __repr__(self) -> str:
         """
@@ -635,6 +693,10 @@ class WrapFunction:  # WrapFunction(partial):
             self.stringified = ToString.fromCallable(
                 type(self), **self.__dict__)
         return self.stringified
+
+    def __setstate__(self, state: _VarsTypes) -> None:
+        self.func, self.pre, self.post, keywords = state
+        self.keywords = keywords if keywords else dict()
 
     def expect(self, output: Any) -> Self:
         """ 
@@ -659,8 +721,112 @@ class WrapFunction:  # WrapFunction(partial):
             yield self.func(an_obj)
 
 
-# Shorter names to export
-stringify = ToString.fromAny
-stringify_dt = ToString.fromDateTime
-stringify_map = ToString.fromMapping
-stringify_iter = ToString.fromIterable
+class Valid:
+    """ Tools to validate command-line input arguments. """
+    # Predefined validator functions (with default parameter values)
+    dir_made = WrapFunction(os.makedirs, exist_ok=True)  # Dir exists
+    readable = WrapFunction(os.access, mode=os.R_OK)  # Can read existing obj
+    writable = WrapFunction(os.access, mode=os.W_OK)  # Can write existing obj
+
+    @staticmethod
+    def _validate(to_validate: Any, *conditions: Callable,
+                  # conditions: Iterable[Callable] = list(),
+                  err_msg: str = "`{}` is invalid.",
+                  first_ensure: Callable | None = None,
+                  final_format: Callable | None = None) -> Any:
+        """
+        Parent/base function used by different type validation functions. Raises an
+        argparse.ArgumentTypeError if the input object is somehow invalid.
+        :param to_validate: String to check if it represents a valid object 
+        :param is_real: Function which returns true iff to_validate is real
+        :param make_valid: Function which returns a fully validated object
+        :param err_msg: String to show to user to tell them what is invalid
+        :param prepare: Function to run before validation
+        :return: to_validate, but fully validated
+        """
+        try:
+            if first_ensure:
+                first_ensure(to_validate)
+            '''
+            for prepare in first_ensure:
+                prepare(to_validate)
+            '''
+            for is_valid in conditions:
+                assert is_valid(to_validate)
+            return final_format(to_validate) if final_format else to_validate
+        except (argparse.ArgumentTypeError, AssertionError, OSError,
+                TypeError, ValueError):
+            raise argparse.ArgumentTypeError(err_msg.format(to_validate))
+
+    @classmethod
+    def output_dir(cls, path: Any) -> str:
+        """
+        Try to make a folder for new files at path; throw exception if that fails
+        :param path: String which is a valid (not necessarily real) folder path
+        :return: String which is a validated absolute path to real writeable folder
+        """
+        return cls._validate(path, os.path.isdir, cls.writable,
+                             err_msg="Cannot create directory at `{}`",
+                             first_ensure=cls.dir_made,  # [cls.dir_made],
+                             final_format=os.path.abspath)
+
+    @classmethod
+    def readable_dir(cls, path: Any) -> str:
+        """
+        :param path: Parameter to check if it represents a valid directory path
+        :return: String representing a valid directory path
+        """
+        return cls._validate(path, os.path.isdir, cls.readable,
+                             err_msg="Cannot read directory at `{}`",
+                             final_format=os.path.abspath)
+
+    @classmethod
+    def readable_file(cls, path: Any) -> str:
+        """
+        Throw exception unless parameter is a valid readable filepath string. Use
+        this, not argparse.FileType('r') which leaves an open file handle.
+        :param path: Parameter to check if it represents a valid filepath
+        :return: String representing a valid filepath
+        """
+        return cls._validate(path, cls.readable,
+                             err_msg="Cannot read file at `{}`",
+                             final_format=os.path.abspath)
+
+    @classmethod
+    def whole_number(cls, to_validate: Any):
+        """
+        Throw argparse exception unless to_validate is a positive integer
+        :param to_validate: Object to test whether it is a positive integer
+        :return: to_validate if it is a positive integer
+        """
+        return cls._validate(to_validate, lambda x: int(x) >= 0,
+                             err_msg="{} is not a positive integer",
+                             final_format=int)
+
+
+class ArgParser(argparse.ArgumentParser):
+    """ Extends `argparse.ArgumentParser` to include default values that I \
+        tend to re-use. Purely for convenience. """
+
+    def add_new_out_dir_arg(self, name: str, **kwargs: Any) -> None:
+        """ Specifies argparse.ArgumentParser.add_argument for a valid path \
+            to an output directory that must either exist or be created.
+
+        :param name: str naming the directory to access (and create if needed)
+        :param kwargs: Mapping[str, Any], keyword arguments for the method \
+            `argparse.ArgumentParser.add_argument`
+        :return: argparse.ArgumentParser, now with the output dir argument
+        """
+        if not kwargs.get("default"):
+            kwargs["default"] = os.path.join(os.getcwd(), name)
+        if not kwargs.get("dest"):
+            kwargs["dest"] = name
+        if not kwargs.get("help"):
+            kwargs["help"] = "Valid path to local directory to save " \
+                f"{name} files into. If no directory exists at this path " \
+                "yet, then one will be created. Output path defaults to " \
+                + kwargs["default"]
+        self.add_argument(
+            f"-{name[0]}", f"-{name}", f"--{name}", f"--{name}-dir",
+            f"--{name}-dir-path", type=Valid.output_dir, **kwargs
+        )
