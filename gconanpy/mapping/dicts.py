@@ -387,7 +387,7 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
     # not be accessible/modifiable as keys/values/items
     PROTECTEDS = "__protected_keywords__"
 
-    def __init__(self, from_map: FromMap = None, **kwargs: Any) -> None:
+    def __init__(self, from_map: FromMap = None, **kwargs: VT) -> None:
         """ 
         :param from_map: Mapping | Iterable[tuple[Hashable, Any]] | None, \
             Mapping to convert into a new instance of this class; `map` or \
@@ -415,7 +415,7 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
             else super(DotDict, self).__delattr__
         return _delattr(name)
 
-    def __getattr__(self, name: KT) -> Any:
+    def __getattr__(self, name: KT) -> VT:
         """ `__getattr__(self, name) == getattr(self, name) == self.<name>`
             If name is not protected, then `self.name is self["name"]`
 

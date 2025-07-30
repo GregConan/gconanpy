@@ -15,7 +15,8 @@ from functools import wraps
 import os
 import re
 import sys
-from typing import Any, Concatenate, Literal, NamedTuple, ParamSpec, TypeVar
+from typing import Any, Concatenate, Literal, \
+    NamedTuple, overload, ParamSpec, TypeVar
 from typing_extensions import Self
 
 # Import third-party PyPI libraries
@@ -661,8 +662,8 @@ class SoupTree(BasicTree):
 
 class WrapFunction:  # WrapFunction(partial):
     """ Function wrapper that also stores some of its input parameters.
-        `functools.partial` modified to prepend AND/OR append parameters. """
-    # Instance variables for (g/s)etstate: func, pre, post, & keywords
+        `functools.partial` modified to prepend and/or append parameters. """
+    # Instance variables for (g/s)etstate: [func, pre, post, keywords]
     _VarsTypes = tuple[Callable, tuple, tuple, dict | None]
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
@@ -741,26 +742,47 @@ class WrapFunction:  # WrapFunction(partial):
 
 class Valid:
     """ Tools to validate command-line input arguments. """
+    # Type hints for _validate method
+    _F = TypeVar("_F")  # Reformatted validated input object
+    _T = TypeVar("_T")  # Input object to validate
+
     # Predefined validator functions (with default parameter values)
     dir_made = WrapFunction(os.makedirs, exist_ok=True)  # Dir exists
     readable = WrapFunction(os.access, mode=os.R_OK)  # Can read existing obj
     writable = WrapFunction(os.access, mode=os.W_OK)  # Can write existing obj
 
+    @overload
     @staticmethod
-    def _validate(to_validate: Any, *conditions: Callable,
+    def _validate(to_validate: _T, *conditions: Callable[[_T], bool],
+                  err_msg: str,
+                  first_ensure: Callable[[_T], Any] | None = None,
+                  final_format: Callable[[_T], _F]) -> _F: ...
+
+    @overload
+    @staticmethod
+    def _validate(to_validate: _T, *conditions: Callable[[_T], bool],
+                  err_msg: str,
+                  first_ensure: Callable[[_T], Any] | None = None) -> _T: ...
+
+    @staticmethod
+    def _validate(to_validate: _T, *conditions: Callable[[_T], bool],
                   # conditions: Iterable[Callable] = list(),
                   err_msg: str = "`{}` is invalid.",
-                  first_ensure: Callable | None = None,
-                  final_format: Callable | None = None) -> Any:
-        """
-        Parent/base function used by different type validation functions. Raises an
-        argparse.ArgumentTypeError if the input object is somehow invalid.
-        :param to_validate: String to check if it represents a valid object 
-        :param is_real: Function which returns true iff to_validate is real
-        :param make_valid: Function which returns a fully validated object
-        :param err_msg: String to show to user to tell them what is invalid
-        :param prepare: Function to run before validation
-        :return: to_validate, but fully validated
+                  first_ensure: Callable[[_T], Any] | None = None,
+                  final_format: Callable[[_T], _F] | None = None):
+        """ Parent/base function used by different type validation functions.
+
+        :param to_validate: _T: Any, object to validate
+        :param conditions: Iterable[Callable[[_T], bool]] that each accept \
+            `to_validate` and returns True if and only if `to_validate` \
+            passes some specific condition, otherwise returning False
+        :param final_format: Callable[[_T], _F: Any] that accepts \
+            `to_validate` and returns it after fully validating it
+        :param err_msg: str to show to user to tell them what is invalid
+        :param first_ensure: Callable[[_T], Any] to run on `to_validate` to \
+            prepare/ready it for validation
+        :raise: argparse.ArgumentTypeError if `to_validate` is somehow invalid
+        :return: _T | _F, `to_validate` but fully validated
         """
         try:
             if first_ensure:
@@ -778,10 +800,11 @@ class Valid:
 
     @classmethod
     def output_dir(cls, path: Any) -> str:
-        """
-        Try to make a folder for new files at path; throw exception if that fails
-        :param path: String which is a valid (not necessarily real) folder path
-        :return: String which is a validated absolute path to real writeable folder
+        """ Try to make or access a directory for new files at `path`.
+
+        :param path: str, valid (not necessarily real) directory path
+        :raise: argparse.ArgumentTypeError if directory path is not writable
+        :return: str, validated absolute path to real writable folder
         """
         return cls._validate(path, os.path.isdir, cls.writable,
                              err_msg="Cannot create directory at `{}`",
@@ -790,9 +813,10 @@ class Valid:
 
     @classmethod
     def readable_dir(cls, path: Any) -> str:
-        """
-        :param path: Parameter to check if it represents a valid directory path
-        :return: String representing a valid directory path
+        """ Verify that `path` is a valid directory path.
+
+        :param path: Any, object that should be a valid directory path
+        :return: str representing a valid directory path
         """
         return cls._validate(path, os.path.isdir, cls.readable,
                              err_msg="Cannot read directory at `{}`",
@@ -800,22 +824,24 @@ class Valid:
 
     @classmethod
     def readable_file(cls, path: Any) -> str:
-        """
-        Throw exception unless parameter is a valid readable filepath string. Use
-        this, not argparse.FileType('r') which leaves an open file handle.
-        :param path: Parameter to check if it represents a valid filepath
-        :return: String representing a valid filepath
+        """ Use this instead of `argparse.FileType('r')` because the latter \
+            leaves an open file handle.
+
+        :param path: Any, object that should be a valid file (or dir) path.
+        :raise: argparse.ArgumentTypeError if `path` isn't a path to a valid \
+            readable file (or directory).
+        :return: str representing a valid file (or directory) path.
         """
         return cls._validate(path, cls.readable,
                              err_msg="Cannot read file at `{}`",
                              final_format=os.path.abspath)
 
     @classmethod
-    def whole_number(cls, to_validate: Any):
-        """
-        Throw argparse exception unless to_validate is a positive integer
-        :param to_validate: Object to test whether it is a positive integer
-        :return: to_validate if it is a positive integer
+    def whole_number(cls, to_validate: Any) -> int:
+        """ Throw argparse exception unless to_validate is a positive integer
+
+        :param to_validate: Any, obj to test whether it is a positive integer
+        :return: int, to_validate if it is a positive integer
         """
         return cls._validate(to_validate, lambda x: int(x) >= 0,
                              err_msg="{} is not a positive integer",
@@ -833,7 +859,6 @@ class ArgParser(argparse.ArgumentParser):
         :param name: str naming the directory to access (and create if needed)
         :param kwargs: Mapping[str, Any], keyword arguments for the method \
             `argparse.ArgumentParser.add_argument`
-        :return: argparse.ArgumentParser, now with the output dir argument
         """
         if not kwargs.get("default"):
             kwargs["default"] = os.path.join(os.getcwd(), name)
@@ -842,7 +867,8 @@ class ArgParser(argparse.ArgumentParser):
         if not kwargs.get("help"):
             kwargs["help"] = "Valid path to local directory to save " \
                 f"{name} files into. If no directory exists at this path " \
-                "yet, then one will be created. Output path defaults to " \
+                "yet, then one will be created. By default, this script " \
+                "will save output files into a directory at this path: " \
                 + kwargs["default"]
         self.add_argument(
             f"-{name[0]}", f"-{name}", f"--{name}", f"--{name}-dir",

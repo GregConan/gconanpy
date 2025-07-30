@@ -67,7 +67,7 @@ class TestCryptionary(DictTester):
     TEST_CLASSES: CLASSES = (
         Cryptionary, InvertCryptionary, SubCryptionary)
 
-    def test_getitem(self, args_type: type = DotDict,
+    def test_getitem(self, args_type: type[DotDict] = DotDict,
                      classes: CLASSES = TEST_CLASSES) -> None:
         for dict_class in classes:
             cli_args = self.build_cli_args(args_type, dict_class)
@@ -403,7 +403,8 @@ class TestDotDicts(DictTester):
     def test_lookup(self, classes: CLASSES = TEST_CLASSES,
                     crypty_type: type = Cryptionary) -> None:
         for DictClass in classes:
-            TestDictFunctions().test_lookup(DictClass.lookup, DictClass, crypty_type)
+            TestDictFunctions().test_lookup(
+                DictClass.lookup, DictClass, crypty_type)
 
     def test_protected(self, classes: CLASSES = (
             FancyDict, LazyDotDict)) -> None:
