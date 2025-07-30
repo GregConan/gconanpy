@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-07-28
+Updated: 2025-07-29
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -126,9 +126,7 @@ class TestDictFunctions(DictTester):
                     dict_class: type[dict] = dict,
                     **invert_kwargs: Any) -> None:
         to_invert = dict_class(in_dict)
-        inverted = invert(to_invert, **invert_kwargs)
-        if inverted is None:
-            inverted = to_invert
+        inverted = invert(to_invert, **invert_kwargs) or to_invert
         self.check_result(dict(inverted), out_dict)
 
     @staticmethod

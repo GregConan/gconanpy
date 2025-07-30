@@ -4,7 +4,7 @@
 Classes that wrap other classes to provide additional functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-07-28
+Updated: 2025-07-29
 """
 # Import standard libraries
 import argparse
@@ -58,7 +58,7 @@ class ClassWrapper:
             return result if not isinstance(result, self.superclass) \
                 else subclass(result)  # type: ignore
 
-        # setattr(inner, "__objclass__", subclass)
+        setattr(inner, "__objclass__", subclass)
         setattr(inner, "__self__", subclass)
         inner.__qualname__ = f"{subclass.__name__}.{inner.__name__}"
         return inner
@@ -126,8 +126,7 @@ class ToString(str):
         """
         return self.__class__(super().__add__(value)) if value else self
 
-    @str_wrapper.return_as_its_class  # method returns ToString
-    def __sub__(self, value: str | None) -> str:
+    def __sub__(self, value: str | None) -> Self:
         """ Remove `value` from the end of `self`. Implements `self - value`.
             Defined as a shorter but still intuitive alias for `removesuffix`.
 
@@ -136,7 +135,7 @@ class ToString(str):
             doesn't end with `value` or `if not value`, then \
             `return self` unchanged.
         """
-        return super().removesuffix(value) if value else self
+        return self.__class__(super().removesuffix(value)) if value else self
 
     def enclosed_by(self, affix: str) -> Self:
         """
@@ -462,7 +461,6 @@ class ToString(str):
         :return: ToString, _description_
         """
         join_on = cls(join_on)
-        # quotate = cls.get_quotator(quote, quote_numbers, list_kwargs)
         pair_strings = list()
         for k, v in a_map.items():
             k = cls.quotate(k, quote, quote_numbers) if quote_keys else cls(k)
@@ -561,14 +559,14 @@ class ToString(str):
         """
         return self if not suffix or self.endswith(suffix) else self + suffix
 
-    @str_wrapper.return_as_its_class  # method returns ToString
-    def that_starts_with(self, prefix: str | None) -> str:
+    def that_starts_with(self, prefix: str | None) -> Self:
         """ Prepend `suffix` at index 0 of `self` unless it is already there.
 
         :param prefix: str to prepend to `self`, or None to do nothing.
         :return: ToString beginning with `prefix`.
         """
-        return self if not prefix or self.startswith(prefix) else prefix + self
+        return self if not prefix or self.startswith(prefix) else \
+            self.__class__(prefix) + self
 
     def truncate(self, max_len: int | None = None, suffix: str = "..."
                  ) -> Self:
@@ -639,6 +637,26 @@ class BasicTree(tuple[str, list]):
                 yield child
         for child in self[1]:
             yield from child.walk(depth_first, depth_first)
+
+
+class SoupTree(BasicTree):
+    full: str | tuple[str, str]
+
+    # def toHTML(self) -> str:  # TODO
+
+    @classmethod
+    def from_soup(cls, page_el: bs4.element.PageElement) -> Self:
+        match page_el:
+            case bs4.Tag():
+                ret = (page_el.name,
+                       [cls.from_soup(child) for child in page_el.children])
+            case bs4.element.NavigableString():
+                ret = ("str", list())
+            case _:
+                ret = ("", list())
+        self = cls(ret)
+        self.full = ToString.fromBeautifulSoup(page_el)
+        return self
 
 
 class WrapFunction:  # WrapFunction(partial):

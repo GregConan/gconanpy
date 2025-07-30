@@ -4,7 +4,7 @@
 Functions to import/export data from/to remote files/pages/APIs on the Web.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-13
-Updated: 2025-07-28
+Updated: 2025-07-29
 """
 # Import standard libraries
 from collections.abc import Mapping
@@ -15,14 +15,11 @@ from typing_extensions import Self
 from urllib.parse import parse_qs, urlparse
 import urllib.request
 
-# Import third-party PyPI libraries
-import bs4
-
 # Import local custom libraries
 try:
-    from ..wrappers import BasicTree, ToString
+    from ..wrappers import ToString
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.wrappers import BasicTree, ToString
+    from gconanpy.wrappers import ToString
 
 
 def download_GET(path_URL: str, headers: Mapping[str, Any]) -> Any:
@@ -47,26 +44,6 @@ def download_GET(path_URL: str, headers: Mapping[str, Any]) -> Any:
 
 def read_webpage_at(a_URL: str) -> Any:  # -> urllib.request._UrlopenRet:
     return urllib.request.urlopen(a_URL).read()
-
-
-class SoupTree(BasicTree):
-    full: str | tuple[str, str]
-
-    # def toHTML(self) -> str:  # TODO
-
-    @classmethod
-    def from_soup(cls, page_el: bs4.element.PageElement) -> Self:
-        match page_el:
-            case bs4.Tag():
-                ret = (page_el.name,
-                       [cls.from_soup(child) for child in page_el.children])
-            case bs4.element.NavigableString():
-                ret = ("str", list())
-            case _:
-                ret = ("", list())
-        self = cls(ret)
-        self.full = ToString.fromBeautifulSoup(page_el)
-        return self
 
 
 class URL:

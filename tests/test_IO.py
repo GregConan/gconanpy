@@ -3,15 +3,14 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-08
-Updated: 2025-07-20
+Updated: 2025-07-29
 """
 # Import standard libraries
 import re
 
 # Import local custom libraries
-from gconanpy.IO.web import SoupTree
 from gconanpy.testers import Tester
-from gconanpy.wrappers import Branches
+from gconanpy.wrappers import Branches, SoupTree
 
 
 class TestIOWeb(Tester):

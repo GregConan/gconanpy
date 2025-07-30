@@ -15,8 +15,6 @@ from operator import itemgetter
 from typing import Any, cast, Literal, overload, TypeVar, TYPE_CHECKING
 from typing_extensions import Self
 
-from gconanpy import mapping
-
 # Import variables for type hinting (can't import _typeshed at runtime)
 if TYPE_CHECKING:
     from _typeshed import SupportsRichComparison
@@ -28,15 +26,15 @@ from cryptography.fernet import Fernet
 
 # Import local custom libraries
 try:
-    import attributes
+    from attributes import get_names as get_attr_names
     from debug import Debuggable
-    from iters import Bytesifier, MapSubset, MapWalker
+    from iters import Bytesifier, MapSubset, MapWalker, SimpleShredder
     from meta import DATA_ERRORS, name_of, Traversible
     from trivial import always_none
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy import attributes
+    from gconanpy.attributes import get_names as get_attr_names
     from gconanpy.debug import Debuggable
-    from gconanpy.iters import Bytesifier, MapSubset, MapWalker
+    from gconanpy.iters import Bytesifier, MapSubset, MapWalker, SimpleShredder
     from gconanpy.meta import DATA_ERRORS, name_of, Traversible
     from gconanpy.trivial import always_none
 
@@ -158,8 +156,8 @@ class Defaultionary[KT, VT](Explictionary[KT, VT]):
 
     def setdefaults(self, exclude=set(), **kwargs: VT) -> None:
         """ Fill any missing values in self from kwargs.
-            dict.update prefers to overwrite old values with new ones.
-            setdefaults is basically dict.update that prefers to keep old values.
+            `dict.update` prefers to overwrite old values with new ones.
+            `setdefaults` is like `update`, but prefers to keep old values.
 
         :param exclude: Container[VT], values to overlook/ignore such that \
             if `self` maps `key` to one of those values, then this method \
@@ -176,7 +174,6 @@ class Invertionary(Explictionary):
     _K = bool | Literal["unpack"]  # type[Collection]  # TODO
 
     # def invert(self, keep_keys_in: _KeyBag = None) -> None: ...  # TODO
-
     @overload
     def invert(self, keep_keys: _K = False) -> None: ...
     @overload
@@ -204,14 +201,18 @@ class Invertionary(Explictionary):
             inverted = {v: k for k, v in self.items()}
 
         else:  # If we ARE keeping all keys mapped to the same value, then:
-            # Avoid conflating keys & values
-            inverted = defaultdict(list)
+            inverted = defaultdict(list)  # Avoid conflating keys & values
 
-            for key, value in self.items():  # Swap values with keys
-                if keep_keys == "unpack":  # TODO Use Shredder for recursion?
-                    for subval in value:
+            # "Shred" each iterable value to map each of its elements to key
+            if keep_keys == "unpack":
+                shredder = SimpleShredder()
+                for key, value in self.items():
+                    for subval in shredder.shred(value):
                         inverted[subval].append(key)
-                else:
+                    shredder.reset()
+
+            else:  # If keep_keys=True, then simply keep the keys in a list
+                for key, value in self.items():
                     inverted[value].append(key)
         if copy:
             return self.__class__(inverted)
@@ -332,7 +333,8 @@ class Updationary[KT, VT](Explictionary[KT, VT]):
 
 class Walktionary[KT, VT](Explictionary[KT, VT]):
     def walk(self, only_yield_maps: bool = True) -> MapWalker:
-        """ Recursively iterate over this dict and every dict inside it.
+        """ Recursively iterate over this dict and every dict inside it. \
+            Defined explicitly to make `only_yield_maps` default to False.
 
         :param only_yield_maps: bool, True for this iterator to return \
             key-value pairs only if the value is also a Mapping; else False \
@@ -345,11 +347,17 @@ class Walktionary[KT, VT](Explictionary[KT, VT]):
 
 class OverlapPercents[Sortable: SupportsRichComparison
                       ](Explictionary[str, Sortionary[Sortable, float]]):
-    def __init__(self, **collectns: Collection[Sortable]) -> None:
-        for collecname, collec in collectns.items():
+    def __init__(self, **collecs: Collection[Sortable]) -> None:
+        """ Calculate what percentage of the elements of each `Collection` \
+            are also in each other `Collection`.
+
+        :param collecs: Mapping[str, Collection[Sortable]] of each \
+            `Collection`'s name to its elements.
+        """
+        for collecname, collec in collecs.items():
             # Define & fill before adding to self in order to appease pylance
             sorty = Sortionary()
-            for othername, othercollns in collectns.items():
+            for othername, othercollns in collecs.items():
                 sorty[othername] = \
                     len(collec) / len(set(collec) | set(othercollns))
 
@@ -394,7 +402,7 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
 
         # Prevent overwriting method/attributes or treating them like items
         dict.__setattr__(self, self.PROTECTEDS,
-                         {self.PROTECTEDS}.union(attributes.get_names(self)))
+                         {self.PROTECTEDS}.union(get_attr_names(self)))
 
     def __delattr__(self, name: KT) -> None:
         """ Implement `delattr(self, name)`. Same as `del self[name]`.
@@ -430,7 +438,7 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
                 raise err from None  # Only show 1 exception in the traceback
 
     def __getstate__(self) -> Self:
-        """ Required for pickling per https://stackoverflow.com/a/36968114 """
+        """ Returns self unchanged. Required for pickling. """
         return self
 
     def __setattr__(self, name: KT, value: Any) -> None:
@@ -459,9 +467,9 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
         return super(DotDict, self).__setitem__(key, value)
 
     def __setstate__(self, state: Mapping) -> None:
-        """ Required for pickling per https://stackoverflow.com/a/36968114
+        """ Required for pickling.
 
-        :param state: Mapping, _description_
+        :param state: Mapping of key-value pairs to update this `DotDict` with.
         """
         self.update(state)
         self.__dict__: dict[KT, Any] = self
@@ -701,10 +709,11 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
             self.debug_or_raise(e, locals())
 
     def __setitem__(self, key: Hashable, value: Any) -> None:
-        """ Set self[dict_key] to dict_value after encrypting dict_value.
+        """ Set `self[dict_key]` to `dict_value` after encrypting \
+            `dict_value` if possible.
 
         :param key: Hashable, key mapped to the value to retrieve.
-        :param value: SupportsBytes, value to encrypt and store.
+        :param value: Any, value to encrypt (if it `SupportsBytes`) and store.
         """
         try:
             bytesified = self.try_bytesify(value)
@@ -732,7 +741,7 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
                 self[k] = v
 
 
-class LazyDotDict[KT, VT](DotDict, LazyDict[KT, VT]):
+class LazyDotDict[KT: str, VT](DotDict[KT, VT], LazyDict[KT, VT]):
     """ LazyDict with dot.notation item access. It can get/set items...
 
     ...as object-attributes: `self.item is self['item']`. Benefit: You can \
@@ -750,7 +759,7 @@ class LazyDotDict[KT, VT](DotDict, LazyDict[KT, VT]):
     Keeps most core functionality of the Python `dict` type. """
 
 
-class DotPromptionary[KT, VT](DotDict, Promptionary[KT, VT]):
+class DotPromptionary[KT: str, VT](LazyDotDict[KT, VT], Promptionary[KT, VT]):
     """ Promptionary with dot.notation item access. """
 
 
@@ -758,10 +767,10 @@ class SubCryptionary[KT, VT](Cryptionary, Subsetionary[KT, VT]):
     """ Cryptionary with subset access/creation methods. """
 
 
-class FancyDict[KT: SupportsRichComparison, VT: SupportsRichComparison
+class FancyDict[KT: str, VT: SupportsRichComparison
                 ](DotPromptionary[KT, VT], Invertionary, Sortionary[KT, VT],
                   Subsetionary[KT, VT], Walktionary[KT, VT]):
     """ Custom dict combining as much functionality from the other classes \
-        defined in this file and in `maptools.py` as possible: lazy methods, \
-        enhanced default/update methods, prompt methods, invert method, \
-        to/from subset methods, walk method, and dot.notation item access. """
+        defined in this file as possible: enhanced default/update methods; \
+        lazy methods; methods to invert, sort, or walk the dict; prompt \
+        methods; to/from subset methods; and dot.notation item access. """

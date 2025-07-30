@@ -4,7 +4,7 @@
 Classes that parse strings and text data, especially using Regex.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
-Updated: 2025-07-28
+Updated: 2025-07-29
 """
 # Import standard libraries
 from collections.abc import Container, Generator
@@ -78,7 +78,7 @@ class Regextract:
         \)"""  # Get everything before the closing parenthesis
     # _PARENTHETICALS = r"\((?:[^()]*(?R)?)*+\)"  # NOTE Functionally same?
 
-    # Convert output of Python repr() function to its valid name.
+    # Convert output of Python repr() function to its valid (qual)name.
     PY_REPR_TO_NAME = regex.compile(r"""
         <  # If it's enclosed in angle brackets, then extract the name
         (?:.*  # Ignore everything before the name

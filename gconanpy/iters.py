@@ -5,14 +5,14 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-07-28
+Updated: 2025-07-29
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Container, Generator, \
     Hashable, Iterable, Mapping, Sequence
 from functools import reduce
 import itertools
-import more_itertools
+from more_itertools import all_equal
 import random
 import string
 import sys
@@ -25,10 +25,11 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.meta import method, Traversible, Updatable
 
 # Constant: TypeVars for...
+I = TypeVar("I", bound=Iterable)  # ...combine
 S = TypeVar("S")  # ...differentiate_sets
 U = TypeVar("U", bound=Updatable)  # ...merge
 
-# NOTE All functions/classes below are in alphabetical order.
+# NOTE Functions are in alphabetical order. Classes are in dependency order.
 
 
 def are_all_equal(comparables: Iterable, eq_meth: str | None = None,
@@ -49,7 +50,7 @@ def are_all_equal(comparables: Iterable, eq_meth: str | None = None,
         otherwise False.
     """
     if not eq_meth:
-        result = more_itertools.all_equal(comparables)
+        result = all_equal(comparables)
     else:
         are_both_equal = method(eq_meth)
         pair_up = itertools.permutations if reflexive \
@@ -100,7 +101,7 @@ def differentiate_sets(sets: list[set[S]]) -> list[set[S]]:
 
 
 def have_same_elements(*settables: Iterable) -> bool:
-    return more_itertools.all_equal((set(an_obj) for an_obj in settables))
+    return all_equal(set(an_obj) for an_obj in settables)
 
 
 def merge(updatables: Iterable[U]) -> U:
@@ -258,52 +259,6 @@ class MapSubset:
         return as_type(filtered)
 
 
-class Combinations:
-    _T = TypeVar("_T")
-    _Map = TypeVar("_Map", bound=Mapping)
-
-    @classmethod
-    def excluding(cls, objects: Collection[_T], exclude: Iterable[_T]
-                  ) -> Generator[tuple[_T, ...], None, None]:
-        excluset = set(exclude)
-        for combo in cls.of_seq(objects):
-            if set(combo).isdisjoint(excluset):
-                yield combo
-
-    @staticmethod
-    def of_bools(n: int) -> Generator[tuple[bool, ...], None, None]:
-        """
-        :param n: int, maximum length of each tuple to yield.
-        :yield: Generator[tuple[bool, ...], None, None], all possible \
-            combinations of `n` boolean values.
-        """
-        for conds in itertools.product((True, False), repeat=n):
-            yield tuple(conds)
-
-    @classmethod
-    def of_map(cls, a_map: _Map) -> Generator[_Map, None, None]:
-        """ Given a mapping, yield each possible subset of its item pairs.
-        `d={1:1, 2:2}; Combinations.of_map(d)` yields `{1:1}`, `{2:2}`, & `d`.
-
-        :param a_map: _Map, _description_
-        :yield: Generator[_Map, None, None], _description_
-        """
-        for keys in cls.of_seq(a_map):
-            yield MapSubset(keys=keys, include_keys=True).of(a_map)
-
-    @staticmethod
-    def of_seq(objects: Collection[_T]) -> itertools.chain[tuple[_T, ...]]:
-        """ Return all possible combinations/subsequences of `objects`.
-        Adapted from https://stackoverflow.com/a/31474532
-
-        :param objects: Collection[_T]
-        :return: itertools.chain[Collection], all `objects` combinations
-        """
-        return itertools.chain.from_iterable(
-            itertools.combinations(objects, i + 1)
-            for i in range(len(objects)))
-
-
 class SimpleShredder(Traversible):
     SHRED_ERRORS = (AttributeError, TypeError)
 
@@ -360,6 +315,52 @@ class SimpleShredder(Traversible):
         self.parts: set = set()
 
     __init__ = reset
+
+
+class Combinations:
+    _T = TypeVar("_T")
+    _Map = TypeVar("_Map", bound=Mapping)
+
+    @classmethod
+    def excluding(cls, objects: Collection[_T], exclude: Iterable[_T]
+                  ) -> Generator[tuple[_T, ...], None, None]:
+        excluset = set(exclude)
+        for combo in cls.of_seq(objects):
+            if set(combo).isdisjoint(excluset):
+                yield combo
+
+    @staticmethod
+    def of_bools(n: int) -> Generator[tuple[bool, ...], None, None]:
+        """
+        :param n: int, maximum length of each tuple to yield.
+        :yield: Generator[tuple[bool, ...], None, None], all possible \
+            combinations of `n` boolean values.
+        """
+        for conds in itertools.product((True, False), repeat=n):
+            yield tuple(conds)
+
+    @classmethod
+    def of_map(cls, a_map: _Map) -> Generator[_Map, None, None]:
+        """ Given a mapping, yield each possible subset of its item pairs.
+        `d={1:1, 2:2}; Combinations.of_map(d)` yields `{1:1}`, `{2:2}`, & `d`.
+
+        :param a_map: _Map, _description_
+        :yield: Generator[_Map, None, None], _description_
+        """
+        for keys in cls.of_seq(a_map):
+            yield MapSubset(keys=keys, include_keys=True).of(a_map)
+
+    @staticmethod
+    def of_seq(objects: Collection[_T]) -> itertools.chain[tuple[_T, ...]]:
+        """ Return all possible combinations/subsequences of `objects`.
+        Adapted from https://stackoverflow.com/a/31474532
+
+        :param objects: Collection[_T]
+        :return: itertools.chain[Collection], all `objects` combinations
+        """
+        return itertools.chain.from_iterable(
+            itertools.combinations(objects, i + 1)
+            for i in range(len(objects)))
 
 
 class IterableMap:

@@ -4,7 +4,7 @@
 Useful/convenient functions for dicts (taken from dicts.py class methods).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-07-28
+Updated: 2025-07-29
 """
 # Import standard libraries
 from collections import defaultdict
@@ -23,9 +23,11 @@ else:
 
 # Import local custom libraries
 try:
+    from ..iters import SimpleShredder
     from ..meta import DATA_ERRORS
     from ..trivial import always_none
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from gconanpy.iters import SimpleShredder
     from gconanpy.meta import DATA_ERRORS
     from gconanpy.trivial import always_none
 
@@ -211,12 +213,17 @@ def invert(a_dict: dict[_KT, _VT],
     else:  # If we ARE keeping all keys mapped to the same value, then:
         inverted = defaultdict(list)  # Avoid conflating keys & values
 
-        for key, value in a_dict.items():  # Swap values with keys
-            if keep_keys == "unpack":  # TODO Use Shredder for recursion?
-                for subval in cast(Iterable, value):
+        # "Shred" each iterable value to map each of its elements to each key
+        if keep_keys == "unpack":
+            shredder = SimpleShredder()
+            for key, value in a_dict.items():
+                for subval in shredder.shred(value):
                     inverted[subval].append(key)
-            else:
+                shredder.reset()
+        else:  # If keep_keys=True, then simply keep the keys in a list
+            for key, value in a_dict.items():
                 inverted[value].append(key)
+
         inverted = dict(inverted)
     return inverted
 
