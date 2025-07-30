@@ -217,7 +217,7 @@ class AttrsOf:
     def __init__(self, what: Any) -> None:
         """ 
         :param what: Any, the object to select/iterate/copy attributes of. \
-            "Attributes of what?" <==> `attributes.Of(what)`
+            "Attributes of what?" <==> `attributes.AttrsOf(what)`
         """
         self.names = get_names(what)  # set(dir(what))
         self.what = what
