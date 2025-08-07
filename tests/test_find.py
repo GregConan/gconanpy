@@ -11,7 +11,7 @@ from typing import Any
 
 # Import local custom libraries
 from gconanpy.debug import ShowTimeTaken
-from gconanpy.find import iterfind, modifind, ReadyChecker, UntilFound
+from gconanpy.iters.find import iterfind, modifind, ReadyChecker, UntilFound
 from gconanpy.testers import Tester
 
 # Import third-party PyPI libraries

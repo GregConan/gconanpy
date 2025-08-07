@@ -17,18 +17,18 @@ try:
     from debug import Debuggable
     from iters import (are_all_equal, differentiate_sets,
                        MapSubset, SimpleShredder)
+    from iters.seq import uniqs_in
     from meta import (Comparer, DATA_ERRORS, has_method,
                       IgnoreExceptions, IteratorFactory, name_of)
-    from seq import uniqs_in
     from trivial import always_true, get_key_set
     from wrappers import stringify_iter
 except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.debug import Debuggable
     from gconanpy.iters import (are_all_equal, differentiate_sets,
                                 MapSubset, SimpleShredder)
+    from gconanpy.iters.seq import uniqs_in
     from gconanpy.meta import (Comparer, DATA_ERRORS, has_method,
                                IgnoreExceptions, IteratorFactory, name_of)
-    from gconanpy.seq import uniqs_in
     from gconanpy.trivial import always_true, get_key_set
     from gconanpy.wrappers import stringify_iter
 

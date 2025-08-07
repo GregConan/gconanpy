@@ -732,7 +732,7 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
         """
         map_iters: list[Iterable] = [kwargs.items()]
         match from_map:
-            case dict():
+            case Mapping():
                 map_iters.append(from_map.items())
             case tuple():
                 map_iters.append(from_map)

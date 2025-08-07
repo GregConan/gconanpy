@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-07-28
+Updated: 2025-08-02
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
@@ -112,9 +112,12 @@ class MatcherBase(dict[tuple[bool, ...], Any]):
     @classmethod
     def as_conds_combo(cls, conds: _KT) -> tuple[bool, ...]:
         match conds:
-            case dict():
+            case Mapping():
                 combo = cls.ConditionCombo(**conds)
-            case tuple() | list():
+            case str():
+                combo = cls.conds_in((conds, )) if conds in cls.conditions \
+                    else cls.conds_in(conds.split())
+            case Sequence():
                 conds_types = {type(c) for c in conds}
                 if conds_types == {bool}:
                     combo = cls.ConditionCombo(**{cls.conditions[i]: conds[i]
@@ -123,9 +126,6 @@ class MatcherBase(dict[tuple[bool, ...], Any]):
                     combo = cls.conds_in(conds)
                 else:
                     raise TypeError(f"Cannot parse conditions {conds}")
-            case str():
-                combo = cls.conds_in((conds, )) if conds in cls.conditions \
-                    else cls.conds_in(conds.split())
             case cls.ConditionCombo():
                 combo = conds
             case bool() | None:

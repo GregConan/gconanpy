@@ -18,7 +18,7 @@ import pandas as pd
 # Import local custom libraries
 try:
     from wrappers import stringify
-except ModuleNotFoundError:  # TODO DRY?
+except (ImportError, ModuleNotFoundError):  # TODO DRY?s
     from gconanpy.wrappers import stringify
 
 # NOTE All functions/classes below are in alphabetical order.

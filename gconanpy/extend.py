@@ -3,16 +3,18 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2025-07-28
+Updated: 2025-08-06
 """
 # Import standard libraries
+import abc
 from collections.abc import (Callable, Container, Generator,
                              Iterable, Iterator, Mapping)
 import graphlib
 import inspect
 import re
+import sys
 from types import ModuleType
-from typing import Any
+from typing import Any, cast
 
 # Import third-party PyPI libraries
 from makefun import create_function, with_signature
@@ -20,13 +22,13 @@ from makefun import create_function, with_signature
 # Import local custom libraries
 try:
     import attributes
-    from iters import merge
-    from meta import HasSlots, name_of, pairs
+    from iters import MapSubset, merge
+    from meta import HasSlots, name_of
     from wrappers import ToString
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy import attributes
-    from gconanpy.iters import merge
-    from gconanpy.meta import HasSlots, name_of, pairs
+    from gconanpy.iters import MapSubset, merge
+    from gconanpy.meta import HasSlots, name_of
     from gconanpy.wrappers import ToString
 
 
@@ -40,8 +42,21 @@ def all_annotations_of(a_class: type) -> dict[str, type]:
     :return: dict[str, type], the `__annotations__` of `a_class` and all of \
         its parent (`__mro__`) classes, prioritizing `a_class`'s annotations
     """
-    return merge([getattr(base, "__annotations__", dict())
+    return merge([cast(dict, getattr(base, "__annotations__", dict()))
                   for base in reversed(a_class.__mro__)])
+
+
+def all_type_classes() -> dict[str, type | abc.ABCMeta]:
+    """
+    :return: dict[str, type | abc.ABCMeta] mapping names to type classes
+    """
+    type_modules = MapSubset(keys=("builtins", "collections", "types",
+                                   "typing", "collections.abc"),
+                             include_keys=True).of(sys.modules)
+    return {name: value for class_module in type_modules.values()
+            for name, value in vars(class_module).items()
+            if isinstance(value, (type, abc.ABCMeta)
+                          ) and not name.startswith("_")}
 
 
 def classes_in_module(module: ModuleType) -> Generator[tuple[str, type],
@@ -181,8 +196,8 @@ def signature_extends(func: Callable,
     :return: Callable[[Callable], Callable], Wrapper, function decorator to \
         add the specified input arguments to a given method/function `func`
     """
-    for param, attr in pairs("doc", "qualname", func_name="name",
-                             module_name="module"):
+    for param, attr in dict(doc="doc", qualname="qualname", func_name="name",
+                            module_name="module").items():
         kwargs.setdefault(param, getattr(func, f"__{attr}__", default))
 
     old_params = inspect.signature(func).parameters

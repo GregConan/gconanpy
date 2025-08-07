@@ -3,13 +3,14 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-07
-Updated: 2025-07-28
+Updated: 2025-08-06
 """
 # Import standard libraries
 import builtins
 from collections import defaultdict
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Collection, Generator, Iterable
 from copy import deepcopy
+import itertools
 from pprint import pprint
 import random
 import string
@@ -22,7 +23,8 @@ import pandas as pd
 # Import local custom libraries
 from gconanpy import attributes
 from gconanpy.debug import StrictlyTime
-from gconanpy.iters import Combinations
+from gconanpy.iters import Combinations, Randoms
+from gconanpy.iters.duck import DuckCollection
 from gconanpy.mapping.dicts import Cryptionary, Defaultionary, DotDict, \
     Explictionary, LazyDict, LazyDotDict
 from gconanpy.meta import Boolable, MultiTypeMeta, name_of, names_of, TimeSpec
@@ -159,6 +161,90 @@ class TestAttributesOf(Tester):
         self.check_lazy(obj, "foo", ATTR_LAZIES)
 
 
+class TestDuckCollection(Tester):
+    COLLECTYPES = {list, set, tuple}
+    EXAMPLES = {"This is a sample string": {list, set, tuple, str},
+                ("This", "is", "a", "string", "tuple"): COLLECTYPES}
+
+    def examples(self) -> Generator[tuple[Any, DuckCollection], None, None]:
+        for value, collectypes in self.EXAMPLES.items():
+            for collectype in collectypes:
+                yield value, DuckCollection(collectype(value))
+
+    @staticmethod
+    def rand_int_ducks() -> tuple[int, DuckCollection[int]]:
+        n_ints = random.randint(Randoms.MIN, Randoms.MAX)
+        return n_ints, DuckCollection(list(Randoms.randints(min_n=n_ints,
+                                                            max_n=n_ints)))
+
+    def test_add(self) -> None:
+        for value, ducks in self.examples():
+            old_len = len(ducks)
+            ducks.add(value[-5:])
+            assert value[-5:] in ducks
+            assert len(ducks) in {old_len + len(value[-5:]), old_len + 1}
+
+    def test_clear(self) -> None:
+        self.add_basics()
+        for collectype in self.COLLECTYPES:
+            ducks = DuckCollection(collectype(self.alist))
+            ducks.clear()
+            self.check_result(ducks.ducks, collectype())
+
+    def test_eq_False(self, n: int = 10) -> None:
+        self.add_basics()
+        for _ in range(n):
+            # Make 2 equal lists of ducks (ints)
+            sublist = Randoms.randsublist(self.alist, min_len=1)
+            ducks = DuckCollection(sublist)
+            ducks2 = DuckCollection(sublist.copy())
+            self.check_result(ducks, ducks2)
+
+            # Append a redundant element to differentiate them
+            ducks2.add(ducks2.get())
+            assert ducks2 != ducks
+            assert ducks2 != DuckCollection(set(ducks2))
+
+    def test_eq_True(self) -> None:
+        self.add_basics()
+        for type1, type2 in Combinations.of_uniques(self.COLLECTYPES, 2, 2):
+            for sublist in Combinations.of_uniques(self.alist, max_n=4):
+                self.check_result(DuckCollection(type1(sublist)),
+                                  DuckCollection(type2(sublist)))
+
+    def test_get_and_pop_ix(self) -> None:
+        n_ints, ints = self.rand_int_ducks()
+        for i in range(n_ints - 1, 0, -1):
+            assert ints.get(i) == ints.pop(i)
+
+    def test_get_and_pop_rand_ix(self, n_tests: int = 10) -> None:
+        for _ in range(n_tests):
+            n_ints, ints = self.rand_int_ducks()
+            for _ in range(n_ints - 1):
+                old_len = len(ints)
+                pop_ix = random.randint(0, old_len - 1)
+                to_pop = ints.get(pop_ix)
+                popped = ints.pop(pop_ix)
+                self.check_result(popped, to_pop)
+                assert ints.get(pop_ix) != to_pop
+
+    def test_pop_no_ix(self) -> None:
+        for value, ducks in self.examples():
+            old_len = len(ducks)
+            if not isinstance(ducks.ducks, set):
+                to_pop = value[-1]
+            popped = ducks.pop()
+            if not isinstance(ducks.ducks, set):
+                self.check_result(popped, to_pop)
+            self.check_result(len(ducks), old_len - 1)
+
+    def test_remove(self) -> None:
+        for value, ducks in self.examples():
+            old_len = len(ducks)
+            ducks.remove(value[0])
+            self.check_result(len(ducks), old_len - 1)
+
+
 class TestMetaClasses(Tester):
     _T = TypeVar("_T")
 
@@ -184,7 +270,7 @@ class TestMetaClasses(Tester):
         self.assert_that_all((pd.DataFrame(), pd.Series()), isnt_a=Boolable)
 
     def test_TimeSpec(self) -> None:
-        spec = TimeSpec()
+        spec = TimeSpec()  # TODO?
 
 
 class TestMetaFunctions(Tester):

@@ -4,17 +4,29 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-07-28
+Updated: 2025-08-07
 """
 # Import standard libraries
 import abc
+import builtins
 from collections.abc import Callable, Collection, Container, \
-    Generator, Hashable, Iterable, Iterator, Mapping
+    Hashable, Iterable, Iterator, Mapping, Sequence
 import operator
 # from operator import attrgetter, methodcaller  # TODO?
 from typing import Any, get_args, Literal, Protocol, NamedTuple, \
-    no_type_check, overload, runtime_checkable, SupportsFloat, TypeVar
+    no_type_check, overload, runtime_checkable, SupportsFloat, \
+    TypeVar, TYPE_CHECKING
 from typing_extensions import Self
+
+
+if TYPE_CHECKING:
+    from _typeshed import SupportsItemAccess
+else:  # Can't import _typeshed at runtime, so define its imports manually
+    class SupportsItemAccess:
+        def __contains__(self, x, /): ...
+        def __getitem__(self, key, /): ...
+        def __setitem__(self, key, value, /): ...
+        def __delitem__(self, key, /): ...
 
 # Purely "internal" errors only involving local data; ignorable in some cases
 DATA_ERRORS = (AttributeError, IndexError, KeyError, TypeError, ValueError)
@@ -24,8 +36,22 @@ CALL_2ARG = Callable[[Any, Any], Any]
 CALL_3ARG = Callable[[Any, Any, Any], Any]
 
 
+def areinstances(objects: Iterable, of_what: type | tuple[type, ...]) -> bool:
+    for each_obj in objects:
+        if not isinstance(each_obj, of_what):
+            return False
+    return True
+
+
 def bool_pair_to_cases(cond1, cond2) -> int:  # TODO cond*: Boolable
     return sum({x + 1 for x in which_of(cond1, cond2)})
+
+
+def geteverything() -> dict[str, Any]:
+    """ 
+    :return: dict[str, Any], every global and built-in variable
+    """
+    return {**globals(), **vars(builtins)}
 
 
 def has_method(an_obj: Any, method_name: str) -> bool:
@@ -94,24 +120,6 @@ def names_of(objects: Collection, max_n: int | None = None,
         [get_name(x) for i, x in enumerate(objects) if i < max_n]
 
 
-def pairs(*args: Any, **kwargs: Any
-          ) -> Generator[tuple[Any, Any], None, None]:
-    """ Iterate over pairs of items. Used for avoiding creating a dict only \
-        to iterate over it, especially when some pairings are redundant.
-
-    :param args: Iterable, arguments to iterate over first; each pair \
-        iterated over will be two instances of each arg in `args`.
-    :param kwargs: Mapping, arguments to iterate over second; each pair \
-        iterated over will be each key-value mapping/pair in `kwargs`.
-
-    :yield: Generator[tuple[Any, Any], None, None]
-    """
-    for arg in args:
-        yield (arg, arg)
-    for key, value in kwargs.items():
-        yield (key, value)
-
-
 def tuplify(an_obj: Any, split_string: bool = False) -> tuple:
     """
     :param an_obj: Any, object to convert into a tuple.
@@ -145,22 +153,16 @@ class HasSlots(abc.ABC):
 
 
 @runtime_checkable
-class Updatable(Protocol):
-    """ Any object or class with an `update` method is an `Updatable`.
-        `dict`, `MutableMapping`, and `set` are each `Updatable`. """
-    update: Callable
+class Poppable[T](Protocol):
+    def pop(self, *_) -> T: ...
 
 
 @runtime_checkable
-class MutableItemStore(Protocol):
-    """
-    Any Container that can get, set, and delete items is a MutableItemStore.
-    """
+class Updatable(Protocol):
+    """ Any object or class with an `update` method is an `Updatable`.
+        `dict`, `MutableMapping`, and `set` are each `Updatable`. """
 
-    def __contains__(self, key, /) -> bool: ...
-    def __delitem__(self, key, /) -> None: ...
-    def __getitem__(self, key, /) -> Any: ...
-    def __setitem__(self, key, value, /) -> None: ...
+    def update(self, *_args, **_kwargs): ...
 
 
 class HumanBytes:
@@ -274,11 +276,12 @@ class MultiTypeMeta(type, abc.ABC):
 
 
 class BytesOrStrMeta(MultiTypeMeta):
-    IS_A = (bytes, str)
+    IS_A = (bytes, str, bytearray)
 
 
 class BytesOrStr(metaclass=BytesOrStrMeta):
-    """ Any instance of `bytes` or `str` is a `BytesOrStr` instance. """
+    """ Any `bytes`, `str`, or `bytearray` instance is also an instance \
+        of the `BytesOrStr` class. """
 
 
 class PureIterableMeta(MultiTypeMeta):
@@ -288,6 +291,31 @@ class PureIterableMeta(MultiTypeMeta):
 
 class PureIterable(metaclass=PureIterableMeta):
     """ Iterables that aren't strings, bytes, or Mappings are "Pure." """
+
+
+class NonTxtColMeta(MultiTypeMeta):
+    IS_A = (Collection, )
+    ISNT_A = (str, bytes, bytearray)
+
+
+class NonTxtCollection(metaclass=NonTxtColMeta):
+    """ All Collections except `str`, bytes, & `bytearray` are \
+        `NonTxtCollection`s. """
+
+
+class AddSeqMeta(type):
+
+    def __instancecheck__(cls, instance: Any) -> bool:
+        return isinstance(instance, Sequence) and \
+            has_method(instance, "__add__")
+
+    def __subclasscheck__(cls, subclass: Any) -> bool:
+        return issubclass(subclass, Sequence) and \
+            has_method(subclass, "__add__")
+
+
+class AddableSequence(metaclass=AddSeqMeta):
+    """ Any Sequence with an `__add__` method is an `AddableSequence`. """
 
 
 class Traversible:
@@ -312,7 +340,7 @@ class Recursively:
     _KT = Hashable | tuple[Hashable, ...]
 
     @staticmethod
-    def getitem(an_obj: MutableItemStore, key: _KT) -> Any:
+    def getitem(an_obj: SupportsItemAccess, key: _KT) -> Any:
         for k in tuplify(key):
             an_obj = an_obj[k]
         return an_obj
@@ -324,7 +352,7 @@ class Recursively:
                            cls.getattribute(an_obj, *attr_names[1:]))
 
     @classmethod
-    def setitem(cls, an_obj: MutableItemStore, key: _KT, value: Any) -> None:
+    def setitem(cls, an_obj: SupportsItemAccess, key: _KT, value: Any) -> None:
         keys = tuplify(key)
         if len(keys) == 1:
             an_obj[keys[0]] = value

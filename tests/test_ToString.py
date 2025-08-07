@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-07-28
+Updated: 2025-08-03
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable
@@ -102,6 +102,16 @@ class TestStringify(Tester):
         expected = "/home/gconan/delete-this-git-diff_" \
             f"{dt.date.today().isoformat()}.txt"
         self.check_ToString(str_fpath, expected)
+
+    def test_fromAny_Callable(self) -> None:
+        for fn in (all, any, callable, cast, dict, isinstance, issubclass,
+                   list, map, name_of, reversed, str, stringify, tuple, type):
+            self.check_ToString(stringify(fn), name_of(fn, "__qualname__"))
+
+    def test_fromAny_str(self) -> None:
+        for astr in ("hello", "world"):
+            self.check_ToString(stringify(astr, prefix="[", suffix="]"),
+                                f"[{astr}]")
 
     def test_fromBeautifulSoup_1(self) -> None:
         soup = self.get_soup()

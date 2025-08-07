@@ -5,7 +5,7 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-07-29
+Updated: 2025-08-03
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Container, Generator, \
@@ -20,9 +20,9 @@ from typing import Any, overload, SupportsBytes, TypeVar
 
 # Import local custom libraries
 try:
-    from meta import method, Traversible, Updatable
+    from meta import method, Poppable, Traversible, Updatable
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.meta import method, Traversible, Updatable
+    from gconanpy.meta import method, Poppable, Traversible, Updatable
 
 # Constant: TypeVars for...
 I = TypeVar("I", bound=Iterable)  # ...combine
@@ -71,7 +71,7 @@ def combine_lists(lists: Iterable[list]) -> list:
     return list(itertools.chain.from_iterable(lists))
 
 
-def default_pop(poppable: Any, key: Any = None,
+def default_pop(poppable: Poppable, key: Any = None,
                 default: Any = None) -> Any:
     """
     :param poppable: Any object which implements the .pop() method
@@ -150,6 +150,8 @@ class Bytesifier:
                 bytesified = int.to_bytes(an_obj, **defaults)
             case str():
                 bytesified = str.encode(an_obj, encoding=encoding)
+            case SupportsBytes():
+                bytesified = bytes(an_obj)
             case _:
                 raise TypeError(f"Object {an_obj} cannot be "
                                 "converted to bytes")
@@ -197,7 +199,7 @@ class Randoms:
 
     @staticmethod
     def randsublist(seq: Sequence[_T], min_len: int = 0,
-                    max_len: int = 100) -> list[_T]:
+                    max_len: int = MAX) -> list[_T]:
         return random.choices(seq, k=random.randint(
             min_len, min(max_len, len(seq))))
 
@@ -318,12 +320,21 @@ class SimpleShredder(Traversible):
 
 
 class Combinations:
+    _H = TypeVar("_H", bound=Hashable)
     _T = TypeVar("_T")
     _Map = TypeVar("_Map", bound=Mapping)
 
     @classmethod
     def excluding(cls, objects: Collection[_T], exclude: Iterable[_T]
                   ) -> Generator[tuple[_T, ...], None, None]:
+        """ Return all possible combinations/subsequences of `objects`, \
+            excluding certain objects.
+
+        :param objects: Collection[_T] to get combinations of
+        :param exclude: Iterable[_T], objects not to include in combinations
+        :yield: Generator[tuple[_T, ...], None, None], all combinations of \
+            `objects` excluding the values in `exclude`.
+        """
         excluset = set(exclude)
         for combo in cls.of_seq(objects):
             if set(combo).isdisjoint(excluset):
@@ -355,12 +366,32 @@ class Combinations:
         """ Return all possible combinations/subsequences of `objects`.
         Adapted from https://stackoverflow.com/a/31474532
 
-        :param objects: Collection[_T]
+        :param objects: Collection[_T] to get combinations of
         :return: itertools.chain[Collection], all `objects` combinations
         """
         return itertools.chain.from_iterable(
             itertools.combinations(objects, i + 1)
             for i in range(len(objects)))
+
+    @classmethod
+    def of_uniques(cls, objects: Collection[_H], min_n: int = 1,
+                   max_n: int | None = None
+                   ) -> Generator[tuple[_H, ...], None, None]:
+        """ Get every combination of unique `objects`.
+
+        :param objects: Collection[_H: Hashable] to get combinations of
+        :param min_n: int, smallest yielded tuple length; defaults to 1
+        :param max_n: int | None, largest yielded tuple length; defaults 
+            to None, meaning the number of `objects` (its length)
+        :yield: Generator[tuple[_H, ...], None, None], each combination of \
+            `objects` with no repeated values
+        """
+        if max_n is None:
+            max_n = len(objects)
+        for n in range(min_n, max_n + 1):
+            for combo in itertools.product(objects, repeat=n):
+                if len(set(combo)) == len(combo):
+                    yield combo
 
 
 class IterableMap:

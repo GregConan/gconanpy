@@ -21,14 +21,14 @@ from bs4 import BeautifulSoup
 try:
     from attributes import AttrsOf
     from extend import classes_in_module
-    from find import ErrIterChecker
     from iters import MapSubset, powers_of_ten
+    from iters.find import ErrIterChecker
     from . import mapping, ROOT_DIR
     from meta import has_method, name_of
 except (ImportError, ModuleNotFoundError):
     from gconanpy.attributes import AttrsOf
     from gconanpy.extend import classes_in_module
-    from gconanpy.find import ErrIterChecker
+    from gconanpy.iters.find import ErrIterChecker
     from gconanpy.iters import MapSubset, powers_of_ten
     from gconanpy import mapping, ROOT_DIR
     from gconanpy.meta import has_method, name_of

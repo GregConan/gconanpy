@@ -4,7 +4,7 @@
 Classes that wrap other classes to provide additional functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-07-29
+Updated: 2025-08-01
 """
 # Import standard libraries
 import argparse
@@ -15,8 +15,8 @@ from functools import wraps
 import os
 import re
 import sys
-from typing import Any, Concatenate, Literal, \
-    NamedTuple, overload, ParamSpec, TypeVar
+from typing import (Any, Concatenate, Literal, NamedTuple,
+                    overload, ParamSpec, TypeVar)
 from typing_extensions import Self
 
 # Import third-party PyPI libraries
@@ -27,12 +27,12 @@ import pathvalidate
 try:
     from iters import MapSubset
     from meta import (bool_pair_to_cases, Boolable, HasClass,
-                      name_of, TimeSpec, tuplify)
+                      name_of, NonTxtCollection, TimeSpec, tuplify)
     from reg import Regextract
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.iters import MapSubset
     from gconanpy.meta import (bool_pair_to_cases, Boolable, HasClass,
-                               name_of, TimeSpec, tuplify)
+                               name_of, NonTxtCollection, TimeSpec, tuplify)
     from gconanpy.reg import Regextract
 
 
@@ -258,28 +258,25 @@ class ToString(str):
             case bytes() | bytearray():
                 stringified = cls(an_obj, encoding=encoding, errors=errors
                                   ).truncate(max_len)
-            case dict():
+            case Mapping():
                 stringified = cls.fromMapping(
                     an_obj, quote, quote_numbers, quote_keys, join_on, prefix,
                     suffix, sep, max_len, lastly, iter_kwargs)
-            case list() | tuple() | set():
+            case Callable():
+                stringified = cls.fromCallable(an_obj, max_len)
+            case Collection():
                 stringified = cls.fromIterable(
                     an_obj, quote, sep, quote_numbers, prefix, suffix,
                     max_len, lastly, iter_kwargs)
             case dt.date() | dt.time() | dt.datetime():
                 stringified = cls.fromDateTime(
                     an_obj, dt_sep, timespec, replace).truncate(max_len)
-            case type():
-                stringified = cls.fromCallable(an_obj, max_len)
             case None:
                 stringified = cls()
             case bs4.element.PageElement():
                 stringified = cls.fromBeautifulSoup(an_obj)
-            case _:  # str or other
-                stringified = cls(an_obj)
-                if Regextract.is_invalid_py_repr(stringified):
-                    stringified = cls.fromCallable(an_obj, max_len)
-                stringified = stringified.truncate(max_len)
+            case _:  # other
+                stringified = cls(an_obj).truncate(max_len)
         return stringified
 
     @classmethod
@@ -483,14 +480,17 @@ class ToString(str):
             quoted = cls(an_obj)
         else:
             match an_obj:
-                case dict():
+                case Mapping():
                     quoted = cls.fromMapping(an_obj, quote, quote_numbers,
                                              quote_keys, **iter_kwargs)
                     # , iter_kwargs=iter_kwargs)
-                case list() | tuple() | set():
+                case Callable():
+                    quoted = cls.fromCallable(an_obj)
+                case NonTxtCollection():
                     # without_join = cls._ITER_SUBSET.of(iter_kwargs)
                     quoted = cls.fromIterable(
-                        an_obj, quote, quote_numbers=quote_numbers,
+                        an_obj,  # type: ignore  # TODO FIX NonTxtCollection
+                        quote, quote_numbers=quote_numbers,
                         # iter_kwargs=iter_kwargs,
                         **cls._ITER_SUBSET.of(iter_kwargs))
                 case int() | float():
@@ -499,11 +499,7 @@ class ToString(str):
                 case None:
                     quoted = cls().enclosed_by(quote)
                 case _:
-                    quoted = cls(an_obj)
-                    if Regextract.is_invalid_py_repr(quoted):
-                        quoted = cls.fromCallable(an_obj)
-                    else:
-                        quoted = quoted.enclosed_by(quote)
+                    quoted = cls(an_obj).enclosed_by(quote)
         return quoted
 
     @classmethod
