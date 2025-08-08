@@ -3,14 +3,13 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-07
-Updated: 2025-08-06
+Updated: 2025-08-07
 """
 # Import standard libraries
 import builtins
 from collections import defaultdict
-from collections.abc import Callable, Collection, Generator, Iterable
+from collections.abc import Callable, Generator, Iterable
 from copy import deepcopy
-import itertools
 from pprint import pprint
 import random
 import string
@@ -162,9 +161,44 @@ class TestAttributesOf(Tester):
 
 
 class TestDuckCollection(Tester):
+    _K = TypeVar("_K")
     COLLECTYPES = {list, set, tuple}
     EXAMPLES = {"This is a sample string": {list, set, tuple, str},
                 ("This", "is", "a", "string", "tuple"): COLLECTYPES}
+
+    def check_contains(self, ducks: DuckCollection[_K], key: _K,
+                       isin: bool) -> bool:
+        """ Test __contains__ and isdisjoint methods of DuckCollection
+
+        :return: bool, True `if key in ducks == isin`; else False
+        """
+        conds = {key in ducks, not ducks.isdisjoint({key}),
+                 not ducks.isdisjoint({key: "value"})}
+        print(f"{conds} ?= {{{isin}}}")
+        return conds == {isin}
+
+    def check_dict(self, adict: dict) -> None:
+        ducks = DuckCollection(adict)
+
+        # DuckCollection(Mapping) is equal to its keys
+        self.check_result(ducks, adict.keys())
+
+        # Test __contains__ and isdisjoint
+        pair = adict.popitem()
+        self.check_contains(ducks, pair[0], isin=False)
+
+        # Use __contains__ and __isdisjoin__ to test get, pop, and set_to
+        ducks.set_to(*pair)
+        self.check_contains(ducks, pair[0], isin=True)
+        self.check_result(ducks.get(pair[0]), pair[1])
+        self.check_result(ducks.pop(pair[0]), pair[1])
+        self.check_contains(ducks, pair[0], isin=False)
+
+        # Use them to test insert and remove
+        ducks.insert(pair[1], pair[0])
+        self.check_contains(ducks, pair[0], isin=True)
+        ducks.remove(pair[0])
+        self.check_contains(ducks, pair[0], isin=False)
 
     def examples(self) -> Generator[tuple[Any, DuckCollection], None, None]:
         for value, collectypes in self.EXAMPLES.items():
@@ -190,6 +224,14 @@ class TestDuckCollection(Tester):
             ducks = DuckCollection(collectype(self.alist))
             ducks.clear()
             self.check_result(ducks.ducks, collectype())
+
+    def test_dict(self, n: int = 10) -> None:
+        self.add_basics()
+        self.check_dict(self.adict)
+
+        # Test DuckCollection methods on 10 randomly generated dicts
+        for _ in range(n):
+            self.check_dict(Randoms.randict())
 
     def test_eq_False(self, n: int = 10) -> None:
         self.add_basics()

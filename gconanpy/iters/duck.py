@@ -9,13 +9,18 @@ Updated: 2025-08-07
 from collections.abc import Collection, Hashable, Iterable, \
     Iterator, MutableSet, MutableMapping, MutableSequence, Sequence
 import sys
-from typing import Any, cast, overload, Self
+from typing import Any, cast, overload, Self, TypeVar
 
 # Import local custom libraries
 try:
-    from meta import AddableSequence, BytesOrStr, DATA_ERRORS, name_of
+    from meta import (AddableSequence, BytesOrStr, DATA_ERRORS,
+                      name_of, SupportsItemAccess)
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.meta import AddableSequence, BytesOrStr, DATA_ERRORS, name_of
+    from gconanpy.meta import (AddableSequence, BytesOrStr, DATA_ERRORS,
+                               name_of, SupportsItemAccess)
+
+
+_K = TypeVar("_K", Hashable, None)
 
 
 class DuckCollection[T]:
@@ -28,16 +33,27 @@ class DuckCollection[T]:
             different methods from specific `Collection` types as reasonably \
             possible, especially `set` and `list` methods.
 
-        :param ducks: Collection[T] to wrap for access and modification \
-            using various methods typically exclusive to `MutableSequence`, \
-            `MutableSet`, or `MutableMapping` classes.
+        :param ducks: Collection[T: Any], wrapped for access & modification \
+            using various methods typically exclusive to certain \
+            `MutableSequence`, `MutableSet`, and `MutableMapping` classes.
         """
         self.ducks = ducks
 
     def __contains__(self, duck: T) -> bool:
+        """
+        :param duck: T: Any, object to look for in this `DuckCollection`.
+        :return: bool, True if `duck` is an object in this `DuckCollection`; \
+            else False if it isn't.
+        """
         return duck in self.ducks
 
     def __eq__(self, other: Collection[T]) -> bool:
+        """ Implement `self == other`.
+
+        :param other: Collection[T: Any] to compare to this `DuckCollection`.
+        :return: bool, True if `other` has the same elements in the same \
+            order (if any) as this `DuckCollection`; else False.
+        """
         if self.ducks == other:
             return True
 
@@ -64,9 +80,17 @@ class DuckCollection[T]:
             return False
 
     def __iter__(self) -> Iterator[T]:
+        """
+        :return: Iterator[T: Any] over every object ("duck") contained in \
+            this `DuckCollection`.
+        """
         return iter(self.ducks)
 
     def __len__(self) -> int:
+        """ 
+        :return: int, the number of objects ("ducks") contained in this
+            `DuckCollection`.
+        """
         return len(self.ducks)
 
     def __repr__(self) -> str:
@@ -85,11 +109,11 @@ class DuckCollection[T]:
         except DATA_ERRORS:
             return iter(self.ducks)
 
-    def add(self, duck: T, key: Hashable | None = None) -> None:
-        """ Append object to the end of a `Sequence`, or add object to an \
+    def add(self, duck: T, key: _K = None) -> None:
+        """ Append `duck` to the end of the `Sequence`, or add `duck` to the \
             unordered `Collection`. Replicates `list.append` and `set.add`.
 
-        :param duck: T, object to add to this `DuckCollection`.
+        :param duck: T: Any, object to add to this `DuckCollection`.
         :raises TypeError: if `self.ducks` is an unsupported type.
         """
         match self.ducks:
@@ -102,37 +126,40 @@ class DuckCollection[T]:
             case tuple():
                 self.ducks = (*self.ducks, duck)
             case MutableMapping():
-                cast(MutableMapping[Hashable, T], self.ducks)[key] = duck
+                cast(MutableMapping[_K, T], self.ducks)[key] = duck
             case _:
                 raise TypeError
 
+    # DuckCollection can use "add" and "append" interchangeably. The class
+    # will automatically choose the appropriate method to add a new element
     append = add
 
-    def clear(self) -> None:
+    def clear(self, *args, **kwargs) -> None:
+        """ Replace the contained/wrapped `Collection` with an empty one. 
+
+        :param args: Iterable, positional arguments to initialize a new \
+            instance of the contained/wrapped `Collection`.
+        :param kwargs: Mapping, keyword arguments to initialize a new \
+            instance of the contained/wrapped `Collection`.
         """
-        Replace the contained/wrapped `Collection` with an empty one. 
-        """
-        self.ducks = type(self.ducks)()
+        self.ducks = type(self.ducks)(*args, **kwargs)
 
     def copy(self) -> Self:
-        """ 
-        :return: Self, a shallow copy of this `DuckCollection`.
-        """
+        """  :return: Self, a shallow copy of this `DuckCollection`.  """
         return self.__class__(self.ducks)
 
     def difference_update(self, ducks: Iterable[T]) -> None:
-        """ Remove all elements of another iterable (`ducks`) from this one.
+        """ Remove all elements of another `Iterable` (`ducks`) from this one.
 
         Replicates `set.difference_update`.
 
         :param ducks: Iterable[T], items to remove from this `DuckCollection`.
         """
-        match self.ducks:
-            case set():
-                self.ducks.difference_update(ducks)
-            case _:  # TODO Is there any reason to complicate this?
-                for duck in ducks:
-                    self.discard(duck)
+        try:
+            cast(set, self.ducks).difference_update(ducks)
+        except DATA_ERRORS:  # If it isn't a set, iteratively remove `ducks`.
+            for duck in ducks:  # TODO Is there any reason to complicate this?
+                self.discard(duck)
 
     def discard(self, duck: T) -> None:
         """ Remove an element from this `DuckCollection` if present; if not, \
@@ -166,7 +193,7 @@ class DuckCollection[T]:
                 for duck in ducks:
                     self.add(duck)
 
-    def get(self, key: Hashable | None = None) -> T:
+    def get(self, key: _K = None) -> T:
         """ 
         :param key: Hashable | None, key mapped to the value to return, if \
             any; else None to return the last value (or an arbitrary one); \
@@ -175,9 +202,9 @@ class DuckCollection[T]:
             any; else the last item in this `DuckCollection`, if it is \
             ordered; else an arbitrary item from this `DuckCollection`.
         """
-        try:
-            gotten = self.ducks[key]  # type: ignore[reportIndexIssue]
-        except DATA_ERRORS:
+        try:  # If self.ducks has __getitem__, then call that.
+            gotten = cast(SupportsItemAccess, self.ducks)[key]
+        except DATA_ERRORS:  # Otherwise, get an element; preferably the last
             gotten = next(reversed(self))
         return gotten
 
@@ -205,16 +232,16 @@ class DuckCollection[T]:
         :return: bool, True if this `DuckCollection` has no elements in \
             common with `other`; else False if there's any intersection.
         """
-        try:
+        try:  # Try using bitwise AND to check that there's no intersection
             return not (self.ducks & other
                         )  # type: ignore[reportOperatorIssue]
-        except TypeError:
+        except TypeError:  # If bitwise AND doesn't work, iteratively check
             for duck in other:
                 if duck in self.ducks:
                     return False
             return True
 
-    def insert(self, duck: T, at_ix: int = -1):
+    def insert(self, duck: T, at_ix: int | _K = -1):
         """ Insert `duck` into this `DuckCollection` before `at_ix`.
 
         :param duck: T, item to insert into this `DuckCollection`
@@ -225,20 +252,24 @@ class DuckCollection[T]:
             case BytesOrStr():
                 self.ducks = self.ducks[:ix] + duck + self.ducks[ix:]
             case MutableSequence():
-                self.ducks.insert(at_ix, duck)
+                self.ducks.insert(cast(int, at_ix), duck)
             case MutableSet():
                 self.ducks.add(duck)
+            case MutableMapping():
+                cast(MutableMapping[_K, T], self.ducks
+                     )[cast(_K, at_ix)] = duck
             case tuple():
                 self.ducks = (*self.ducks[:at_ix], duck, *self.ducks[at_ix:])
             case _:
                 raise TypeError
 
-    def intersection(self, other: Collection[T]) -> set[T]:
+    def intersection(self, other: Iterable[T]) -> set[T]:
         """ Return the intersection of this `DuckCollection` and another \
-            `Collection` as a `set` of their shared elements (in both \
-            both `Collection`s). Replicates `set.intersection`.
+            `Iterable` as a `set` of their shared elements.
 
-        :param other: Collection[T] to intersect with this `DuckCollection`.
+        Replicates `set.intersection`.
+
+        :param other: Iterable[T] to intersect with this `DuckCollection`.
         :return: set[T] of all elements in `self` and in `other`.
         """
         return set(self.ducks) & set(other)
@@ -278,7 +309,7 @@ class DuckCollection[T]:
                 raise TypeError
         return popped
 
-    def set_to(self, ix: int, duck: T) -> None:
+    def set_to(self, key: int | _K, duck: T) -> None:
         """
         :param ix: int, _description_
         :param duck: T, _description_
@@ -286,11 +317,14 @@ class DuckCollection[T]:
         """
         match self.ducks:
             case MutableSequence():
-                self.ducks[ix] = duck
+                self.ducks[cast(int, key)] = duck
             case tuple():
-                self.ducks = (*self.ducks[:ix], duck, *self.ducks[ix + 1:])
+                self.ducks = (*self.ducks[:cast(int, key)], duck,
+                              *self.ducks[cast(int, key) + 1:])
             case MutableSet():
                 self.ducks.add(duck)
+            case MutableMapping():
+                cast(MutableMapping[_K, T], self.ducks)[cast(_K, key)] = duck
             case _:
                 raise TypeError
 
@@ -348,7 +382,17 @@ class DuckCollection[T]:
                 except ValueError:
                     pass
                 self.ducks = type(seq)(*ducks)
+            case MutableMapping():
+                for key, value in self.ducks.items():
+                    if value == old:
+                        self.ducks[key] = value
+                        if count == 0:
+                            break
+                        else:
+                            count -= 1
             case _:
                 raise TypeError
 
+    # DuckCollection can use "extend" and "update" interchangeably. The class
+    # will automatically choose the appropriate method to concatenate/merge.
     update = extend

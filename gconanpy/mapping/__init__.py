@@ -228,6 +228,19 @@ def invert(a_dict: dict[_KT, _VT],
     return inverted
 
 
+def keys_mapped_to(a_map: Mapping[_KT, _VT], value: _VT,
+                   ) -> Generator[_KT, None, None]:
+    """ 
+    :param a_map: Mapping[_KT: Hashable, _VT: Any] to yield all keys mapped \
+        to `value` from
+    :param value: _VT: Any, the value to yield all keys mapped to by `a_map`
+    :yield: Generator[_KT, None, None], all keys mapped to `value` in `a_map`
+    """
+    for k, v in a_map.items():
+        if v == value:
+            yield k
+
+
 def lazyget(a_map: Mapping[_KT, _VT], key: _KT,
             get_if_absent: _ValueGetter = always_none,
             getter_args: Iterable = list(),
