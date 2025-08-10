@@ -4,10 +4,10 @@
 Utility functions and classes to manipulate Sequences and numpy/pandas data.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-07-28
+Updated: 2025-08-09
 """
 # Import standard libraries
-from collections.abc import Hashable, Iterable, Mapping, Sequence
+from collections.abc import Hashable, Iterable, Sequence
 from pprint import pprint
 from typing import Any
 
@@ -18,7 +18,7 @@ import pandas as pd
 # Import local custom libraries
 try:
     from wrappers import stringify
-except (ImportError, ModuleNotFoundError):  # TODO DRY?s
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.wrappers import stringify
 
 # NOTE All functions/classes below are in alphabetical order.
@@ -40,7 +40,7 @@ def nan_rows_in(a_df: pd.DataFrame) -> pd.DataFrame:
     :return: pd.DataFrame only including rows of a_df which contain a NaN
              value in for at least 1 a_df column
     """
-    return a_df[a_df.isna().any(axis=1)]
+    return a_df[a_df.isna().any(axis=1)]  # type: ignore
 
 
 # TODO Move to numpandas.py?
