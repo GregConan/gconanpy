@@ -70,6 +70,11 @@ Adding the same item to different types of `Collections`:
 ```python
 from gconanpy.iters.duck import DuckCollection
 
+# Work with any collection type
+list_collection = DuckCollection([1, 2, 3])
+set_collection = DuckCollection({1, 2, 3})
+dict_collection = DuckCollection({1: "a", 2: "b", 3: "c"})
+
 # Same basic operations work across different types
 for ducks in [list_collection, set_collection, dict_collection]:
     print(len(ducks))  # -> 3
