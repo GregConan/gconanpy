@@ -5,7 +5,7 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-08-03
+Updated: 2025-08-10
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Container, Generator, \
@@ -16,7 +16,7 @@ from more_itertools import all_equal
 import random
 import string
 import sys
-from typing import Any, overload, SupportsBytes, TypeVar
+from typing import Any, overload, TypeVar
 
 # Import local custom libraries
 try:
@@ -26,8 +26,7 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
 
 # Constant: TypeVars for...
 I = TypeVar("I", bound=Iterable)  # ...combine
-S = TypeVar("S")  # ...differentiate_sets
-U = TypeVar("U", bound=Updatable)  # ...merge
+U = TypeVar("U", bound=Updatable)  # ...merge & update_return
 
 # NOTE Functions are in alphabetical order. Classes are in dependency order.
 
@@ -86,76 +85,30 @@ def default_pop(poppable: Poppable, key: Any = None,
     return to_return
 
 
-def differentiate_sets(sets: list[set[S]]) -> list[set[S]]:
-    """ Remove all shared/non-unique items from sets until they no longer \
-    overlap/intersect at all.
-
-    :param sets: Iterable[set[T]], _description_
-    :return: list[set[T]], unique items in each set
-    """
-    to_return = list()
-    for i in range(len(sets)):
-        for other_set in sets[:i] + sets[i+1:]:
-            to_return[i] = sets[i] - other_set
-    return to_return
-
-
-def have_same_elements(*settables: Iterable) -> bool:
-    return all_equal(set(an_obj) for an_obj in settables)
-
-
 def merge(updatables: Iterable[U]) -> U:
     """ Merge dicts, sets, or things of any type with an `update` method.
+
+    Warning: this function modifies the original objects.
 
     :param updatables: Iterable[Updatable], objects to combine
     :return: Updatable combining all of the `updatables` into one
     """
-    return reduce(lambda x, y: x.update(y) or x, updatables)
+    # return reduce(lambda x, y: x.update(y) or x, updatables)
+    return reduce(update_return, updatables)
 
 
 def powers_of_ten(orders_of_magnitude: int = 4) -> list[int]:
     return [10 ** i for i in range(orders_of_magnitude + 1)]
 
 
-class Bytesifier:
-    """ Class with a method to convert objects into bytes without knowing \
-        what type those things are. """
-    _T = TypeVar("_T")
-    IsOrSupportsBytes = TypeVar("IsOrSupportsBytes", bytes, SupportsBytes)
+def update_return(self: U, other: U) -> U:
+    """ Update `self` with values/items from `other`. Used by `merge` function
 
-    DEFAULTS = dict(encoding=sys.getdefaultencoding(), length=1,
-                    byteorder="big", signed=False)
-
-    def try_bytesify(self, an_obj: _T, **kwargs) -> bytes | _T:
-        try:
-            return self.bytesify(an_obj, **kwargs)  # type: ignore
-        except TypeError:
-            return an_obj
-
-    def bytesify(self, an_obj: IsOrSupportsBytes, **kwargs) -> bytes:
-        """
-        :param an_obj: IsOrSupportsBytes, something to convert to bytes
-        :raises TypeError: if an_obj has no 'to_bytes' or 'encode' method
-        :return: bytes, an_obj converted to bytes
-        """
-        # Get default values for encoder methods' input options
-        defaults = self.DEFAULTS.copy()
-        defaults.update(kwargs)
-        encoding = defaults.pop("encoding")
-
-        match an_obj:
-            case bytes():
-                bytesified = an_obj
-            case int():
-                bytesified = int.to_bytes(an_obj, **defaults)
-            case str():
-                bytesified = str.encode(an_obj, encoding=encoding)
-            case SupportsBytes():
-                bytesified = bytes(an_obj)
-            case _:
-                raise TypeError(f"Object {an_obj} cannot be "
-                                "converted to bytes")
-        return bytesified
+    :param self: Updatable, object to update with new values
+    :param other: Updatable, new values to update `self` with
+    :return: Updatable, `self` after updating it with the values from `other`
+    """
+    return self.update(other) or self
 
 
 class Randoms:

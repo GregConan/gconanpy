@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
 
 """
-Classes that wrap other classes to provide additional functionality.
+Classes that wrap other classes, especially builtins, to add functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-08-01
+Updated: 2025-08-10
 """
 # Import standard libraries
 import argparse
 # from collections import UserString  # TODO?
-from collections.abc import Callable, Collection, Generator, Iterable, Mapping
+from collections.abc import (Callable, Collection, Generator,
+                             Hashable, Iterable, Mapping)
 import datetime as dt
-from functools import wraps
+from functools import reduce
+from more_itertools import all_equal
 import os
 import re
 import sys
-from typing import (Any, Concatenate, Literal, NamedTuple,
-                    overload, ParamSpec, TypeVar)
+from typing import Any, Literal, NamedTuple, overload, SupportsIndex, TypeVar
 from typing_extensions import Self
 
 # Import third-party PyPI libraries
@@ -26,77 +27,61 @@ import pathvalidate
 # Import local custom libraries
 try:
     from iters import MapSubset
-    from meta import (bool_pair_to_cases, Boolable, HasClass,
+    from meta import (bool_pair_to_cases, ClassWrapper,
                       name_of, NonTxtCollection, TimeSpec, tuplify)
-    from reg import Regextract
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.iters import MapSubset
-    from gconanpy.meta import (bool_pair_to_cases, Boolable, HasClass,
+    from gconanpy.meta import (bool_pair_to_cases, ClassWrapper,
                                name_of, NonTxtCollection, TimeSpec, tuplify)
-    from gconanpy.reg import Regextract
 
 
-class ClassWrapper:
-    # MethodWrapper type hint vars for return_as_* methods
-    _P = ParamSpec("_P")  # _P means (*args, **kwargs)
-    _T = TypeVar("_T")  # _T means self.__class__ means type(self)
-    UnwrappedMethod = Callable[Concatenate[_T, _P], Any]
-    WrappedMethod = Callable[Concatenate[_T, _P], _T]
+# @ClassWrapper(tuple).class_decorator  # TODO?
+class Sets[T: Hashable](tuple[set[T], ...]):
+    """ Wrapper class to centralize methods comparing/using multiple sets. """
+    are_same = all_equal  # Check whether sets have the same elements
 
-    # New type hint variables for other ClassWrapper methods
-    _Super = TypeVar("_Super")
-    _S = TypeVar("_S")
-    ASSIGNED = ("__doc__", "__name__", "__text_signature__")
+    def __add__(self, value: tuple[set[T], ...]) -> Self:
+        """ Returns `self + value`. Defined to return a `Sets` instance.
 
-    def __init__(self, superclass: type[_Super]) -> None:
-        self.superclass = superclass
-        self.attr_names = dir(superclass)
+        :param value: tuple[set[T], ...], sets to append to this tuple of Sets
+        :return: Self, a `Sets` instance with `value` concatenated to the end
+        """
+        return type(self)(super().__add__(value))
 
-    def _wrap_method_of(self, subclass: type[_S], func: Callable):
-        @wraps(func, assigned=self.ASSIGNED)
-        def inner(*args, **kwargs):
-            result = func(*args, **kwargs)
-            return result if not isinstance(result, self.superclass) \
-                else subclass(result)  # type: ignore
+    @overload
+    def __getitem__(self, key: SupportsIndex, /) -> set[T]: ...
+    @overload
+    def __getitem__(self, key: slice, /) -> Self: ...
 
-        setattr(inner, "__objclass__", subclass)
-        setattr(inner, "__self__", subclass)
-        inner.__qualname__ = f"{subclass.__name__}.{inner.__name__}"
-        return inner
+    def __getitem__(self, key):
+        """ Returns `self[key]`. Defined so slicing returns a `Sets` instance.
 
-    def class_decorator(self, subclass: type[_S]) -> type[_S]:
-        self.subclass = subclass
-        for attr_name in self.attr_names:
-            if not attr_name.startswith("__"):
-                superattr = getattr(self.superclass, attr_name, None)
-                subattr = getattr(subclass, attr_name, None)
-                if callable(superattr) and callable(subattr):
-                    setattr(subclass, attr_name,
-                            self._wrap_method_of(subclass, superattr))
-        return subclass
+        :return: slice | set[T], `self[key]`
+        """
+        gotten = super().__getitem__(key)
+        if isinstance(key, slice):  # if isinstance(gotten, tuple):
+            gotten = type(self)(gotten)
+        return gotten
 
-    @classmethod
-    def return_as_its_class(cls, meth: UnwrappedMethod) -> WrappedMethod:
-        S = TypeVar("S", bound=HasClass)
+    def __new__(cls, iterables: Iterable[Iterable[T]] = tuple()) -> Self:
+        """ 
+        :param iterables: Iterable[Iterable[T]] to convert into `Sets`
+        :return: Self, a tuple of all input `iterables` as `Sets`
+        """
+        return super().__new__(cls, (set(x) for x in iterables))
 
-        @wraps(meth, assigned=cls.ASSIGNED)
-        def inner(self: S, *args: Any, **kwargs: Any) -> S:
-            return self.__class__(meth(self, *args, **kwargs))
+    def differentiate(self) -> list[set[T]]:
+        """ Return a copy of the sets without any shared elements. Each will \
+            only have its unique items, so they do no overlap/intersect.
 
-        # TODO
-        # setattr(inner, "__self__", self.subclass)
-        # inner.__qualname__ = f"{self.subclass.__name__}.{inner.__name__}"
-        # inner.__annotations__["return"] = self.subclass
-        return inner
+        :return: list[set[T: Any]], unique items in each set
+        """
+        return [self[i].difference((self[:i] + self[i+1:]).merge()
+                                   ) for i in range(len(self))]
 
-    @classmethod
-    def return_self_if_no_value(cls, meth: WrappedMethod) -> WrappedMethod:
-        S = TypeVar("S")
-
-        @wraps(meth, assigned=cls.ASSIGNED)
-        def inner(self: S, value: Boolable) -> S:
-            return meth(self, value) if value else self
-        return inner
+    def merge(self) -> set[T]:
+        """ :return: set[T] with all elements from all input sets/`Sets`. """
+        return reduce(set.union, self) if self else set()
 
 
 # Wrap every str method that returns str to return a ToString instance instead

@@ -3,12 +3,14 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-08-03
+Updated: 2025-08-10
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable
 import datetime as dt
+import pdb
 import random
+import re
 from typing import Any, cast, TypeVar
 
 # Import third-party PyPI libraries
@@ -20,7 +22,44 @@ from gconanpy.iters import Randoms
 from gconanpy.meta import name_of
 from gconanpy.testers import Tester
 from gconanpy.trivial import always_true
-from gconanpy.wrappers import stringify, ToString, WrapFunction
+from gconanpy.wrappers import (Branches, Sets, SoupTree, stringify,
+                               ToString, WrapFunction)
+
+
+class TestSets(Tester):
+    def test_differentiate_and_merge(self) -> None:
+        sets = Sets(({1, 2, 3, 4, 5}, {4, 5, 6, 7, 8}, {6, 7, 8, 9, 10}))
+        self.check_result(sets.differentiate(),
+                          [{1, 2, 3}, set(), {9, 10}])
+        self.check_result(sets.merge(), set(range(1, 11)))
+
+    def test_differentiate(self, tests: int = 10) -> None:
+        for _ in range(tests):
+            Randoms.randintsets
+            bigset = set(Randoms.randints(min_n=10, max_n=20))
+            randrange = Randoms.randrange()
+            sets = Sets((set(Randoms.randsublist(list(bigset)))
+                         for _ in randrange))
+            differentiated = sets.differentiate()
+            try:
+                for postdif in differentiated:
+                    for otherset in differentiated:
+                        if postdif != otherset:
+                            assert postdif.isdisjoint(otherset)
+            except AssertionError as err:
+                print(f"{postdif} != {otherset}")
+                pdb.set_trace()
+
+
+class TestSoupTree(Tester):
+    def test_SoupTree_prettify(self) -> None:
+        soup = self.get_soup()
+        stree = SoupTree.from_soup(soup)
+        branch = Branches()
+        invalid = re.compile(f"({branch.T})(?:{branch.X})*"
+                             f"({branch.I}|{branch.L}|{branch.T})")
+        pretty = stree.prettify(branch=branch)
+        assert invalid.match(pretty) is None
 
 
 class TestStringify(Tester):

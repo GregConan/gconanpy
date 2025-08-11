@@ -189,6 +189,8 @@ class DuckCollection[T]:
                 self.ducks.update(ducks)
             case MutableMapping():
                 self.ducks.update(cast(MutableMapping, ducks))
+            case AddableSequence():
+                self.ducks += ducks
             case _:
                 for duck in ducks:
                     self.add(duck)

@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-07-28
+Updated: 2025-08-10
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable
@@ -15,22 +15,20 @@ from typing import Any, TypeVar
 # Import local custom libraries
 try:
     from debug import Debuggable
-    from iters import (are_all_equal, differentiate_sets,
-                       MapSubset, SimpleShredder)
+    from iters import are_all_equal, MapSubset, SimpleShredder
     from iters.seq import uniqs_in
     from meta import (Comparer, DATA_ERRORS, has_method,
                       IgnoreExceptions, IteratorFactory, name_of)
     from trivial import always_true, get_key_set
-    from wrappers import stringify_iter
+    from wrappers import Sets, stringify_iter
 except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.debug import Debuggable
-    from gconanpy.iters import (are_all_equal, differentiate_sets,
-                                MapSubset, SimpleShredder)
+    from gconanpy.iters import are_all_equal, MapSubset, SimpleShredder
     from gconanpy.iters.seq import uniqs_in
     from gconanpy.meta import (Comparer, DATA_ERRORS, has_method,
                                IgnoreExceptions, IteratorFactory, name_of)
     from gconanpy.trivial import always_true, get_key_set
-    from gconanpy.wrappers import stringify_iter
+    from gconanpy.wrappers import Sets, stringify_iter
 
 
 class DifferenceBetween:
@@ -153,7 +151,7 @@ class DifferenceBetween:
         :return: list, _description_
         """
         keys = self.compare_by(by, get_comparisons)
-        return differentiate_sets(keys) if self.difference else \
+        return Sets(keys).differentiate() if self.difference else \
             self.compare_all_in(by, get_subcomparator, next(iter(keys)))
 
     def find(self) -> list:
@@ -175,7 +173,7 @@ class DifferenceBetween:
             with IgnoreExceptions(AttributeError, TypeError):
                 keys = self.compare_by("key", get_key_set)
                 if self.difference:
-                    diff_keys = differentiate_sets(keys)
+                    diff_keys = Sets(keys).differentiate()
                     return diff_keys
                 else:
                     values = self.compare_all_in("value", getitem, keys)

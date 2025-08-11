@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-07-28
+Updated: 2025-08-10
 """
 # Import standard libraries
 from collections import defaultdict
@@ -28,14 +28,14 @@ from cryptography.fernet import Fernet
 try:
     from attributes import get_names as get_attr_names
     from debug import Debuggable
-    from iters import Bytesifier, MapSubset, MapWalker, SimpleShredder
-    from meta import DATA_ERRORS, name_of, Traversible
+    from iters import MapSubset, MapWalker, SimpleShredder
+    from meta import Bytesifier, DATA_ERRORS, name_of, Traversible
     from trivial import always_none
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.attributes import get_names as get_attr_names
     from gconanpy.debug import Debuggable
-    from gconanpy.iters import Bytesifier, MapSubset, MapWalker, SimpleShredder
-    from gconanpy.meta import DATA_ERRORS, name_of, Traversible
+    from gconanpy.iters import MapSubset, MapWalker, SimpleShredder
+    from gconanpy.meta import Bytesifier, DATA_ERRORS, name_of, Traversible
     from gconanpy.trivial import always_none
 
 # Type variables for .__init__(...) and .update(...) method input parameters

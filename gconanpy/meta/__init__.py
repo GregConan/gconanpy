@@ -4,18 +4,20 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-08-07
+Updated: 2025-08-10
 """
 # Import standard libraries
 import abc
 import builtins
 from collections.abc import Callable, Collection, Container, \
     Hashable, Iterable, Iterator, Mapping, Sequence
+from functools import wraps
 import operator
 # from operator import attrgetter, methodcaller  # TODO?
-from typing import Any, get_args, Literal, Protocol, NamedTuple, \
-    no_type_check, overload, runtime_checkable, SupportsFloat, \
-    TypeVar, TYPE_CHECKING
+import sys
+from typing import Any, Concatenate, get_args, Literal, Protocol, \
+    NamedTuple, no_type_check, overload, runtime_checkable, ParamSpec, \
+    SupportsBytes, SupportsFloat, TypeVar, TYPE_CHECKING
 from typing_extensions import Self
 
 
@@ -145,7 +147,7 @@ def which_of(*conditions: Any) -> set[int]:  # TODO conditions: Boolable
 
 
 class HasClass(abc.ABC):
-    __class__: Callable[[Any], Any]
+    __class__: type  # Callable[[Any], Any]
 
 
 class HasSlots(abc.ABC):
@@ -154,6 +156,9 @@ class HasSlots(abc.ABC):
 
 @runtime_checkable
 class Poppable[T](Protocol):
+    """ Any object or class with a `pop` method is a `Poppable`.
+        `dict`, `list`, and `set` are each `Poppable`. """
+
     def pop(self, *_) -> T: ...
 
 
@@ -163,6 +168,47 @@ class Updatable(Protocol):
         `dict`, `MutableMapping`, and `set` are each `Updatable`. """
 
     def update(self, *_args, **_kwargs): ...
+
+
+class Bytesifier:
+    """ Class with a method to convert objects into bytes without knowing \
+        what type those things are. """
+    _T = TypeVar("_T")
+    IsOrSupportsBytes = TypeVar("IsOrSupportsBytes", bytes, SupportsBytes)
+
+    DEFAULTS = dict(encoding=sys.getdefaultencoding(), length=1,
+                    byteorder="big", signed=False)
+
+    def try_bytesify(self, an_obj: _T, **kwargs) -> bytes | _T:
+        try:
+            return self.bytesify(an_obj, **kwargs)  # type: ignore
+        except TypeError:
+            return an_obj
+
+    def bytesify(self, an_obj: IsOrSupportsBytes, **kwargs) -> bytes:
+        """
+        :param an_obj: IsOrSupportsBytes, something to convert to bytes
+        :raises TypeError: if an_obj has no 'to_bytes' or 'encode' method
+        :return: bytes, an_obj converted to bytes
+        """
+        # Get default values for encoder methods' input options
+        defaults = self.DEFAULTS.copy()
+        defaults.update(kwargs)
+        encoding = defaults.pop("encoding")
+
+        match an_obj:
+            case bytes():
+                bytesified = an_obj
+            case int():
+                bytesified = int.to_bytes(an_obj, **defaults)
+            case str():
+                bytesified = str.encode(an_obj, encoding=encoding)
+            case SupportsBytes():
+                bytesified = bytes(an_obj)
+            case _:
+                raise TypeError(f"Object {an_obj} cannot be "
+                                "converted to bytes")
+        return bytesified
 
 
 class HumanBytes:
@@ -659,3 +705,66 @@ class Lazily:
             meths.set_to(an_obj, key, get_if_absent(
                 *getter_args, **getter_kwargs))
         return meths.get(an_obj, key)
+
+
+class ClassWrapper:
+    # MethodWrapper type hint vars for return_as_* methods
+    _P = ParamSpec("_P")  # _P means (*args, **kwargs)
+    _T = TypeVar("_T")  # _T means self.__class__ means type(self)
+    UnwrappedMethod = Callable[Concatenate[_T, _P], Any]
+    WrappedMethod = Callable[Concatenate[_T, _P], _T]
+
+    # New type hint variables for other ClassWrapper methods
+    _Super = TypeVar("_Super")
+    _S = TypeVar("_S")
+    ASSIGNED = ("__doc__", "__name__", "__text_signature__")
+
+    def __init__(self, superclass: type[_Super]) -> None:
+        self.superclass = superclass
+        self.attr_names = dir(superclass)
+
+    def _wrap_method_of(self, subclass: type[_S], func: Callable):
+        @wraps(func, assigned=self.ASSIGNED)
+        def inner(*args, **kwargs):
+            result = func(*args, **kwargs)
+            return result if not isinstance(result, self.superclass) \
+                else subclass(result)  # type: ignore
+
+        setattr(inner, "__objclass__", subclass)
+        setattr(inner, "__self__", subclass)
+        inner.__qualname__ = f"{subclass.__name__}.{inner.__name__}"
+        return inner
+
+    def class_decorator(self, subclass: type[_S]) -> type[_S]:
+        self.subclass = subclass
+        for attr_name in self.attr_names:
+            if not attr_name.startswith("__"):
+                superattr = getattr(self.superclass, attr_name, None)
+                subattr = getattr(subclass, attr_name, None)
+                if callable(superattr) and callable(subattr):
+                    setattr(subclass, attr_name,
+                            self._wrap_method_of(subclass, superattr))
+        return subclass
+
+    @classmethod
+    def return_as_its_class(cls, meth: UnwrappedMethod) -> WrappedMethod:
+        S = TypeVar("S", bound=HasClass)
+
+        @wraps(meth, assigned=cls.ASSIGNED)
+        def inner(self: S, *args: Any, **kwargs: Any) -> S:
+            return self.__class__(meth(self, *args, **kwargs))
+
+        # TODO
+        # setattr(inner, "__self__", self.subclass)
+        # inner.__qualname__ = f"{self.subclass.__name__}.{inner.__name__}"
+        # inner.__annotations__["return"] = self.subclass
+        return inner
+
+    @classmethod
+    def return_self_if_no_value(cls, meth: WrappedMethod) -> WrappedMethod:
+        S = TypeVar("S")
+
+        @wraps(meth, assigned=cls.ASSIGNED)
+        def inner(self: S, value: Boolable) -> S:
+            return meth(self, value) if value else self
+        return inner

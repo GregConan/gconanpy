@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-07-29
+Updated: 2025-08-10
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -17,7 +17,7 @@ from gconanpy.debug import StrictlyTime
 from gconanpy.iters import Combinations, MapWalker, powers_of_ten, Randoms
 from gconanpy.mapping.dicts import *
 from gconanpy.meta import Lazily, TimeSpec
-# from tests import test_dicts
+# from tests import test_mapping
 from gconanpy.testers import Tester  # , TimeTester
 from gconanpy.trivial import always_false, always_none, always_true
 
