@@ -4,13 +4,13 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-08-02
+Updated: 2025-08-11
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 import itertools
 # from operator import attrgetter, methodcaller  # TODO?
-from typing import Any, NamedTuple
+from typing import Any, cast, NamedTuple
 
 # Import local custom libraries
 try:
@@ -21,6 +21,10 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.meta import (bool_pair_to_cases, has_method,
                                name_of, names_of, tuplify)
     from gconanpy.reg import DunderParser
+
+
+# Constant: Conditions Combination (2+ boolean conditions); MatcherBase keys
+CC = tuple[bool, ...]
 
 
 class MakeMetaclass:
@@ -95,12 +99,14 @@ def name_type_class(is_all_of: Any = tuple(), isnt_any_of: Any = tuple(),
     return name
 
 
-class MatcherBase(dict[tuple[bool, ...], Any]):
-    _CC = tuple[bool, ...]
-    _KT = tuple[str, ...] | list[str] | dict | \
-        _CC | str | bool | list[bool] | None
-    conditions: Sequence[str]
-    ConditionCombo: type[_CC]
+class MatcherBase(dict[CC, Any]):
+    ConditionCombo: type[CC]
+
+    # Broader key type; will be converted into CC
+    _KT = tuple[str, ...] | list[str] | dict \
+        | CC | str | bool | list[bool] | None
+
+    conditions: Sequence[str]  # Instance variable: condition names
 
     def __init__(self, matches: Mapping[_KT, Any] = dict()
                  ) -> None:
@@ -110,8 +116,10 @@ class MatcherBase(dict[tuple[bool, ...], Any]):
             self[key] = matches.get(key, None)
 
     @classmethod
-    def as_conds_combo(cls, conds: _KT) -> tuple[bool, ...]:
+    def as_conds_combo(cls, conds: _KT) -> CC:
         match conds:
+            case cls.ConditionCombo():
+                combo = cast(CC, conds)
             case Mapping():
                 combo = cls.ConditionCombo(**conds)
             case str():
@@ -126,15 +134,13 @@ class MatcherBase(dict[tuple[bool, ...], Any]):
                     combo = cls.conds_in(conds)
                 else:
                     raise TypeError(f"Cannot parse conditions {conds}")
-            case cls.ConditionCombo():
-                combo = conds
             case bool() | None:
                 combo = cls.ConditionCombo(**{
                     k: bool(conds) for k in cls.conditions})
         return combo
 
     @classmethod
-    def conds_in(cls, conds: Iterable) -> _CC:
+    def conds_in(cls, conds: Iterable) -> CC:
         return cls.ConditionCombo(**{cond: cond in conds
                                      for cond in cls.conditions})
 

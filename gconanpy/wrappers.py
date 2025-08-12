@@ -4,7 +4,7 @@
 Classes that wrap other classes, especially builtins, to add functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-08-10
+Updated: 2025-08-11
 """
 # Import standard libraries
 import argparse
@@ -70,18 +70,23 @@ class Sets[T: Hashable](tuple[set[T], ...]):
         """
         return super().__new__(cls, (set(x) for x in iterables))
 
-    def differentiate(self) -> list[set[T]]:
+    def differentiate(self) -> Self:
         """ Return a copy of the sets without any shared elements. Each will \
             only have its unique items, so they do no overlap/intersect.
 
-        :return: list[set[T: Any]], unique items in each set
+        :return: Self, these `Sets`, but each only has its unique items
         """
-        return [self[i].difference((self[:i] + self[i+1:]).merge()
-                                   ) for i in range(len(self))]
+        return type(self)(self[i].difference((self[:i] + self[i+1:]).merge()
+                                             ) for i in range(len(self)))
+
+    def intersection(self) -> set[T]:
+        return reduce(set.intersection, self) if self else set()
 
     def merge(self) -> set[T]:
         """ :return: set[T] with all elements from all input sets/`Sets`. """
         return reduce(set.union, self) if self else set()
+
+    union = merge  # Method alias
 
 
 # Wrap every str method that returns str to return a ToString instance instead
@@ -367,9 +372,9 @@ class ToString(str):
                      max_len: int | None = None, lastly: str = "and ",
                      iter_kwargs: Mapping[str, Any] = dict()) -> Self:
         """ Convert a Collection (e.g. a list, tuple, or set) into an \
-            instance of the ToString class.
+            instance of the `ToString` class.
 
-        :param an_obj: Collection to convert ToString
+        :param an_obj: Collection to convert `ToString`
         :param quote: str to add before and after each element of `an_obj`, \
             or None to insert no quotes; defaults to "'"
         :param sep: str to insert between all of the elements of `an_obj`, \
@@ -378,14 +383,17 @@ class ToString(str):
             each numerical element of `an_obj`; else False to add no \
             quotes to numbers in `an_obj`; defaults to False
         :param prefix: str to insert as the first character of the returned \
-            ToString object, or None to add no prefix; defaults to "["
+            `ToString` object, or None to add no prefix; defaults to "["
         :param suffix: str to insert as the last character of the returned \
-            ToString object, or None to add no suffix; defaults to "]"
+            `ToString` object, or None to add no suffix; defaults to "]"
         :param max_len: int, size of the longest possible ToString to return \
             without truncation, or None to never truncate; defaults to None
         :param lastly: str to insert after the last `sep` in the returned \
-            ToString object `if len(an_obj) > 2`, or None to add no such \
+            `ToString` object `if len(an_obj) > 2`, or None to add no such \
             string; defaults to "and "
+        :param iter_kwargs: Mapping[str, Any], keyword input parameters to \
+            pass to `quotate` for each element of `an_obj`; defaults to \
+            an empty `dict`.
         :return: ToString of all elements in `an_obj`, `quote`-quoted and \
                  `sep`-separated if there are multiple elements, starting \
                  with `prefix` and ending with `suffix`, with `lastly` after \
@@ -441,6 +449,9 @@ class ToString(str):
         :param lastly: str to insert after the last `sep` in the returned \
             ToString object `if len(a_map) > 2`, or None to add no such \
             string; defaults to "and "
+        :param iter_kwargs: Mapping[str, Any], keyword input parameters to \
+            pass to `quotate` for each key-value pair in `a_map`; defaults to \
+            an empty `dict`.
         :return: ToString, _description_
         """
         join_on = cls(join_on)

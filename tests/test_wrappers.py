@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-08-10
+Updated: 2025-08-11
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable
@@ -27,28 +27,37 @@ from gconanpy.wrappers import (Branches, Sets, SoupTree, stringify,
 
 
 class TestSets(Tester):
+    N_TESTS: int = 10
+    randintsets = WrapFunction(Randoms.randintsets, min_n=10, max_n=20,
+                               min_len=N_TESTS, max_len=N_TESTS)
+
     def test_differentiate_and_merge(self) -> None:
         sets = Sets(({1, 2, 3, 4, 5}, {4, 5, 6, 7, 8}, {6, 7, 8, 9, 10}))
         self.check_result(sets.differentiate(),
-                          [{1, 2, 3}, set(), {9, 10}])
+                          Sets(({1, 2, 3}, set(), {9, 10})))
         self.check_result(sets.merge(), set(range(1, 11)))
 
-    def test_differentiate(self, tests: int = 10) -> None:
-        for _ in range(tests):
-            Randoms.randintsets
-            bigset = set(Randoms.randints(min_n=10, max_n=20))
+    def test_differentiate(self) -> None:
+        for bigset in self.randintsets():
             randrange = Randoms.randrange()
             sets = Sets((set(Randoms.randsublist(list(bigset)))
                          for _ in randrange))
             differentiated = sets.differentiate()
-            try:
-                for postdif in differentiated:
-                    for otherset in differentiated:
-                        if postdif != otherset:
-                            assert postdif.isdisjoint(otherset)
-            except AssertionError as err:
-                print(f"{postdif} != {otherset}")
-                pdb.set_trace()
+            for postdif in differentiated:
+                for otherset in differentiated:
+                    if postdif != otherset:
+                        assert postdif.isdisjoint(otherset)
+
+    def test_intersection(self) -> None:
+        self.check_result(Sets(((1, 2, 3), (1, 4, 5), (1, 6, 7, 8), (1, 9, 10))
+                               ).intersection(), {1})
+        self.check_result(Sets(((1, 2, 3), (4, 5, 6), (6, 7, 8))
+                               ).intersection(), set())
+        for set1 in self.randintsets():
+            others = Sets(Randoms.randintsets())
+            self.check_result(Sets((set1, *others)).intersection(),
+                              set([anint for eachset in others for
+                                   anint in eachset if anint in set1]))
 
 
 class TestSoupTree(Tester):
@@ -93,8 +102,6 @@ class TestStringify(Tester):
         return stringified
 
     def test_add(self) -> None:
-        # TODO Why doesn't VSCode recognize x as a ToString instance?
-        x = ToString("hello") - "o"
         self.check_result(type(stringify("hi") + " there"), ToString)
         # self.check_result(type("hi" + stringify(" there")), ToString)  # TODO?
 
