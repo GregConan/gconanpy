@@ -27,7 +27,7 @@ from gconanpy.wrappers import (Branches, Sets, SoupTree, stringify,
 
 
 class TestSets(Tester):
-    N_TESTS: int = 10
+    N_TESTS: int = 25
     randintsets = WrapFunction(Randoms.randintsets, min_n=10, max_n=20,
                                min_len=N_TESTS, max_len=N_TESTS)
 
@@ -49,15 +49,18 @@ class TestSets(Tester):
                         assert postdif.isdisjoint(otherset)
 
     def test_intersection(self) -> None:
+        int_bounds = dict(min_int=-10, max_int=10)
         self.check_result(Sets(((1, 2, 3), (1, 4, 5), (1, 6, 7, 8), (1, 9, 10))
                                ).intersection(), {1})
         self.check_result(Sets(((1, 2, 3), (4, 5, 6), (6, 7, 8))
                                ).intersection(), set())
-        for set1 in self.randintsets():
-            others = Sets(Randoms.randintsets())
+        for set1 in self.randintsets(**int_bounds):
+            others = Sets(Randoms.randintsets(**int_bounds))
+            intersected = set(set1).copy()
+            for eachset in (set1, *others):
+                intersected.intersection_update(eachset)
             self.check_result(Sets((set1, *others)).intersection(),
-                              set([anint for eachset in others for
-                                   anint in eachset if anint in set1]))
+                              intersected)
 
 
 class TestSoupTree(Tester):

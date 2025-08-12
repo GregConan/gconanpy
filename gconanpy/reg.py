@@ -4,7 +4,7 @@
 Classes that parse strings and text data, especially using Regex.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
-Updated: 2025-07-29
+Updated: 2025-08-11
 """
 # Import standard libraries
 from collections.abc import Container, Generator
@@ -50,6 +50,7 @@ class Regextract:
 
     # Check whether a string is a strictly-invalid output of repr(), one that
     # would raise an exception if typed into a Python console.
+    # TODO ADD INLINE COMMENTS WITHIN THIS REGEX STR
     INVALID_PY_REPR = regex.compile(r"""<
         ((
         (built-in|""" + REPRS + r""")
@@ -72,11 +73,10 @@ class Regextract:
 
     # Get the longest possible string bounded by parentheses.
     # NOTE: Can't pre-compile PARENTHETICALS because it uses (?R).
-    PARENTHETICALS = r"""\((  # Get everything after the opening parenthesis
-        ?:[^()]+|(?R) # Nested parentheticals don't get their own groups
-        )*+  # Match everything possible inside the outermost parentheses
-        \)"""  # Get everything before the closing parenthesis
-    # _PARENTHETICALS = r"\((?:[^()]*(?R)?)*+\)"  # NOTE Functionally same?
+    PARENTHETICALS = r"""\(  # Get everything after the opening parenthesis
+        (?:[^()]+|(?R)  # Nested parentheticals don't get their own groups
+        )*+  # Get everything before the closing parenthesis
+        \)"""
 
     # Convert output of Python repr() function to its valid (qual)name.
     PY_REPR_TO_NAME = regex.compile(r"""
@@ -90,9 +90,9 @@ class Regextract:
         """, regex.X)   # TODO! Use in ToString.fromCallable?
 
     @classmethod
-    def is_invalid_py_repr(cls, astr: str) -> bool:
-        """
-        _summary_ 
+    def is_invalid_py_repr(cls, astr: str) -> bool:  # TODO Docstring
+        """ _summary_
+
         :param astr: str, _description_
         :return: bool, _description_
         """
