@@ -5,7 +5,7 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-08-10
+Updated: 2025-08-12
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Container, Generator, \
@@ -20,9 +20,11 @@ from typing import Any, overload, TypeVar
 
 # Import local custom libraries
 try:
-    from meta import method, Poppable, Traversible, Updatable
+    from meta import method, Traversible
+    from meta.typeshed import Poppable, Updatable
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.meta import method, Poppable, Traversible, Updatable
+    from gconanpy.meta import method, Traversible
+    from gconanpy.meta.typeshed import Poppable, Updatable
 
 # Constant: TypeVars for...
 I = TypeVar("I", bound=Iterable)  # ...combine

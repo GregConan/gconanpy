@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-07
-Updated: 2025-08-10
+Updated: 2025-08-12
 """
 # Import standard libraries
 import builtins
@@ -25,9 +25,10 @@ from gconanpy.debug import StrictlyTime
 from gconanpy.iters import Combinations
 from gconanpy.mapping.dicts import Cryptionary, Defaultionary, DotDict, \
     Explictionary, LazyDict, LazyDotDict
-from gconanpy.meta import Boolable, MultiTypeMeta, name_of, names_of, \
+from gconanpy.meta import Boolable, name_of, names_of, \
     Recursively, TimeSpec
 from gconanpy.meta.metaclass import MakeMetaclass, name_type_class
+from gconanpy.meta.typeshed import MultiTypeMeta
 from gconanpy.testers import Tester
 from gconanpy.trivial import always_false, always_none, always_true
 

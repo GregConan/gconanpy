@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2025-08-06
+Updated: 2025-08-12
 """
 # Import standard libraries
 import abc
@@ -23,12 +23,14 @@ from makefun import create_function, with_signature
 try:
     import attributes
     from iters import MapSubset, merge
-    from meta import HasSlots, name_of
+    from meta import name_of
+    from meta.typeshed import HasSlots
     from wrappers import ToString
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy import attributes
     from gconanpy.iters import MapSubset, merge
-    from gconanpy.meta import HasSlots, name_of
+    from gconanpy.meta import name_of
+    from gconanpy.meta.typeshed import HasSlots
     from gconanpy.wrappers import ToString
 
 

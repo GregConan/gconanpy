@@ -6,7 +6,7 @@ Created: 2025-07-06
 Updated: 2025-08-10
 """
 # Import standard libraries
-from collections.abc import Generator
+from collections.abc import Generator, Hashable
 import random
 from timeit import timeit
 from typing import Any, TypeVar
@@ -20,8 +20,8 @@ from gconanpy.testers import Tester
 class TestDuckCollection(Tester):
     _K = TypeVar("_K")
     COLLECTYPES = {list, set, tuple}
-    EXAMPLES = {"This is a sample string": {list, set, tuple, str},
-                ("This", "is", "a", "string", "tuple"): COLLECTYPES}
+    EXAMPLES: dict[Hashable, set[type]] = {"This is a sample string": {list, set, tuple, str},
+                                           ("This", "is", "a", "string", "tuple"): COLLECTYPES}
 
     def check_contains(self, ducks: DuckCollection[_K], key: _K,
                        isin: bool) -> bool:
@@ -126,6 +126,13 @@ class TestDuckCollection(Tester):
                 popped = ints.pop(pop_ix)
                 self.check_result(popped, to_pop)
                 assert ints.get(pop_ix) != to_pop
+
+    def test_index_1(self) -> None:
+        self.add_basics()
+        ducks = DuckCollection(self.alist)
+        for i in self.alist:
+            self.check_result(ducks.index(i), i - 1)
+        # TODO ADD MORE TESTS, ESP FOR MAPPINGS
 
     def test_pop_no_ix(self) -> None:
         for value, ducks in self.examples():

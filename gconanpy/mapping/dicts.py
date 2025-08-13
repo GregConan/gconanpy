@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-08-10
+Updated: 2025-08-12
 """
 # Import standard libraries
 from collections import defaultdict
@@ -12,14 +12,8 @@ from collections.abc import (Callable, Collection, Container, Generator,
                              Hashable, Iterable, Mapping, Sequence)
 from configparser import ConfigParser
 from operator import itemgetter
-from typing import Any, cast, Literal, overload, TypeVar, TYPE_CHECKING
+from typing import Any, cast, Literal, overload, TypeVar
 from typing_extensions import Self
-
-# Import variables for type hinting (can't import _typeshed at runtime)
-if TYPE_CHECKING:
-    from _typeshed import SupportsRichComparison
-else:
-    SupportsRichComparison = Any
 
 # Import third-party PyPI libraries
 from cryptography.fernet import Fernet
@@ -29,13 +23,15 @@ try:
     from attributes import get_names as get_attr_names
     from debug import Debuggable
     from iters import MapSubset, MapWalker, SimpleShredder
-    from meta import Bytesifier, DATA_ERRORS, name_of, Traversible
+    from meta import Bytesifier, name_of, Traversible
+    from meta.typeshed import DATA_ERRORS, SupportsRichComparison
     from trivial import always_none
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.attributes import get_names as get_attr_names
     from gconanpy.debug import Debuggable
     from gconanpy.iters import MapSubset, MapWalker, SimpleShredder
-    from gconanpy.meta import Bytesifier, DATA_ERRORS, name_of, Traversible
+    from gconanpy.meta import Bytesifier, name_of, Traversible
+    from gconanpy.meta.typeshed import DATA_ERRORS, SupportsRichComparison
     from gconanpy.trivial import always_none
 
 # Type variables for .__init__(...) and .update(...) method input parameters
@@ -355,7 +351,7 @@ class OverlapPercents[Sortable: SupportsRichComparison
             `Collection`'s name to its elements.
         """
         for collecname, collec in collecs.items():
-            # Define & fill before adding to self in order to appease pylance
+            # Define & fill before adding to self in order to appease pyright
             sorty = Sortionary()
             for othername, othercollns in collecs.items():
                 sorty[othername] = \

@@ -3,21 +3,26 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-01
-Updated: 2025-08-07
+Updated: 2025-08-12
 """
 # Import standard libraries
 from collections.abc import Collection, Hashable, Iterable, \
     Iterator, MutableSet, MutableMapping, MutableSequence, Sequence
+from more_itertools import all_equal
 import sys
-from typing import Any, cast, overload, Self, TypeVar
+from typing import Any, Mapping, cast, overload, Self, TypeVar
 
 # Import local custom libraries
 try:
-    from meta import (AddableSequence, BytesOrStr, DATA_ERRORS,
-                      name_of, SupportsItemAccess)
+    from mapping import keys_mapped_to
+    from meta import name_of
+    from meta.typeshed import AddableSequence, BytesOrStr, \
+        DATA_ERRORS, SupportsGetItem, SupportsItemAccess
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.meta import (AddableSequence, BytesOrStr, DATA_ERRORS,
-                               name_of, SupportsItemAccess)
+    from gconanpy.mapping import keys_mapped_to
+    from gconanpy.meta import DATA_ERRORS, name_of
+    from gconanpy.meta.typeshed import AddableSequence, BytesOrStr, \
+        DATA_ERRORS, SupportsGetItem, SupportsItemAccess
 
 
 _K = TypeVar("_K", Hashable, None)
@@ -109,6 +114,39 @@ class DuckCollection[T]:
         except DATA_ERRORS:
             return iter(self.ducks)
 
+    def __getitem__(self, key: _K = None) -> T:
+        """ 
+        :param key: Hashable | None, key mapped to the value to return, if \
+            any; else None to return the last value (or an arbitrary one); \
+            defaults to None
+        :return: T, the value mapped to `key` in this `DuckCollection`, if \
+            any; else the last item in this `DuckCollection`, if it is \
+            ordered; else an arbitrary item from this `DuckCollection`.
+        """
+        try:  # If self.ducks has __getitem__, then call that.
+            gotten = cast(SupportsGetItem, self.ducks)[key]
+        except DATA_ERRORS:  # Otherwise, get an element; preferably the last
+            gotten = next(reversed(self))
+        return gotten
+
+    def __setitem__(self, key: int | _K, duck: T) -> None:
+        """
+        :param ix: int, _description_
+        :param duck: T, _description_
+        :raises TypeError: _description_
+        """
+        try:
+            cast(SupportsItemAccess, self.ducks)[key] = duck
+        except DATA_ERRORS:
+            match self.ducks:
+                case tuple():
+                    self.ducks = (*self.ducks[:cast(int, key)], duck,
+                                  *self.ducks[cast(int, key) + 1:])
+                case MutableSet():
+                    self.ducks.add(duck)
+                case _:
+                    raise TypeError
+
     def add(self, duck: T, key: _K = None) -> None:
         """ Append `duck` to the end of the `Sequence`, or add `duck` to the \
             unordered `Collection`. Replicates `list.append` and `set.add`.
@@ -117,7 +155,7 @@ class DuckCollection[T]:
         :raises TypeError: if `self.ducks` is an unsupported type.
         """
         match self.ducks:
-            case BytesOrStr():
+            case str() | bytes():
                 self.ducks += duck
             case MutableSequence():
                 self.ducks.append(duck)
@@ -133,6 +171,9 @@ class DuckCollection[T]:
     # DuckCollection can use "add" and "append" interchangeably. The class
     # will automatically choose the appropriate method to add a new element
     append = add
+
+    # Alias to check whether all elements are identical to each other
+    are_same = all_equal
 
     def clear(self, *args, **kwargs) -> None:
         """ Replace the contained/wrapped `Collection` with an empty one. 
@@ -195,22 +236,9 @@ class DuckCollection[T]:
                 for duck in ducks:
                     self.add(duck)
 
-    def get(self, key: _K = None) -> T:
-        """ 
-        :param key: Hashable | None, key mapped to the value to return, if \
-            any; else None to return the last value (or an arbitrary one); \
-            defaults to None
-        :return: T, the value mapped to `key` in this `DuckCollection`, if \
-            any; else the last item in this `DuckCollection`, if it is \
-            ordered; else an arbitrary item from this `DuckCollection`.
-        """
-        try:  # If self.ducks has __getitem__, then call that.
-            gotten = cast(SupportsItemAccess, self.ducks)[key]
-        except DATA_ERRORS:  # Otherwise, get an element; preferably the last
-            gotten = next(reversed(self))
-        return gotten
+    get = __getitem__
 
-    def index(self, duck: T, start: int = 0, stop: int = sys.maxsize) -> int:
+    def index(self, duck: T, start: int = 0, stop: int = sys.maxsize) -> int | _K:
         """ Return first index of `duck` in the `Sequence` wrapped by this \
             `DuckCollection`. Raise exception if this isn't a `Sequence`, or \
             if `duck` isn't in this `DuckCollection`.
@@ -226,7 +254,22 @@ class DuckCollection[T]:
         :raises ValueError: if `duck` is not present in this `DuckCollection`.
         :return: int, first index of `duck` in this `DuckCollection`.
         """
-        return cast(Sequence, self.ducks).index(duck, start, stop)
+        match self.ducks:
+            case Sequence():
+                key = self.ducks.index(duck, start, stop)
+            case Mapping():
+                key = None
+                for key in keys_mapped_to(cast(Mapping[_K, T], self.ducks), duck):
+                    try:
+                        if start < cast(int, key) < stop:
+                            break
+                    except DATA_ERRORS:
+                        break
+                if key is None:
+                    raise TypeError
+            case _:
+                raise TypeError
+        return key
 
     def isdisjoint(self, other: Collection[T]) -> bool:
         """ 
@@ -311,24 +354,7 @@ class DuckCollection[T]:
                 raise TypeError
         return popped
 
-    def set_to(self, key: int | _K, duck: T) -> None:
-        """
-        :param ix: int, _description_
-        :param duck: T, _description_
-        :raises TypeError: _description_
-        """
-        match self.ducks:
-            case MutableSequence():
-                self.ducks[cast(int, key)] = duck
-            case tuple():
-                self.ducks = (*self.ducks[:cast(int, key)], duck,
-                              *self.ducks[cast(int, key) + 1:])
-            case MutableSet():
-                self.ducks.add(duck)
-            case MutableMapping():
-                cast(MutableMapping[_K, T], self.ducks)[cast(_K, key)] = duck
-            case _:
-                raise TypeError
+    set_to = __setitem__
 
     def remove(self, duck: T) -> None:
         """ Remove first occurrence of `duck` in this `DuckCollection`. \

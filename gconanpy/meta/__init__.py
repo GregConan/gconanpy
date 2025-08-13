@@ -4,34 +4,27 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-08-10
+Updated: 2025-08-12
 """
 # Import standard libraries
 import abc
 import builtins
 from collections.abc import Callable, Collection, Container, \
-    Hashable, Iterable, Iterator, Mapping, Sequence
+    Hashable, Iterable, Iterator, Mapping
 from functools import wraps
 import operator
 # from operator import attrgetter, methodcaller  # TODO?
 import sys
-from typing import Any, Concatenate, get_args, Literal, Protocol, \
-    NamedTuple, no_type_check, overload, runtime_checkable, ParamSpec, \
-    SupportsBytes, SupportsFloat, TypeVar, TYPE_CHECKING
+from typing import Any, Concatenate, get_args, Literal, NamedTuple, \
+    no_type_check, overload, ParamSpec, SupportsBytes, SupportsFloat, TypeVar
 from typing_extensions import Self
 
-
-if TYPE_CHECKING:
-    from _typeshed import SupportsItemAccess
-else:  # Can't import _typeshed at runtime, so define its imports manually
-    class SupportsItemAccess:
-        def __contains__(self, x, /): ...
-        def __getitem__(self, key, /): ...
-        def __setitem__(self, key, value, /): ...
-        def __delitem__(self, key, /): ...
-
-# Purely "internal" errors only involving local data; ignorable in some cases
-DATA_ERRORS = (AttributeError, IndexError, KeyError, TypeError, ValueError)
+try:
+    from typeshed import (DATA_ERRORS, HasClass, SkipException,
+                          SupportsItemAccess)
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from gconanpy.meta.typeshed import (DATA_ERRORS, HasClass, SkipException,
+                                        SupportsItemAccess)
 
 # TypeVars for Lazily class methods' input parameters
 CALL_2ARG = Callable[[Any, Any], Any]
@@ -144,30 +137,6 @@ def which_of(*conditions: Any) -> set[int]:  # TODO conditions: Boolable
     :return: set[int], the indices of every truthy item in `conditions`
     """
     return set((i for i, cond in enumerate(conditions) if cond))
-
-
-class HasClass(abc.ABC):
-    __class__: type  # Callable[[Any], Any]
-
-
-class HasSlots(abc.ABC):
-    __slots__: tuple
-
-
-@runtime_checkable
-class Poppable[T](Protocol):
-    """ Any object or class with a `pop` method is a `Poppable`.
-        `dict`, `list`, and `set` are each `Poppable`. """
-
-    def pop(self, *_) -> T: ...
-
-
-@runtime_checkable
-class Updatable(Protocol):
-    """ Any object or class with an `update` method is an `Updatable`.
-        `dict`, `MutableMapping`, and `set` are each `Updatable`. """
-
-    def update(self, *_args, **_kwargs): ...
 
 
 class Bytesifier:
@@ -301,69 +270,6 @@ class Boolable(metaclass=BoolableMeta):
     """ Any object that you can call `bool()` on is a `Boolable`. """
 
 
-class MultiTypeMeta(type, abc.ABC):
-    _TypeArgs = type | tuple[type, ...]
-    _TypeChecker = Callable[[Any, _TypeArgs], bool]
-
-    IS_A: _TypeArgs = (object, )
-    ISNT_A: _TypeArgs = tuple()
-
-    @staticmethod
-    def check(thing: Any, is_if: _TypeChecker,
-              is_a: _TypeArgs = (object, ),
-              isnt_a: _TypeArgs = tuple()) -> bool:
-        return is_if(thing, is_a) and not is_if(thing, isnt_a)
-
-    def __instancecheck__(cls, instance: Any) -> bool:
-        return cls.check(instance, isinstance, cls.IS_A, cls.ISNT_A)
-
-    def __subclasscheck__(cls, subclass: Any) -> bool:
-        return cls.check(subclass, issubclass, cls.IS_A, cls.ISNT_A)
-
-
-class BytesOrStrMeta(MultiTypeMeta):
-    IS_A = (bytes, str, bytearray)
-
-
-class BytesOrStr(metaclass=BytesOrStrMeta):
-    """ Any `bytes`, `str`, or `bytearray` instance is also an instance \
-        of the `BytesOrStr` class. """
-
-
-class PureIterableMeta(MultiTypeMeta):
-    IS_A = (Iterable, )
-    ISNT_A = (str, bytes, Mapping)
-
-
-class PureIterable(metaclass=PureIterableMeta):
-    """ Iterables that aren't strings, bytes, or Mappings are "Pure." """
-
-
-class NonTxtColMeta(MultiTypeMeta):
-    IS_A = (Collection, )
-    ISNT_A = (str, bytes, bytearray)
-
-
-class NonTxtCollection(metaclass=NonTxtColMeta):
-    """ All Collections except `str`, bytes, & `bytearray` are \
-        `NonTxtCollection`s. """
-
-
-class AddSeqMeta(type):
-
-    def __instancecheck__(cls, instance: Any) -> bool:
-        return isinstance(instance, Sequence) and \
-            has_method(instance, "__add__")
-
-    def __subclasscheck__(cls, subclass: Any) -> bool:
-        return issubclass(subclass, Sequence) and \
-            has_method(subclass, "__add__")
-
-
-class AddableSequence(metaclass=AddSeqMeta):
-    """ Any Sequence with an `__add__` method is an `AddableSequence`. """
-
-
 class Traversible:
     """ Base class for recursive iterators that can visit all items in a \
         nested container data structure. """
@@ -404,10 +310,6 @@ class Recursively:
             an_obj[keys[0]] = value
         else:
             cls.setitem(an_obj[keys[0]], keys[1:], value)
-
-
-class SkipException(BaseException):
-    """ Exception raised by ErrCatcher subclasses to skip a block of code. """
 
 
 class ErrCatcher:

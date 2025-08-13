@@ -4,7 +4,7 @@
 Classes that wrap other classes, especially builtins, to add functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-08-11
+Updated: 2025-08-12
 """
 # Import standard libraries
 import argparse
@@ -28,11 +28,13 @@ import pathvalidate
 try:
     from iters import MapSubset
     from meta import (bool_pair_to_cases, ClassWrapper,
-                      name_of, NonTxtCollection, TimeSpec, tuplify)
+                      name_of, TimeSpec, tuplify)
+    from meta.typeshed import NonTxtCollection
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.iters import MapSubset
     from gconanpy.meta import (bool_pair_to_cases, ClassWrapper,
-                               name_of, NonTxtCollection, TimeSpec, tuplify)
+                               name_of, TimeSpec, tuplify)
+    from gconanpy.meta.typeshed import NonTxtCollection
 
 
 # @ClassWrapper(tuple).class_decorator  # TODO?
