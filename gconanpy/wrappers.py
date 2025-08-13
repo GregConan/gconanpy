@@ -4,7 +4,7 @@
 Classes that wrap other classes, especially builtins, to add functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-08-12
+Updated: 2025-08-13
 """
 # Import standard libraries
 import argparse
@@ -82,6 +82,7 @@ class Sets[T: Hashable](tuple[set[T], ...]):
                                              ) for i in range(len(self)))
 
     def intersection(self) -> set[T]:
+        """ :return: set[T] with only the items in all input sets/`Sets`. """
         return reduce(set.intersection, self) if self else set()
 
     def merge(self) -> set[T]:
@@ -650,7 +651,8 @@ class SoupTree(BasicTree):
             case _:
                 ret = ("", list())
         self = cls(ret)
-        self.full = ToString.fromBeautifulSoup(page_el)
+        self.full = (ToString.fromBeautifulSoup(page_el, "first"),
+                     ToString.fromBeautifulSoup(page_el, "last"))
         return self
 
 

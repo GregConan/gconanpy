@@ -6,7 +6,7 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-07-28
+Updated: 2025-08-13
 """
 # Import standard libraries
 from abc import ABC
@@ -31,11 +31,13 @@ from pympler.asizeof import asizeof
 
 # Import local custom libraries
 try:
+    from . import ROOT_DIR
     from IO.local import walk_dir
     from meta import name_of, HumanBytes, TimeSpec
     from iters.seq import uniqs_in
     from wrappers import stringify_dt, stringify_iter
 except ModuleNotFoundError:  # TODO DRY?
+    from gconanpy import ROOT_DIR
     from gconanpy.IO.local import walk_dir
     from gconanpy.meta import name_of, HumanBytes, TimeSpec
     from gconanpy.iters.seq import uniqs_in
@@ -91,6 +93,64 @@ class Debuggable:
             debug(an_err, local_vars)
         else:
             raise an_err
+
+
+def get_pyproject_dependencies(dir_path: str = ROOT_DIR) -> tuple[
+        defaultdict[str, list[str]], Iterable[str]]:
+    """ Given the path to a Python project, analyze its local import order. \
+        Assumes that local imports are listed in `try`/`except` blocks.
+
+    :param dir_path: str, valid full path to existing Python project root \
+        directory, defaults to `ROOT_DIR` (the `gconanpy` root directory)
+    :return: tuple[defaultdict[str, list[str]], Iterable[str]], two items: \
+        (0) a `defaultdict` mapping the name of each `.py` file under the \
+            given `dir_path` to a list of the others that it imports; and \
+        (1) a canonical valid import order for those `.py` files such that \
+            each named file can import the files before it in the list.
+    """
+    # First returned value: dict mapping each file to the others it imports
+    dependencies = defaultdict(list)
+    proj_name = os.path.basename(dir_path)  # prepend to each file name/path
+
+    # Read every Python file in the project directory to get its imports
+    for pyfpath in walk_dir(dir_path, '.py'):
+        with open(pyfpath) as infile:
+            contents = infile.read()
+
+        # Extract only the local imports in try/except blocks
+        split1 = contents.split('\ntry:', 1)
+        if len(split1) > 1:  # len(split) <= 1 means no try/except blocks
+            split2 = split1[1].split('\nexcept', 1)
+
+            # Convert each /dir/file/path to a python.module.import.path
+            modulepath = os.path.splitext(
+                f"{proj_name}{pyfpath.split(proj_name)[-1]}"
+                .replace(os.sep, ".").strip(os.sep))[0]
+
+            # Convert relative import paths from parent directory
+            moduledir = os.path.dirname(modulepath).strip("..")
+
+            # Convert each local import into the same format
+            for eachline in split2[0].split("\n"):
+                trimmed = eachline.strip()
+                if trimmed.startswith(("from", "import")):
+                    linesplit = eachline.split(maxsplit=3)
+                    depfile = linesplit[1]
+
+                    # Convert relative import paths
+                    if depfile == ".":
+                        depfile = f"{moduledir}.__init__.py"
+                    depfile = depfile.replace("..", moduledir + ".")
+
+                    # Save all local import paths as full module paths
+                    if not depfile.startswith(proj_name):
+                        depfile = f"{proj_name}.{depfile.strip('.')}"
+                    dependencies[modulepath].append(depfile)
+
+    # Return each file's local dependencies and a canonical import order
+    dag = graphlib.TopologicalSorter(dependencies)
+    # pdb.set_trace()
+    return (dependencies, dag.static_order())
 
 
 # TODO Replace "print()" calls with "log()" calls after making log calls
