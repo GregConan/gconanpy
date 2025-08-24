@@ -118,11 +118,11 @@ from gconanpy.iters.find import iterfind, modifind
 
 # Find first item matching condition
 numbers = [1, 2, 3, 4, 5]
-first_even = iterfind(numbers, lambda x: x % 2 == 0)  # 2
+first_even = iterfind(numbers, lambda x: x % 2 == 0)  # -> 2
 
 # Find item after modification
 def double(x): return x * 2
-first_large = modifind(numbers, modify=double, found_if=lambda x: x > 6)  # 4
+first_large = modifind(numbers, modify=double, found_if=lambda x: x > 6)  # -> 4
 ```
 
 ### Advanced Iteration Patterns
@@ -146,7 +146,7 @@ all_data = shredder.shred(complex_nested_object)
 from gconanpy.iters.seq import uniqs_in, seq_startswith
 
 # Get unique items
-unique_items = uniqs_in([1, 2, 2, 3, 3, 3])  # [1, 2, 3]
+unique_items = uniqs_in([1, 2, 2, 3, 1, 3, 3, 2])  # [1, 2, 3]
 
 # Check sequence prefix
 starts_with = seq_startswith([1, 2, 3, 4], [1, 2])  # True

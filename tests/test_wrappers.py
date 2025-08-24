@@ -48,6 +48,11 @@ class TestSets(Tester):
                     if postdif != otherset:
                         assert postdif.isdisjoint(otherset)
 
+    def test_filter(self) -> None:
+        sets = Sets(((1, 2, 3), (3, 4, 5, 6), (1, 9, 10)))
+        self.check_result(sets.filter(lambda x: x > 5),
+                          Sets((tuple(), (6, ), (9, 10))))
+
     def test_intersection(self) -> None:
         int_bounds = dict(min_int=-10, max_int=10)
         self.check_result(Sets(((1, 2, 3), (1, 4, 5), (1, 6, 7, 8), (1, 9, 10))

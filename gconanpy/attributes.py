@@ -144,6 +144,37 @@ def setdefault(an_obj: Any, name: str, value: Any,
         setattr(an_obj, name, value)
 
 
+class Filter2:
+    # Class variables: method input argument types
+    _SELECTOR = Callable[[Any], bool]  #
+    _SELECTORS = Iterable[_SELECTOR]
+
+    def __init__(self, names_are: _SELECTORS = tuple(),
+                 values_are: _SELECTORS = tuple(),
+                 names_arent: _SELECTORS = tuple(),
+                 values_arent: _SELECTORS = tuple()) -> None:
+        """ _summary_ 
+
+        :param names_are: Iterable[Callable[[Any], bool]] of \
+            Callables to run on the NAME of every attribute of this object \
+            to check whether the returned generator function should include \
+            that attribute (if True) or skip it (if False).
+        :param values_are: Iterable[Callable[[Any], bool]] of \
+            Callables to run on the VALUE of every attribute of this object, \
+            to check whether the returned generator function should include \
+            that attribute (if True) or skip it (if False).
+        :param names_arent: Iterable[Callable[[Any], bool]] of \
+            Callables to run on the NAME of every attribute of this object \
+            to check whether the returned generator function should include \
+            that attribute (if False) or skip it (if True).
+        :param values_arent: Iterable[Callable[[Any], bool]] of \
+            Callables to run on the VALUE of every attribute of this object, \
+            to check whether the returned generator function should include \
+            that attribute (if False) or skip it (if True).
+        """
+        ...
+
+
 class Filter:
     # Class variables: method input argument types
     _SELECTOR = Callable[[Any], bool]  #
@@ -360,3 +391,11 @@ class AttrsOf:
                    exclude: bool = False) -> list[_AttrPair]:
         return [(name, attr) for name, attr in
                 self.select(filter_if, exclude)]
+
+
+class MultiWrapperFactory:
+    IsPublicMethod = Filter(if_values=[callable, AttrsOf.attr_is_private])
+
+    def __init__(self, superclass: type) -> None:
+        for meth_name, meth in AttrsOf(superclass).methods():
+            ...  # TODO

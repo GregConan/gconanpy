@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-08-12
+Updated: 2025-08-23
 """
 # Import standard libraries
 import abc
@@ -19,12 +19,14 @@ from typing import Any, Concatenate, get_args, Literal, NamedTuple, \
     no_type_check, overload, ParamSpec, SupportsBytes, SupportsFloat, TypeVar
 from typing_extensions import Self
 
+from gconanpy.meta.typeshed import Unhashable
+
 try:
-    from typeshed import (DATA_ERRORS, HasClass, SkipException,
+    from typeshed import (DATA_ERRORS, HasClass, Unhashable, SkipException,
                           SupportsItemAccess)
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.meta.typeshed import (DATA_ERRORS, HasClass, SkipException,
-                                        SupportsItemAccess)
+    from gconanpy.meta.typeshed import (DATA_ERRORS, HasClass, Unhashable,
+                                        SkipException, SupportsItemAccess)
 
 # TypeVars for Lazily class methods' input parameters
 CALL_2ARG = Callable[[Any, Any], Any]
@@ -57,6 +59,22 @@ def has_method(an_obj: Any, method_name: str) -> bool:
         (method) of `an_obj`; otherwise False.
     """
     return callable(getattr(an_obj, method_name, None))
+
+
+@overload
+def hashable(an_obj: Hashable) -> Literal[True]: ...
+@overload
+def hashable(an_obj: Unhashable) -> Literal[False]: ...
+@overload
+def hashable(an_obj: Any) -> bool: ...
+
+
+def hashable(an_obj):
+    try:
+        hash(an_obj)
+        return True
+    except TypeError:
+        return False
 
 
 def method(method_name: str) -> Callable:
@@ -137,101 +155,6 @@ def which_of(*conditions: Any) -> set[int]:  # TODO conditions: Boolable
     :return: set[int], the indices of every truthy item in `conditions`
     """
     return set((i for i, cond in enumerate(conditions) if cond))
-
-
-class Bytesifier:
-    """ Class with a method to convert objects into bytes without knowing \
-        what type those things are. """
-    _T = TypeVar("_T")
-    IsOrSupportsBytes = TypeVar("IsOrSupportsBytes", bytes, SupportsBytes)
-
-    DEFAULTS = dict(encoding=sys.getdefaultencoding(), length=1,
-                    byteorder="big", signed=False)
-
-    def try_bytesify(self, an_obj: _T, **kwargs) -> bytes | _T:
-        try:
-            return self.bytesify(an_obj, **kwargs)  # type: ignore
-        except TypeError:
-            return an_obj
-
-    def bytesify(self, an_obj: IsOrSupportsBytes, **kwargs) -> bytes:
-        """
-        :param an_obj: IsOrSupportsBytes, something to convert to bytes
-        :raises TypeError: if an_obj has no 'to_bytes' or 'encode' method
-        :return: bytes, an_obj converted to bytes
-        """
-        # Get default values for encoder methods' input options
-        defaults = self.DEFAULTS.copy()
-        defaults.update(kwargs)
-        encoding = defaults.pop("encoding")
-
-        match an_obj:
-            case bytes():
-                bytesified = an_obj
-            case int():
-                bytesified = int.to_bytes(an_obj, **defaults)
-            case str():
-                bytesified = str.encode(an_obj, encoding=encoding)
-            case SupportsBytes():
-                bytesified = bytes(an_obj)
-            case _:
-                raise TypeError(f"Object {an_obj} cannot be "
-                                "converted to bytes")
-        return bytesified
-
-
-class HumanBytes:
-    """ Shamelessly stolen from https://stackoverflow.com/a/63839503 """
-    METRIC_LABELS: list[str] = ["B", "kB", "MB", "GB", "TB", "PB",
-                                "EB", "ZB", "YB"]
-    BINARY_LABELS: list[str] = ["B", "KiB", "MiB", "GiB", "TiB",
-                                "PiB", "EiB", "ZiB", "YiB"]
-
-    # PREDEFINED FOR SPEED
-    PRECISION_OFFSETS: list[float] = [0.5, 0.05, 0.005, 0.0005]
-    PRECISION_FORMATS: list[str] = ["{}{:.0f} {}", "{}{:.1f} {}",
-                                    "{}{:.2f} {}", "{}{:.3f} {}"]
-
-    @staticmethod
-    def format(num: int | float, metric: bool = False,
-               precision: int = 1) -> str:
-        """
-        Human-readable formatting of bytes, using binary (powers of 1024)
-        or metric (powers of 1000) representation.
-        """
-        assert isinstance(num, (int, float)), "num must be an int or float"
-        assert isinstance(metric, bool), "metric must be a bool"
-        assert isinstance(precision, int) and 0 <= precision <= 3, \
-            "precision must be an int (range 0-3)"
-
-        unit_labels = (HumanBytes.METRIC_LABELS if metric
-                       else HumanBytes.BINARY_LABELS)
-        last_label = unit_labels[-1]
-        unit_step = 1000 if metric else 1024
-        unit_step_thresh = unit_step - HumanBytes.PRECISION_OFFSETS[precision]
-
-        is_negative = num < 0
-        if is_negative:  # Faster than ternary assignment or always running abs().
-            num = abs(num)
-
-        for unit in unit_labels:
-            if num < unit_step_thresh:
-                # VERY IMPORTANT:
-                # Only accepts the CURRENT unit if we're BELOW the threshold where
-                # float rounding behavior would place us into the NEXT unit: F.ex.
-                # when rounding a float to 1 decimal, any number ">= 1023.95" will
-                # be rounded to "1024.0". Obviously we don't want ugly output such
-                # as "1024.0 KiB", since the proper term for that is "1.0 MiB".
-                break
-            if unit != last_label:
-                # We only shrink the number if we HAVEN'T reached the last unit.
-                # NOTE: These looped divisions accumulate floating point rounding
-                # errors, but each new division pushes the rounding errors further
-                # and further down in the decimals, so it doesn't matter.
-                num /= unit_step
-
-        return HumanBytes.PRECISION_FORMATS[precision].format(
-            "-" if is_negative else "", num, unit)
 
 
 class TimeSpec(dict[str, int]):
@@ -618,14 +541,14 @@ class ClassWrapper:
 
     # New type hint variables for other ClassWrapper methods
     _Super = TypeVar("_Super")
-    _S = TypeVar("_S")
+    _Sub = TypeVar("_Sub")
     ASSIGNED = ("__doc__", "__name__", "__text_signature__")
 
     def __init__(self, superclass: type[_Super]) -> None:
         self.superclass = superclass
         self.attr_names = dir(superclass)
 
-    def _wrap_method_of(self, subclass: type[_S], func: Callable):
+    def _wrap_method_of(self, subclass: type[_Sub], func: Callable):
         @wraps(func, assigned=self.ASSIGNED)
         def inner(*args, **kwargs):
             result = func(*args, **kwargs)
@@ -637,7 +560,7 @@ class ClassWrapper:
         inner.__qualname__ = f"{subclass.__name__}.{inner.__name__}"
         return inner
 
-    def class_decorator(self, subclass: type[_S]) -> type[_S]:
+    def class_decorator(self, subclass: type[_Sub]) -> type[_Sub]:
         self.subclass = subclass
         for attr_name in self.attr_names:
             if not attr_name.startswith("__"):

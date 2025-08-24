@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-08-10
+Updated: 2025-08-23
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -16,6 +16,7 @@ from gconanpy import mapping
 from gconanpy.debug import StrictlyTime
 from gconanpy.iters import Combinations, MapWalker, powers_of_ten, Randoms
 from gconanpy.mapping.dicts import *
+from gconanpy.mapping.grids import GridCryptionary, HashGrid, Locktionary
 from gconanpy.meta import Lazily, TimeSpec
 # from tests import test_mapping
 from gconanpy.testers import Tester  # , TimeTester
@@ -431,6 +432,56 @@ class TestDotDicts(DictTester):
             ddsc = DotDictSubClass(self.adict)
             self.check_result({x: getattr(ddsc, x) for x in ddsc.keys()},
                               dict(a="sub1", b="sub2", c="sub3"))
+
+
+class TestHashGrid(DictTester):
+    _Pairs = list[tuple[tuple[str, ...], str]]
+    CLASSES = tuple[type[HashGrid], ...]
+    TEST_CLASSES: CLASSES = (HashGrid, GridCryptionary)
+
+    def rand_pairs_HG(self, classes: CLASSES = TEST_CLASSES, n_tests: int = 20
+                      ) -> Generator[tuple[_Pairs, HashGrid]]:
+        self.add_basics()
+        n = n_tests // len(classes)  # tests per class
+        for hgclass in classes:
+            for _ in range(n):
+                # Create a random HashGrid to test its methods
+                pairs = [(keys, Randoms.randstr()) for keys in
+                         Randoms.randtuples(same_len=True, unique=True)]
+                hg = hgclass(*pairs)
+                yield pairs, hg
+
+    def test_frompairs_basic(self, classes: CLASSES = TEST_CLASSES) -> None:
+        self.add_basics()
+        for hgclass in classes:
+            hg = hgclass(([1] * 3, "foo"), ([2] * 3, "bar"))
+            self.check_result(hg[1, 1, 1], "foo")
+            self.check_result(hg[2, 2, 2], "bar")
+
+    def test_frompairs_contains(self, classes: CLASSES = TEST_CLASSES,
+                                n_tests: int = 5) -> None:
+        for pairs, hg in self.rand_pairs_HG(classes, n_tests):
+            for keys, _ in pairs:
+                assert keys in hg  # Test __contains__
+
+    def test_frompairs_get_set(self, classes: CLASSES = TEST_CLASSES,
+                               n_tests: int = 20) -> None:
+        for pairs, hg in self.rand_pairs_HG(classes, n_tests):
+            for keys, value in pairs:
+                self.check_result(hg[keys], value)  # Test __getitem__
+                self.check_result(hg[*keys], value)  # Test __getitem__
+                hg[*keys] = None  # Test __setitem__
+                self.check_result(hg[keys], None)  # Test __(g/s)etitem__
+                self.check_result(hg[*keys], None)  # Test __(g/s)etitem__
+
+    # TODO Fix for GridCryptionary
+    def test_frompairs_pop(self, classes: CLASSES = TEST_CLASSES,
+                           n_tests: int = 20) -> None:
+        for pairs, hg in self.rand_pairs_HG(classes, n_tests):
+            for keys, value in pairs:
+                for keys, value in pairs:
+                    self.check_result(hg.pop(keys), value)
+                    assert keys not in hg
 
 
 class TestInvertionary(DictTester):

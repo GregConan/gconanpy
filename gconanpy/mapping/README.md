@@ -24,6 +24,7 @@ Custom dictionary classes with specialized functionality for various use cases. 
 - **`Defaultionary`** can fill missing values or overwrite unwanted values.
 - **`DotDict`** can access and modify items as attributes using dot notation.
 - **`Explictionary`** is the base class for these custom dict classes.
+- **`HashGrid`** can map a combination of an arbitrary number of keys to each value.
 - **`Invertionary`** can swap its keys and values.
 - **`LazyDict`** can delay execution of code to get/set default values.
 - **`Promptionary`** can interactively prompt the user to fill missing values.
@@ -34,9 +35,22 @@ Custom dictionary classes with specialized functionality for various use cases. 
 #### Combined Classes
 
 - **`LazyDotDict`** combines dot notation with lazy method calling.
+- **`Locktionary`** combines multi-key one-way mapping with value encryption.
 - **`DotPromptionary`** combines dot notation with prompting.
 - **`SubCryptionary`** combines subset operations with encryption.
 - **`FancyDict`** combines most of the others' functionality: dot notation, interactive prompting, invert and sort methods, lazy loading, recursive walking, and subset operations.
+
+#### Secure Multidimensional Dicts: `HashGrid` and `Locktionary`
+
+The **`HashGrid`** and **`Locktionary`** classes map combinations of an arbitrary number of keys (or "coordinates," or "dimensions") to specific values.
+
+Initializing a `HashGrid` as `hg = HashGrid(([1,2,3], "foo"), ([3,2,1], "bar"))`, or equivalently as `hg = HashGrid(values=["foo", "bar"], x=[1, 3], y=[2, 2], z=[3, 1])`, lets you access items as `hg[1, 2, 3] == "foo"` and `hg[3, 2, 1] == "bar"`.
+
+`HashGrid` does not know its own `keys`, so calling the `.keys()` method on a `HashGrid` will not return anything you can use to access the values. This may have cryptographic use.
+
+For example, a `HashGrid` with two dimensions "username" and "password" can allow user-specific access to values using those credentials without actually storing any usernames or passwords. Make a `HashGrid` for that use case like this: `creds = HashGrid.for_creds()` After adding "myvalue" for the user "myuser" with password "mypass" (`creds["myuser", "mypass"] = "myvalue"`), `creds` will not store (or otherwise be able to produce) the values "myuser" or "mypass" even though a user could still get or alter "myvalue" by accessing `creds["myuser", "mypass"]`.
+
+`HashGrid` exposes the values it stores. `Locktionary`, a combination of the `HashGrid` and the `Cryptionary`, encrypts its stored values. So, it directly exposes neither its key combinations nor its values. However, it is still possible for someone to use the `Cryptionary` to decrypt its values. Hopefully a later version can securely map a user's credentials to any value and store that mapping without exposing it, such that the credentials *and value* are only visible to someone who already has the credentials. 
 
 #### Usage Examples
 

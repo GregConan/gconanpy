@@ -81,6 +81,9 @@ class Sets[T: Hashable](tuple[set[T], ...]):
         return type(self)(self[i].difference((self[:i] + self[i+1:]).merge()
                                              ) for i in range(len(self)))
 
+    def filter(self, func: Callable) -> Self:
+        return type(self)(filter(func, s) for s in self)
+
     def intersection(self) -> set[T]:
         """ :return: set[T] with only the items in all input sets/`Sets`. """
         return reduce(set.intersection, self) if self else set()

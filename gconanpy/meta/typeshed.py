@@ -4,13 +4,13 @@
 Classes for use in type hints/checks. No behavior, except in MultiTypeMeta.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-12
-Updated: 2025-08-12
+Updated: 2025-08-23
 """
 # Import standard libraries
 import abc
-from collections.abc import Callable, Collection, Iterable, Mapping
-from typing import (Any, Protocol,
-                    runtime_checkable, TYPE_CHECKING)
+from collections.abc import Callable, Collection, Hashable, Iterable, Mapping
+from typing import Any, Protocol, overload, SupportsIndex, \
+    runtime_checkable, TYPE_CHECKING
 
 # Purely "internal" errors only involving local data; ignorable in some cases
 DATA_ERRORS = (AttributeError, IndexError, KeyError, TypeError, ValueError)
@@ -52,7 +52,7 @@ class Poppable[T](Protocol):
     """ Any object or class with a `pop` method is a `Poppable`.
         `dict`, `list`, and `set` are each `Poppable`. """
 
-    def pop(self, *_) -> T: ...
+    def pop(self, *_, **_kw) -> T: ...
 
 
 @runtime_checkable
@@ -60,10 +60,20 @@ class Updatable(Protocol):
     """ Any object or class with an `update` method is an `Updatable`.
         `dict`, `MutableMapping`, and `set` are each `Updatable`. """
 
-    def update(self, *_args, **_kwargs): ...
+    def update(self, *_, **_kw): ...
 
 
-# Redefine "Sequence" as a Protocol to subclass it to hint certain Sequences
+@runtime_checkable
+class SupportsHashAndGetItem[T](Protocol):
+    @overload
+    def __getitem__(self, key: SupportsIndex, /): ...
+    @overload
+    def __getitem__(self, key: slice, /): ...
+    def __getitem__(self, key, /): ...
+    def __hash__(self) -> int: ...
+
+
+# Define Sequence Protocol to subclass it to hint certain Sequences
 @runtime_checkable
 class ProtoSequence(SupportsLenAndGetItem, SupportsContainsAndGetItem,
                     Protocol):
@@ -100,8 +110,8 @@ class MultiTypeMeta(type, abc.ABC):
 
     @staticmethod
     def check(thing: Any, is_if: _TypeChecker,
-              is_a: _TypeArgs = (object, ),
-              isnt_a: _TypeArgs = tuple()) -> bool:
+              is_a: _TypeArgs = IS_A,
+              isnt_a: _TypeArgs = ISNT_A) -> bool:
         return is_if(thing, is_a) and not is_if(thing, isnt_a)
 
     def __instancecheck__(cls, instance: Any) -> bool:
@@ -132,6 +142,10 @@ class PureIterable(metaclass=PureIterableMeta):
 class NonTxtColMeta(MultiTypeMeta):
     IS_A = (Collection, )
     ISNT_A = (str, bytes, bytearray)
+
+
+class Unhashable(MultiTypeMeta):
+    ISNT_A = (Hashable, )
 
 
 class NonTxtCollection(metaclass=NonTxtColMeta):

@@ -113,7 +113,8 @@ class Regextract:
         :param txt: str, _description_
         :yield: Generator[regex.Match, None, None], _description_
         """
-        yield from regex.finditer(cls.PARENTHETICALS, txt, flags=regex.X)
+        yield from regex.finditer(cls.PARENTHETICALS, txt,
+                                  flags=regex.VERBOSE)
 
     @classmethod
     def letters_in(cls, txt: str) -> str:
@@ -125,7 +126,8 @@ class Regextract:
 
     @classmethod
     def parentheticals_in(cls, txt: str) -> list:
-        return regex.findall(cls.PARENTHETICALS, txt)
+        return regex.findall(cls.PARENTHETICALS, txt,
+                             flags=regex.VERBOSE)
 
     @staticmethod
     def parse(pattern: re.Pattern, txt: str, default: Any = None,
@@ -143,6 +145,22 @@ class Regextract:
         return MapSubset(keys=parsed.keys(), include_keys=True,
                          values=exclude, include_values=False
                          ).of(parsed) if exclude else parsed
+
+
+class TxtReplacer(list[tuple[regex.Pattern, str]]):
+    def __init__(self, *pairs: tuple[str, str],
+                 flags: re.RegexFlag | regex.RegexFlag = re.NOFLAG,
+                 ignore_unused: bool = False,
+                 cache_pattern: bool | None = None,
+                 **kwargs: Any) -> None:
+        list.__init__(self, ((regex.compile(pattern, flags, ignore_unused,
+                                            cache_pattern, **kwargs), new)
+                             for pattern, new in pairs))
+
+    def sub(self, txt: str) -> str:
+        for pattern, replacement in self:
+            txt = pattern.sub(replacement, txt)
+        return txt
 
 
 class DunderParser:

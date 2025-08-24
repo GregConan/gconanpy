@@ -4,7 +4,7 @@
 Useful/convenient functions for dicts (taken from dicts.py class methods).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-08-12
+Updated: 2025-08-22
 """
 # Import standard libraries
 from collections import defaultdict
@@ -172,20 +172,20 @@ def has_all(a_map: Mapping[_KT, _VT], keys: Iterable[_KT],
 
 
 @overload
-def invert(a_dict: dict[_KT, _VT], keep_keys: Literal[True]
+def invert(a_map: Mapping[_KT, _VT], keep_keys: Literal[True]
            ) -> dict[_VT, list[_KT]]: ...
 
 
 @overload
-def invert(a_dict: dict[_KT, _VT], keep_keys: Literal[False, "unpack"]
+def invert(a_map: Mapping[_KT, _VT], keep_keys: Literal[False, "unpack"]
            ) -> dict[_VT, _KT]: ...
 
 
 @overload
-def invert(a_dict: dict[_KT, _VT]) -> dict[_VT, _KT]: ...
+def invert(a_map: Mapping[_KT, _VT]) -> dict[_VT, _KT]: ...
 
 
-def invert(a_dict: dict[_KT, _VT],
+def invert(a_map: Mapping[_KT, _VT],
            keep_keys: bool | Literal["unpack"] = False):
     """ Swap keys and values. Inverting {1: 2, 3: 4} returns {2: 1, 4: 3}.
 
@@ -202,7 +202,7 @@ def invert(a_dict: dict[_KT, _VT],
     # If we are NOT keeping all keys mapped to the same value, then
     # just keep whichever key was added most recently
     if not keep_keys:
-        inverted = {v: k for k, v in a_dict.items()}
+        inverted = {v: k for k, v in a_map.items()}
 
     else:  # If we ARE keeping all keys mapped to the same value, then:
         inverted = defaultdict(list)  # Avoid conflating keys & values
@@ -210,12 +210,12 @@ def invert(a_dict: dict[_KT, _VT],
         # "Shred" each iterable value to map each of its elements to each key
         if keep_keys == "unpack":
             shredder = SimpleShredder()
-            for key, value in a_dict.items():
+            for key, value in a_map.items():
                 for subval in shredder.shred(value):
                     inverted[subval].append(key)
                 shredder.reset()
         else:  # If keep_keys=True, then simply keep the keys in a list
-            for key, value in a_dict.items():
+            for key, value in a_map.items():
                 inverted[value].append(key)
 
         inverted = dict(inverted)

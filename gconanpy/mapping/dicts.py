@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-08-12
+Updated: 2025-08-23
 """
 # Import standard libraries
 from collections import defaultdict
@@ -21,16 +21,18 @@ from cryptography.fernet import Fernet
 # Import local custom libraries
 try:
     from attributes import get_names as get_attr_names
+    from bytesify import Bytesifier
     from debug import Debuggable
     from iters import MapSubset, MapWalker, SimpleShredder
-    from meta import Bytesifier, name_of, Traversible
+    from meta import name_of, Traversible
     from meta.typeshed import DATA_ERRORS, SupportsRichComparison
     from trivial import always_none
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.attributes import get_names as get_attr_names
+    from gconanpy.bytesify import Bytesifier
     from gconanpy.debug import Debuggable
     from gconanpy.iters import MapSubset, MapWalker, SimpleShredder
-    from gconanpy.meta import Bytesifier, name_of, Traversible
+    from gconanpy.meta import name_of, Traversible
     from gconanpy.meta.typeshed import DATA_ERRORS, SupportsRichComparison
     from gconanpy.trivial import always_none
 
@@ -712,7 +714,7 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
         :param value: Any, value to encrypt (if it `SupportsBytes`) and store.
         """
         try:
-            bytesified = self.try_bytesify(value)
+            bytesified = self.bytesify(value, errors="ignore")
             if value is not bytesified:
                 bytesified = self.cryptor.encrypt(bytesified)
                 self.encrypted.add(key)

@@ -5,7 +5,7 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-08-12
+Updated: 2025-08-23
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Container, Generator, \
@@ -27,6 +27,7 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.meta.typeshed import Poppable, Updatable
 
 # Constant: TypeVars for...
+H = TypeVar("H", bound=Hashable)  # ...invert
 I = TypeVar("I", bound=Iterable)  # ...combine
 U = TypeVar("U", bound=Updatable)  # ...merge & update_return
 
@@ -85,6 +86,13 @@ def default_pop(poppable: Poppable, key: Any = None,
     except (AttributeError, IndexError, KeyError):
         to_return = default
     return to_return
+
+
+def has_any(iterable: Iterable, *items: Any) -> bool:
+    for item in items:
+        if item in iterable:
+            return True
+    return False
 
 
 def merge(updatables: Iterable[U]) -> U:
@@ -151,6 +159,31 @@ class Randoms:
     @staticmethod
     def randrange(min_len: int = MIN, max_len: int = MAX) -> range:
         return range(random.randint(min_len, max_len))
+
+    @classmethod
+    def randtuple(cls, length: int, values: Sequence[_VT] = CHARS):
+        return tuple(random.choice(values) for _ in range(length))
+
+    @classmethod
+    def randtuples(cls, values: Sequence[_VT] = CHARS, min_n: int = MIN,
+                   max_n: int = MAX, min_len: int = MIN, max_len: int = MAX,
+                   same_len: bool = False, unique: bool = False
+                   ) -> list[tuple[_VT, ...]]:
+        tuples = list()  # to return
+        tuplen = random.randint(min_len, max_len) if same_len else None
+        for _ in cls.randrange(min_n, max_n):
+            if tuplen is None:
+                tuplen = random.randint(min_len, max_len)
+            a_tup = cls.randtuple(tuplen, values)
+            while unique and (a_tup in tuples):
+                a_tup = cls.randtuple(tuplen, values)
+            tuples.append(a_tup)
+        return tuples
+
+    @classmethod
+    def randstr(cls, values: Sequence[str] = CHARS,
+                min_len: int = MIN, max_len: int = MAX) -> str:
+        return "".join(cls.randsublist(values, min_len, max_len))
 
     @staticmethod
     def randsublist(seq: Sequence[_T], min_len: int = 0,

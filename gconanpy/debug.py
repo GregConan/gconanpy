@@ -32,14 +32,16 @@ from pympler.asizeof import asizeof
 # Import local custom libraries
 try:
     from . import ROOT_DIR
+    from bytesify import HumanBytes
     from IO.local import walk_dir
-    from meta import name_of, HumanBytes, TimeSpec
+    from meta import name_of, TimeSpec
     from iters.seq import uniqs_in
     from wrappers import stringify_dt, stringify_iter
 except ModuleNotFoundError:  # TODO DRY?
     from gconanpy import ROOT_DIR
+    from gconanpy.bytesify import HumanBytes
     from gconanpy.IO.local import walk_dir
-    from gconanpy.meta import name_of, HumanBytes, TimeSpec
+    from gconanpy.meta import name_of, TimeSpec
     from gconanpy.iters.seq import uniqs_in
     from gconanpy.wrappers import stringify_dt, stringify_iter
 

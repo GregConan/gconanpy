@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+
+"""
+Classes to convert objects to/from bytes.
+Greg Conan: gregmconan@gmail.com
+Created: 2025-08-23
+Updated: 2025-08-23
+"""
+# Import standard libraries
+import struct
+import sys
+from typing import Any, cast, Literal, overload, SupportsBytes, TypeVar
+
+# Type variable to export indicating that a value is acceptable by
+# the Bytesifier.bytesify method
+Bytesifiable = SupportsBytes | int | str | float
+
+
+class Bytesifier:
+    # Type variables for bytesify function's input parameter type hints
+    _T = TypeVar("_T")
+    ErrOption = Literal["raise", "ignore", "print"]
+
+    # Default values for bytesify function's input parameters
+    DEFAULT_ENCODING = sys.getdefaultencoding()
+    DEFAULT_LEN = 8
+
+    @overload
+    @staticmethod
+    def bytesify(an_obj: str, errors: Literal["raise"], *,
+                 encoding: str = DEFAULT_ENCODING) -> bytes: ...
+
+    @overload
+    @staticmethod
+    def bytesify(an_obj: str, errors: Literal["ignore", "print"], *,
+                 encoding: str = DEFAULT_ENCODING) -> bytes | str: ...
+
+    @overload
+    @staticmethod
+    def bytesify(an_obj: int, errors: Literal["raise"], *,
+                 signed: bool = True, length: int = DEFAULT_LEN
+                 ) -> bytes: ...
+
+    @overload
+    @staticmethod
+    def bytesify(an_obj: int, errors: Literal["ignore", "print"], *,
+                 signed: bool = True, length: int = DEFAULT_LEN
+                 ) -> bytes | int: ...
+
+    @overload
+    @staticmethod
+    def bytesify(an_obj: float, errors: Literal["raise"], *, fmt: str | bytes
+                 ) -> bytes: ...
+
+    @overload
+    @staticmethod
+    def bytesify(an_obj: float, errors: Literal["ignore", "print"], *,
+                 fmt: str | bytes) -> bytes | float: ...
+
+    @overload
+    @staticmethod
+    def bytesify(an_obj: SupportsBytes, errors: ErrOption = "raise"
+                 ) -> bytes: ...
+
+    @overload
+    @staticmethod
+    def bytesify(an_obj: _T, errors: Literal["ignore", "print"]) -> _T: ...
+
+    @overload
+    @staticmethod
+    def bytesify(an_obj: Any, errors: Literal["raise"]) -> bytes: ...
+
+    @staticmethod
+    def bytesify(an_obj, errors="raise", *, encoding=DEFAULT_ENCODING,
+                 signed=True, length=DEFAULT_LEN, fmt=None):
+        """ Convert `an_obj` to `bytes`.
+
+        :param an_obj: SupportsBytes | str | int, object to convert to bytes.
+        :param strict: bool, True to raise TypeError on failure; else False \
+            to return `an_obj` unchanged on failure. Defaults to True.
+        :param encoding: str, the encoding in which to encode `an_obj` if \
+            it's a `str`; otherwise does nothing. Defaults to the system's \
+            default encoding, which should usually be "utf-8".
+        :param length: int, number of bytes object to convert an `int` into. \
+            Defaults to 8 to bytesify outputs of Python `hash()` function. \
+            Does nothing if `an_obj` is not an `int`.
+        :param signed: bool, whether two's complement is used to represent \
+            `an_obj` if it's an `int`; otherwise does nothing. \
+            `signed=False` cannot handle negative numbers. 
+
+        :raises TypeError: if `an_obj` cannot be converted into bytes.
+        :return: bytes, `an_obj` converted to bytes.
+        """
+        err_msg = None
+        match an_obj:
+            case SupportsBytes():
+                bytesified = bytes(an_obj)
+            case int():
+                try:
+                    bytesified = int.to_bytes(an_obj, length, signed=signed)
+                except OverflowError:
+                    err_msg = (f"Cannot convert integer {an_obj} into "
+                               "bytes. Try calling `bytesify` again "
+                               "with `signed=True` or a higher `length`.")
+            case str():
+                try:
+                    bytesified = str.encode(an_obj, encoding=encoding)
+                except UnicodeEncodeError:
+                    err_msg = (f"Cannot convert string '{an_obj}' into "
+                               "bytes. Try calling `bytesify` again "
+                               "with a different `encoding`.")
+            case float():
+                try:
+                    bytesified = struct.pack(cast(str | bytes, fmt), an_obj)
+                except struct.error as err:
+                    err_msg = str(err)
+                except TypeError:
+                    err_msg = (f"Cannot convert the float {an_obj} into "
+                               "bytes: incorrect format (`fmt`) provided.")
+            case _:
+                err_msg = f"Cannot convert {an_obj} to bytes."
+        if err_msg is None:
+            return bytesified
+        elif errors == "raise":
+            raise TypeError(err_msg)
+        else:
+            if errors == "print":
+                print(err_msg)
+            return an_obj
+
+
+class HumanBytes:
+    """ Shamelessly stolen from https://stackoverflow.com/a/63839503 """
+    METRIC_LABELS: list[str] = ["B", "kB", "MB", "GB", "TB", "PB",
+                                "EB", "ZB", "YB"]
+    BINARY_LABELS: list[str] = ["B", "KiB", "MiB", "GiB", "TiB",
+                                "PiB", "EiB", "ZiB", "YiB"]
+
+    # PREDEFINED FOR SPEED
+    PRECISION_OFFSETS: list[float] = [0.5, 0.05, 0.005, 0.0005]
+    PRECISION_FORMATS: list[str] = ["{}{:.0f} {}", "{}{:.1f} {}",
+                                    "{}{:.2f} {}", "{}{:.3f} {}"]
+
+    @staticmethod
+    def format(num: int | float, metric: bool = False,
+               precision: int = 1) -> str:
+        """
+        Human-readable formatting of bytes, using binary (powers of 1024)
+        or metric (powers of 1000) representation.
+        """
+        assert isinstance(num, (int, float)), "num must be an int or float"
+        assert isinstance(metric, bool), "metric must be a bool"
+        assert isinstance(precision, int) and 0 <= precision <= 3, \
+            "precision must be an int (range 0-3)"
+
+        unit_labels = (HumanBytes.METRIC_LABELS if metric
+                       else HumanBytes.BINARY_LABELS)
+        last_label = unit_labels[-1]
+        unit_step = 1000 if metric else 1024
+        unit_step_thresh = unit_step - HumanBytes.PRECISION_OFFSETS[precision]
+
+        is_negative = num < 0
+        if is_negative:  # Faster than ternary assignment or always running abs().
+            num = abs(num)
+
+        for unit in unit_labels:
+            if num < unit_step_thresh:
+                # VERY IMPORTANT:
+                # Only accepts the CURRENT unit if we're BELOW the threshold where
+                # float rounding behavior would place us into the NEXT unit: F.ex.
+                # when rounding a float to 1 decimal, any number ">= 1023.95" will
+                # be rounded to "1024.0". Obviously we don't want ugly output such
+                # as "1024.0 KiB", since the proper term for that is "1.0 MiB".
+                break
+            if unit != last_label:
+                # We only shrink the number if we HAVEN'T reached the last unit.
+                # NOTE: These looped divisions accumulate floating point rounding
+                # errors, but each new division pushes the rounding errors further
+                # and further down in the decimals, so it doesn't matter.
+                num /= unit_step
+
+        return HumanBytes.PRECISION_FORMATS[precision].format(
+            "-" if is_negative else "", num, unit)

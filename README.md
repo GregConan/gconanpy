@@ -2,13 +2,15 @@
 
 ## Introduction
 
-### Summary
+### Overview
 
-Centralized repository containing the basic and lower-level Python tools that I reuse across multiple projects, like [emailbot](https://github.com/GregConan/emailbot) and [Knower](https://github.com/GregConan/Knower). I intend my projects to import these tools to prevent redundancy.
+`gconanpy` is a Python library providing data manipulation and debugging utilities for Python development, written to centralize the basic and lower-level Python tools that I reuse across multiple projects. I intend my projects to import these tools to prevent redundancy. The `gconanpy` package contains a collection of tools designed to simplify common programming tasks, streamline interactive debugging, and provide convenient ways to access and manipulate data. 
 
 ## Dependencies and Requirements
 
 ### Python Libraries
+
+`gconanpy` uses [Python-Poetry](https://python-poetry.org/) for dependency management. See `pyproject.toml` for full list of dependencies.
 
 - `bs4` (BeautifulSoup): HTML/XML parsing
 - `cryptography`: Encryption capabilities
@@ -47,8 +49,8 @@ The main package containing utility modules for Python development:
 
 Web and local file system operations.
 
-- `IO/local.py`
-- `IO/web.py`
+- **`IO/local.py`**: File loading and saving utilities.
+- **`IO/web.py`**: Web document fetching and parsing utilities.
 
 #### **`iters/`**
 
@@ -77,15 +79,15 @@ Core utilities, meta-programming, and type-checking.
 
 Comprehensive test suite for all modules:
 
-- **`test_*.py`**: Individual test files for each module
+- **`test_*.py`**: Individual test files for each module.
 
 ## Meta
 
 ### About This Document
 
 - Created by @[GregConan](https://github.com/GregConan) on 2025-03-13
-- Updated by @[GregConan](https://github.com/GregConan) on 2025-08-09
-- Current as of `v0.13.2`
+- Updated by @[GregConan](https://github.com/GregConan) on 2025-08-19
+- Current as of `v0.15.1`
 
 ### License
 
