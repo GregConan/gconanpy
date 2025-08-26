@@ -68,11 +68,10 @@ class Tester(ABC):
         return result
 
     def check_result(self, actual_result: Any, expected_result: Any) -> None:
-        succeeded = actual_result == expected_result
-        msg = f"Result `{actual_result}` {'=' if succeeded else '!'}= " \
-            f"expected `{expected_result}`"
-        print(msg)
-        assert succeeded
+        if actual_result != expected_result:
+            print(f"Result `{actual_result}` != expected"
+                  f"`{expected_result}`")
+            raise AssertionError
 
     def get_soup(self):
         fpath = os.path.join(ROOT_DIR, "tests",

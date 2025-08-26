@@ -195,6 +195,15 @@ class ToString(str):
                    # Add datetimestamp and file extension
                    ).that_ends_with(put_date_after).that_ends_with(file_ext)
 
+    def force_join(self, iterable: Iterable, **format) -> Self:
+        cls = type(self)
+        if format:
+            stringified = cls.fromIterable([cls.fromAny(el, **format)
+                                           for el in iterable])
+        else:
+            stringified = cls(self.join(cls(el) for el in iterable))
+        return stringified
+
     @classmethod
     def fromAny(cls, an_obj: Any, max_len: int | None = None,
                 quote: str | None = "'", quote_numbers: bool = False,

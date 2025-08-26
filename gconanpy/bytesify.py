@@ -4,12 +4,16 @@
 Classes to convert objects to/from bytes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-23
-Updated: 2025-08-23
+Updated: 2025-08-25
 """
 # Import standard libraries
+import base64
+import re
 import struct
 import sys
 from typing import Any, cast, Literal, overload, SupportsBytes, TypeVar
+
+DEFAULT_ENCODING = sys.getdefaultencoding()
 
 # Type variable to export indicating that a value is acceptable by
 # the Bytesifier.bytesify method
@@ -22,7 +26,6 @@ class Bytesifier:
     ErrOption = Literal["raise", "ignore", "print"]
 
     # Default values for bytesify function's input parameters
-    DEFAULT_ENCODING = sys.getdefaultencoding()
     DEFAULT_LEN = 8
 
     @overload
@@ -127,6 +130,26 @@ class Bytesifier:
             if errors == "print":
                 print(err_msg)
             return an_obj
+
+    @staticmethod
+    def decode(bytestr: bytes, encoding: str = DEFAULT_ENCODING,
+               altchars=b'-_') -> str:
+        print(bytestr)  # TODO REMOVE LINE
+        bytestr = re.sub(rb'[^a-zA-Z0-9%s]+' % altchars, b'', bytestr)
+
+        # Calculate missing padding:
+        missing_padding = len(bytestr) % 4
+
+        # Add padding if needed:
+        if missing_padding:
+            bytestr += b'=' * (4 - missing_padding)
+        print(base64.urlsafe_b64decode(bytestr))  # TODO REMOVE LINE
+        return base64.urlsafe_b64decode(bytestr).decode(encoding)
+
+    @staticmethod
+    def encode(string: str, encoding: str = DEFAULT_ENCODING) -> bytes:
+        return base64.urlsafe_b64encode(string.encode(encoding)
+                                        )  # .strip(b"=")
 
 
 class HumanBytes:

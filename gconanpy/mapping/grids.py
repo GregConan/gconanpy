@@ -4,16 +4,13 @@
 Custom multidimensional dictionaries extending dicts.py classes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-23
-Updated: 2025-08-23
+Updated: 2025-08-25
 """
 # Import standard libraries
-import base64
 from collections.abc import Hashable, Iterable, Mapping, Sequence
-import hashlib
-import hmac
 import random
 import string
-from typing import Any, cast, Literal, overload, TypeVar
+from typing import cast, overload, TypeVar
 from typing_extensions import Self
 
 # Import third-party PyPI libraries
@@ -21,13 +18,18 @@ from cryptography.fernet import Fernet
 
 # Import local custom libraries
 try:
-    from bytesify import Bytesifiable, Bytesifier
+    from bytesify import Bytesifiable, Bytesifier, \
+        DEFAULT_ENCODING
     from debug import Debuggable
+    from iters import Randoms
     from mapping.dicts import Cryptionary, Explictionary, \
         Invertionary, MapParts
+    from meta.typeshed import SupportsItemAccess
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.bytesify import Bytesifiable, Bytesifier
+    from gconanpy.bytesify import Bytesifiable, Bytesifier, \
+        DEFAULT_ENCODING
     from gconanpy.debug import Debuggable
+    from gconanpy.iters import Randoms
     from gconanpy.mapping.dicts import Cryptionary, Explictionary, \
         Invertionary, MapParts
 
@@ -65,13 +67,13 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
 
     `HashGrid` does not know its own `keys`, so calling the `.keys()` \
     method on a `HashGrid` will return hash `int`s instead of anything \
-    that you can use to access the values. This may have cryptographic use.
+    meaningful. This may have cryptographic use.
 
     For example, calling `creds = HashGrid.for_creds()` (equivalent to \
     `creds = HashGrid(dim_names=("username", "password"))`) creates a \
-    `HashGrid` with two dimensions ("username" and "password") letting only \
-    a user with credentials access the value mapped to those credentials, \
-    and no one else, even those with full access to the `creds` object.
+    `HashGrid` with two dimensions ("username" and "password"). It lets only \
+    a user with the correct "username" and "password" credentials access the \
+    value mapped to them, but no one else.
 
     After calling `creds["myuser", "mypass"] = "myvalue"` to add a value for \
     the given user, `creds` will not store (or otherwise be able to produce) \
@@ -88,21 +90,20 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
                  dim_names: Sequence[str]) -> None: ...
 
     @overload
-    def __init__(self, *, values: Iterable[VT],
-                 **dimensions: Sequence[KT]) -> None: ...
+    def __init__(self, *, values: Sequence[VT],
+                 **dimensions: Iterable[KT]) -> None: ...
 
     @overload
-    def __init__(self, *, dim_names: Iterable[str], values: Iterable[VT],
-                 **dimensions: Sequence[KT]) -> None: ...
+    def __init__(self, *, dim_names: Sequence[str], values: Sequence[VT],
+                 **dimensions: Iterable[KT]) -> None: ...
 
     def __init__(self, *pairs, dim_names=tuple(), values=tuple(), **dimensions
                  ) -> None:
         """ Mapping of an arbitrary number of dimensions to specific values.
 
-        `hg = HashGrid(([1,2,3], "foo"), ([3,2,1], "bar"))` is the same as \
-        `hg = HashGrid(values=["foo", "bar"], x=[1, 3], y=[2, 2], z=[3, 1])` \
-        and both let you access items such that `hg[1, 2, 3] == "foo"` and \
-        `hg[3, 2, 1] == "bar"`.
+        `hg = HashGrid(([1,2,3], "foo"), ([7,8,9], "bar"))` is the same as \
+        `hg = HashGrid(values=["foo", "bar"], x=[1, 7], y=[2, 8], z=[3, 9])` \
+        and both mean that `hg[1, 2, 3] == "foo"` and `hg[7, 8, 9] == "bar"`.
 
         Initialize with either `pairs` or `values`, not both.
 
@@ -124,22 +125,21 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
             the coordinate (x=4, y=6) to the value 2.
         """
         # Save the dimension names in the correct order
-        if dim_names:
-            self.dim_names = dim_names
-        elif dimensions:
-            self.dim_names = tuple(dimensions.keys())
-        else:
-            if pairs:
-                n_items = len(pairs)
-            elif values:
-                n_items = len(values)
+        if not dim_names:
+            if dimensions:
+                dim_names = dimensions
             else:
-                n_items = 0
+                if pairs:
+                    n_items = len(pairs)
+                elif values:
+                    n_items = len(values)
+                else:
+                    n_items = 0
 
-            # Dynamically assign default dimension names if none were given
-            if n_items > 0:
+                # Dynamically assign default dimension names if none are given
                 namer = NameDimension()
-                self.dim_names = tuple(next(namer) for _ in range(n_items))
+                dim_names = (next(namer) for _ in range(n_items))
+        self.dim_names = tuple(dim_names)
 
         # Each dimension's place/index in the right order
         self.dim_ix = {v: k for k, v in enumerate(self.dim_names)}
@@ -148,12 +148,8 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
         # then line up the dimensions in the right order to convert them
         # into (keys, value) pairs to add to this HashGrid
         if dimensions:
-            n_dims = len(dimensions)
-            pairs = list(pairs)
-            for v in range(len(values)):
-                pairs.append([[None] * n_dims, values[v]])
-                for dim_name, dim_values in dimensions.items():
-                    pairs[-1][0][self.dim_ix[dim_name]] = dim_values[v]
+            for pair in zip(values, *dimensions.values()):
+                self[pair[1:]] = pair[0]
 
         # Add all coordinates-to-value mappings/pairs into this HashGrid
         for keys, value in pairs:
@@ -166,7 +162,7 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
         :return: bool, True if the `keys` are mapped to a value in this \
             `HashGrid`; else False if they aren't.
         """
-        return super().__contains__(self._to_hashkey(keys))
+        return super().__contains__(self._hash_keys(keys))
 
     def __getitem__(self, keys: Iterable[KT] | Mapping[str, KT],
                     /) -> VT:
@@ -175,7 +171,7 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
         :param keys: Iterable[KT] | Mapping[str, KT], keys/coordinates
         :return: VT, `self[keys]`; the value mapped to the `keys`
         """
-        return super().__getitem__(self._to_hashkey(keys))
+        return super().__getitem__(self._hash_keys(keys))
 
     def __setitem__(self, keys: Iterable[KT] | Mapping[str, KT],
                     value: VT, /) -> None:
@@ -184,10 +180,9 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
         :param keys: Iterable[KT] | Mapping[str, KT], keys/coordinates
         :param value: VT, new value to map to `keys` in this `HashGrid`.
         """
-        return super().__setitem__(self._to_hashkey(keys), value)
+        return super().__setitem__(self._hash_keys(keys), value)
 
-    def _to_hashkey(self, keys: Iterable[KT] | Mapping[str, KT]
-                    ) -> int:
+    def _hash_keys(self, keys: Iterable[KT] | Mapping[str, KT]) -> int:
         """
         :param keys: Iterable[KT] | Mapping[str, KT], the coordinates \
             that are (or will be) mapped to a value in this `HashGrid`; one \
@@ -200,21 +195,39 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
         try:
             return hash(keys)
         except TypeError:
-            match keys:
-                case Mapping():
-                    if keys.keys() == set(self.dim_names):
+            return hash(self._sort_keys(keys))
 
-                        ord_key: list[None | KT] = [
-                            None, ] * len(self.dim_names)
-                        for key, ix in self.dim_ix.items():
-                            ord_key[ix] = keys[key]  # type: ignore  # TODO
-                        return hash(tuple(ord_key))
-                    else:
-                        raise KeyError  # Don't expose keys in err?
-                case Iterable():
-                    return hash(tuple(keys))
-                case _:
-                    raise KeyError  # (str(keys))  # Don't expose keys in err?
+    def _sort_keys(self, keys: Iterable[KT] | Mapping[str, KT]
+                   ) -> tuple[KT, ...]:
+        """ 
+        :param keys: Iterable[KT] | Mapping[str, KT], keys/coordinates
+        :return: tuple[KT, ...], the `keys` as a tuple sorted in the \
+            correct order to access values stored in this `HashGrid`.
+        """
+        if isinstance(keys, Mapping):
+            keys = (cast(Mapping[str, KT], keys)[dim]
+                    for dim in self.dim_names)
+        return tuple(keys)
+
+    def _sort_mixed_keys(self, *keys: KT, **kwargs: KT) -> tuple[KT, ...]:
+        """
+        :param keys: tuple[KT], positional keys
+        :param kwargs: Mapping[str, KT], keyword-mapped keys
+        :raises KeyError: if some of the required keys (AKA dimensional \
+            coordinates) in this `HashGrid` are in neither `keys` nor `kwargs`
+        :return: tuple[KT, ...], the `keys` and `kwargs` as a tuple sorted \
+            in the correct order to access values stored in this `HashGrid`.
+        """
+        try:
+            if kwargs:
+                keys_iter = iter(keys)
+                keys = tuple(kwargs.get(dim, next(keys_iter))
+                             for dim in self.dim_names)
+            return keys
+
+        # If keys are missing from args & kwargs, then raise KeyError
+        except StopIteration:
+            raise KeyError  # Don't expose keys in err?
 
     @classmethod
     def for_creds(cls) -> Self:
@@ -247,15 +260,14 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
             defaults to None
         :return: VT | _D, the value mapped to `keys`, if any; else `default`
         """
-
-        return super().pop(self._to_hashkey(keys), default)
+        return super().pop(self._hash_keys(keys), default)
 
     def setdefault(self, keys: Iterable[KT] | Mapping[str, KT],
                    default: VT = None) -> VT:
-        return super().setdefault(self._to_hashkey(keys), default)
+        return super().setdefault(self._hash_keys(keys), default)
 
 
-class Grid[XT: Hashable, YT: Hashable, VT](Invertionary):
+class Grid[XT: Hashable, YT: Hashable, VT](Invertionary):  # 2D Grid
     _D = TypeVar("_D")
 
     @overload
@@ -281,45 +293,8 @@ class Grid[XT: Hashable, YT: Hashable, VT](Invertionary):
             self.Y[ykey][xkey] = self.X[xkey][ykey]
 
 
-class GridCryptionary[KT, VT](HashGrid[KT, VT], Cryptionary):
-    """ Multidimensional dictionary ("grid") that only allows item access, \
-        storage, and modification with a valid set of keys. Encrypts values \
-        before storing them and retrieving them to slightly reduce the \
-        chances of accidentally exposing sensitive data. """
-
-    def __init__(self, *pairs: tuple[Iterable[KT], VT],
-                 dim_names: Iterable[str] = tuple(),
-                 values: Iterable[KT] = tuple(),
-                 debugging: bool = False,
-                 **dimensions: Sequence[KT]) -> None:
-        """ Dictionary with an arbitrary number of keys ("dimensions") \
-            that only allows item access, storage, and modification with a \
-            valid set of keys, encrypting its stored values.
-
-        :param pairs: tuple[Iterable[KT], VT], a tuple of 2 items: the keys, \
-            and the value to assign to the combination of those keys.
-        :param dim_names: Iterable[str] naming each dimension/coordinate in \
-            this `GridCryptionary`. By default, the the dimensions are named \
-            in this order: "x", "y", "z", the rest of the lowercase letters \
-            in alphabetical order, & then random lowercase letter \
-            combinations of increasing length.
-        :param values: Iterable[VT], values to assign to the given \
-            dimensions in order. Include `values` and `dimensions` to create \
-            a `GridCryptionary` where each value in `values` is mapped to \
-            the keys at the same index in each of the `dimensions`.
-        :param dimensions: Mapping[str, Sequence[KT]] of each dimension's \
-            name to the coordinate of each element of `values` in/along that \
-            dimension.
-        :param debugging: bool, True to pause and interact on error, else \
-            False to raise errors/exceptions; defaults to False.
-        """
-        Cryptionary.__init__(self, debugging=debugging)
-        HashGrid.__init__(self, *pairs, dim_names=dim_names, values=values,
-                          **dimensions)
-
-
-class Locktionary[KT: Bytesifiable, VT: Bytesifiable
-                  ](HashGrid[KT, VT], Bytesifier, Debuggable):
+class Locktionary[KT: str, VT: Bytesifiable
+                  ](HashGrid[KT, bytes | None], Bytesifier, Debuggable):
     """ Multidimensional dictionary ("grid") that only allows item access, \
         storage, and modification with a valid set of keys. On its own, \
         the `Locktionary` exposes neither its keys nor its values. \
@@ -328,9 +303,9 @@ class Locktionary[KT: Bytesifiable, VT: Bytesifiable
         keys) unless keys are numeric. """
 
     def __init__(self, *pairs: tuple[Iterable[KT], VT],
-                 dim_names: Iterable[str] = tuple(),
-                 values: Iterable[KT] = tuple(),
-                 debugging: bool = False,
+                 dim_names: Sequence[str] = tuple(),
+                 values: Sequence[KT] = tuple(),
+                 debugging: bool = False, salt_len: int = 16,
                  **dimensions: Sequence[KT]) -> None:
         """ Dictionary with an arbitrary number of keys ("dimensions") \
             that only allows item access, storage, and modification with a \
@@ -355,24 +330,24 @@ class Locktionary[KT: Bytesifiable, VT: Bytesifiable
         """
         try:  # Create encryption mechanism
             self.encrypted: set[int] = set()
+            self.salt = Randoms.randstr(min_len=salt_len, max_len=salt_len)
 
             # Define whether to raise any error(s) or pause and interact
             Debuggable.__init__(self, debugging=debugging)
+
             HashGrid.__init__(self, *pairs, dim_names=dim_names, values=values,
                               **dimensions)
 
         except TypeError as err:
             self.debug_or_raise(err, locals())
 
-        # TODO To securely store values, hash the values *with the credentials?*
-        #      Or *with the hashed credentials* (no, that's reversible)?
-
     def __delitem__(self, keys: Iterable[KT] | Mapping[str, KT]) -> None:
         """ Delete self[key].
 
-        :param key: Hashable, key to delete and to delete the value of.
+        :param keys: Iterable[KT] | Mapping[str, KT], keys/coordinates to \
+            remove and to remove the value of from this `Locktionary`.
         """
-        hashkey = self._to_hashkey(keys)
+        hashkey = self._hash_keys(keys)
         self.encrypted.discard(hashkey)
         dict.__delitem__(self, hashkey)
 
@@ -380,18 +355,20 @@ class Locktionary[KT: Bytesifiable, VT: Bytesifiable
         """ `x.__getitem__(y)` <==> `x[y]`
         Explicitly defined to automatically decrypt encrypted values.
 
-        :param key: Hashable, key mapped to the value to retrieve
-        :return: Any, the decrypted value mapped to dict_key
+        :param keys: Iterable[KT] | Mapping[str, KT], the coordinates/keys \
+            mapped to the value in this `Locktionary` to retrieve
+        :return: Any, the decrypted value that was mapped to `keys`
         """
         try:
-            hashkey = self._to_hashkey(keys)
+            sortedkeys = self._sort_keys(keys)
+            hashkey = hash(sortedkeys)
             retrieved = dict.__getitem__(self, hashkey)
             if hashkey in self.encrypted:
-                ...
-                # retrieved = decrypt(retrieved)  # TODO!
+                retrieved = self._keys2Fernet(sortedkeys).decrypt(
+                    retrieved).decode(DEFAULT_ENCODING)
             return retrieved
-        except (KeyError, TypeError) as e:
-            self.debug_or_raise(e, locals())
+        except (KeyError, TypeError) as err:
+            self.debug_or_raise(err, locals())
 
     def __setitem__(self, keys: Iterable[KT] | Mapping[str, KT], value: VT
                     ) -> None:
@@ -401,17 +378,73 @@ class Locktionary[KT: Bytesifiable, VT: Bytesifiable
         :param value: VT, value to encrypt (if it `SupportsBytes`) and store.
         """
         try:
-            hashkey = self._to_hashkey(keys)
-            bytesified = self.bytesify(value, errors="ignore")
-            if value is not bytesified:
-                """
-                dig = hmac.new(b'1234567890', msg=your_bytes_string,
-                               digestmod=hashlib.sha256).digest()
-                base64.b64encode(dig).decode()      # py3k-mode
-
-                bytesified = encrypt(bytesified)
-                """  # TODO!
+            sortedkeys = self._sort_keys(keys)
+            hashkey = hash(sortedkeys)
+            try:
+                bytesified = self._keys2Fernet(sortedkeys).encrypt(
+                    self.bytesify(value, errors="raise"))
                 self.encrypted.add(hashkey)
-            return super(Locktionary, self).__setitem__(keys, bytesified)
+            except TypeError:
+                bytesified = value
+                self.encrypted.discard(hashkey)
+            return dict.__setitem__(self, hashkey, bytesified)
+            # return super(Locktionary, self).__setitem__(keys, bytesified)
         except AttributeError as err:
             self.debug_or_raise(err, locals())
+
+    def _keys2Fernet(self, keys: tuple[KT, ...], encoding: str =
+                     DEFAULT_ENCODING) -> Fernet:
+        """
+        :param keys: tuple[str, ...], keys/coordinates mapped to the value \
+            to encrypt or decrypt. The keys are used in (en/de)cryption.
+        :param encoding: str, the encoding with which to encode values from \
+            `str` to `bytes`; defaults to the system default (usually "utf-8")
+        :return: cryptography.fernet.Fernet to (en/de)crypt values.
+        """  # TODO: This is waaay overcustomized. Do it in a standard way.
+        salted_keys = [keys[0], self.salt, *keys[1:]]
+        i = 0
+        chars: list[str] = list()
+        complete = False
+        while not complete:
+            try:
+                for key in salted_keys:
+                    if len(chars) < 32:  # Fernet key must be 32 chars
+                        chars.append(str(key)[i])
+                    else:
+                        complete = True
+                        break
+                i += 1
+            except IndexError:
+                i = 0
+
+        return Fernet(self.encode("".join(chars), encoding))
+
+    @overload
+    def pop(self, keys: Iterable[KT] | Mapping[str, KT]) -> VT: ...
+
+    @overload
+    def pop(self, keys: Iterable[KT] | Mapping[str, KT],
+            default: VT) -> VT: ...
+
+    @overload
+    def pop(self, keys: Iterable[KT] | Mapping[str, KT],
+            default: HashGrid._D = None) -> VT | HashGrid._D: ...
+
+    def pop(self, keys, default=None):
+        """ D.pop(k[,d]) -> v, remove specified keys/coordinates and return \
+            the corresponding value.
+
+        If the keys are not found, return the `default` value if given; \
+        otherwise, raise a `KeyError`.
+
+        Defined separately from `HashGrid.pop` to add decryption capabilities.
+
+        :param keys: Iterable[KT] | Mapping[str, KT], the coordinates/keys \
+            mapped to a value in this `HashGrid`; one key for every dimension
+        :param default: _D: Any, what to return if the `keys` are not found; \
+            defaults to None
+        :return: VT | _D, the value mapped to `keys`, if any; else `default`
+        """
+        popped = self[keys]
+        dict.pop(self, self._hash_keys(keys), default)
+        return popped

@@ -4,13 +4,13 @@
 Classes for use in type hints/checks. No behavior, except in MultiTypeMeta.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-12
-Updated: 2025-08-23
+Updated: 2025-08-25
 """
 # Import standard libraries
 import abc
 from collections.abc import Callable, Collection, Hashable, Iterable, Mapping
 from typing import Any, Protocol, overload, SupportsIndex, \
-    runtime_checkable, TYPE_CHECKING
+    runtime_checkable, TYPE_CHECKING, TypeVar
 
 # Purely "internal" errors only involving local data; ignorable in some cases
 DATA_ERRORS = (AttributeError, IndexError, KeyError, TypeError, ValueError)
@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from _typeshed import SupportsContainsAndGetItem, SupportsGetItem, \
         SupportsItemAccess, SupportsLenAndGetItem
 else:  # Can't import _typeshed at runtime, so define its imports manually
+
     @runtime_checkable
     class SupportsGetItem(Protocol):
         def __getitem__(self, key, /): ...
@@ -32,9 +33,9 @@ else:  # Can't import _typeshed at runtime, so define its imports manually
         def __contains__(self, x, /): ...
 
     @runtime_checkable
-    class SupportsItemAccess(SupportsContainsAndGetItem, Protocol):
-        def __delitem__(self, key, /): ...
-        def __setitem__(self, key, value, /): ...
+    class SupportsItemAccess[KT, VT](SupportsContainsAndGetItem, Protocol):
+        def __delitem__(self, key: KT, /): ...
+        def __setitem__(self, key: KT, value: VT, /): ...
 
 
 @runtime_checkable
