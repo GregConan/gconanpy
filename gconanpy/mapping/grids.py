@@ -4,10 +4,11 @@
 Custom multidimensional dictionaries extending dicts.py classes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-23
-Updated: 2025-08-25
+Updated: 2025-08-29
 """
 # Import standard libraries
-from collections.abc import Hashable, Iterable, Mapping, Sequence
+from collections.abc import Collection, Hashable, Iterable, Mapping, Sequence
+from math import sqrt
 import random
 import string
 from typing import cast, overload, TypeVar
@@ -22,16 +23,15 @@ try:
         DEFAULT_ENCODING
     from debug import Debuggable
     from iters import Randoms
-    from mapping.dicts import Cryptionary, Explictionary, \
-        Invertionary, MapParts
-    from meta.typeshed import SupportsItemAccess
+    from mapping.dicts import Explictionary, Invertionary, MapParts
+    from meta import name_of
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.bytesify import Bytesifiable, Bytesifier, \
         DEFAULT_ENCODING
     from gconanpy.debug import Debuggable
     from gconanpy.iters import Randoms
-    from gconanpy.mapping.dicts import Cryptionary, Explictionary, \
-        Invertionary, MapParts
+    from gconanpy.mapping.dicts import Explictionary, Invertionary, MapParts
+    from gconanpy.meta import name_of
 
 # Type variable for .__init__(...) and .update(...) method input parameters
 FromMap = TypeVar("FromMap", Mapping, MapParts, None)
@@ -70,7 +70,7 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
     meaningful. This may have cryptographic use.
 
     For example, calling `creds = HashGrid.for_creds()` (equivalent to \
-    `creds = HashGrid(dim_names=("username", "password"))`) creates a \
+    `creds = HashGrid(names=("username", "password"))`) creates a \
     `HashGrid` with two dimensions ("username" and "password"). It lets only \
     a user with the correct "username" and "password" credentials access the \
     value mapped to them, but no one else.
@@ -87,18 +87,26 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
 
     @overload
     def __init__(self, *pairs: tuple[Iterable[KT], VT],
+                 strict: bool) -> None: ...
+
+    @overload
+    def __init__(self, *pairs: tuple[Iterable[KT], VT],
                  dim_names: Sequence[str]) -> None: ...
 
     @overload
-    def __init__(self, *, values: Sequence[VT],
+    def __init__(self, *pairs: tuple[Iterable[KT], VT], strict: bool,
+                 dim_names: Sequence[str]) -> None: ...
+
+    @overload
+    def __init__(self, *, values: Sequence[VT], strict: bool,
                  **dimensions: Iterable[KT]) -> None: ...
 
     @overload
     def __init__(self, *, dim_names: Sequence[str], values: Sequence[VT],
-                 **dimensions: Iterable[KT]) -> None: ...
+                 strict: bool = True, **dimensions: Iterable[KT]) -> None: ...
 
-    def __init__(self, *pairs, dim_names=tuple(), values=tuple(), **dimensions
-                 ) -> None:
+    def __init__(self, *pairs, dim_names=tuple(), values=tuple(),
+                 strict=True, **dimensions) -> None:
         """ Mapping of an arbitrary number of dimensions to specific values.
 
         `hg = HashGrid(([1,2,3], "foo"), ([7,8,9], "bar"))` is the same as \
@@ -124,15 +132,19 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
             example, maps the coordinate (x=3, y=5) to the value 1 and maps \
             the coordinate (x=4, y=6) to the value 2.
         """
+        self.strict = strict
+
         # Save the dimension names in the correct order
         if not dim_names:
             if dimensions:
                 dim_names = dimensions
             else:
-                if pairs:
-                    n_items = len(pairs)
-                elif values:
-                    n_items = len(values)
+                if pairs:  # Count how many keys are in the first pair
+                    n_items = len(pairs[0][0])
+                elif strict:
+                    raise ValueError(f"Cannot initialize {name_of(self)} if "
+                                     "strict=True without specifying the "
+                                     "names or number of dimensions.")
                 else:
                     n_items = 0
 
@@ -173,13 +185,17 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
         """
         return super().__getitem__(self._hash_keys(keys))
 
-    def __setitem__(self, keys: Iterable[KT] | Mapping[str, KT],
+    def __setitem__(self, keys: Collection[KT] | Mapping[str, KT],
                     value: VT, /) -> None:
         """ Set `self[keys]` to `value`.
 
         :param keys: Iterable[KT] | Mapping[str, KT], keys/coordinates
         :param value: VT, new value to map to `keys` in this `HashGrid`.
+        :raises ValueError: if `strict=True` and `keys` is the wrong length \
+            (its length should equal the number of dimensions).
         """
+        if self.strict:
+            self._validate_n_keys(keys)
         return super().__setitem__(self._hash_keys(keys), value)
 
     def _hash_keys(self, keys: Iterable[KT] | Mapping[str, KT]) -> int:
@@ -197,7 +213,7 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
         except TypeError:
             return hash(self._sort_keys(keys))
 
-    def _sort_keys(self, keys: Iterable[KT] | Mapping[str, KT]
+    def _sort_keys(self, keys: Mapping[str, KT] | Iterable[KT]
                    ) -> tuple[KT, ...]:
         """ 
         :param keys: Iterable[KT] | Mapping[str, KT], keys/coordinates
@@ -205,8 +221,9 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
             correct order to access values stored in this `HashGrid`.
         """
         if isinstance(keys, Mapping):
-            keys = (cast(Mapping[str, KT], keys)[dim]
-                    for dim in self.dim_names)
+            # Split these 2 lines to avoid "generator not subscriptable" err
+            cast_keys = cast(Mapping[str, KT], keys)
+            keys = (cast_keys[dim] for dim in self.dim_names)
         return tuple(keys)
 
     def _sort_mixed_keys(self, *keys: KT, **kwargs: KT) -> tuple[KT, ...]:
@@ -229,12 +246,30 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
         except StopIteration:
             raise KeyError  # Don't expose keys in err?
 
+    def _validate_n_keys(self, keys: Collection[KT] | Mapping[str, KT]) -> None:
+        n_given = len(keys)
+        n_dims = len(self.dim_names)
+        if n_given != n_dims:
+            raise ValueError(f"{n_given} keys provided instead of the "
+                             f"correct number for this {name_of(self)} "
+                             f"({n_dims} keys)")
+
     @classmethod
-    def for_creds(cls) -> Self:
+    def for_creds(cls, *pairs: tuple[Iterable[KT], VT],
+                  values: Sequence[VT] = tuple(),  strict: bool = True,
+                  usernames: Sequence[KT] = tuple(),
+                  passwords: Sequence[KT] = tuple()) -> Self:
         """ Make a new `HashGrid` to map username-password pairs to values.
 
-        :return: Self, `HashGrid(dim_names=("username", "password"))` """
-        return cls(dim_names=("username", "password"))
+        :return: Self, `HashGrid(names=("username", "password"))` """
+        kwargs = dict()
+        if usernames:
+            kwargs["usernames"] = usernames
+        if passwords:
+            kwargs["passwords"] = passwords
+        if not pairs:
+            kwargs["values"] = values
+        return cls(*pairs, dim_names=("username", "password"), strict=strict, **kwargs)
 
     @overload
     def pop(self, keys: Iterable[KT] | Mapping[str, KT]) -> VT: ...
@@ -335,8 +370,8 @@ class Locktionary[KT: str, VT: Bytesifiable
             # Define whether to raise any error(s) or pause and interact
             Debuggable.__init__(self, debugging=debugging)
 
-            HashGrid.__init__(self, *pairs, dim_names=dim_names, values=values,
-                              **dimensions)
+            HashGrid.__init__(self, *pairs, dim_names=dim_names,
+                              values=values, **dimensions)
 
         except TypeError as err:
             self.debug_or_raise(err, locals())
@@ -370,13 +405,17 @@ class Locktionary[KT: str, VT: Bytesifiable
         except (KeyError, TypeError) as err:
             self.debug_or_raise(err, locals())
 
-    def __setitem__(self, keys: Iterable[KT] | Mapping[str, KT], value: VT
+    def __setitem__(self, keys: Collection[KT] | Mapping[str, KT], value: VT
                     ) -> None:
         """ Set `self[keys]` to `value` after encrypting `value` if possible.
 
-        :param keys: Iterable[KT] | Mapping[str, KT], keys to map to `value`.
+        :param keys: Collection[KT] | Mapping[str, KT], keys to map to `value`.
         :param value: VT, value to encrypt (if it `SupportsBytes`) and store.
+        :raises ValueError: if the wrong number of keys is given.
+        :raises AttributeError: if _description_ TODO
         """
+        if self.strict:
+            self._validate_n_keys(keys)
         try:
             sortedkeys = self._sort_keys(keys)
             hashkey = hash(sortedkeys)
@@ -401,21 +440,29 @@ class Locktionary[KT: str, VT: Bytesifiable
             `str` to `bytes`; defaults to the system default (usually "utf-8")
         :return: cryptography.fernet.Fernet to (en/de)crypt values.
         """  # TODO: This is waaay overcustomized. Do it in a standard way.
-        salted_keys = [keys[0], self.salt, *keys[1:]]
-        i = 0
+        salted_keys = list()
+        for i in range(len(keys)):
+            salted_keys.append(str(keys[i]))
+
+            # Insert salt after every key that's at a perfect square index
+            # (semi-arbitrary but deterministic salting)
+            if sqrt(i) % 1 == 0:
+                salted_keys.append(self.salt)
+
+        ix = 0
         chars: list[str] = list()
         complete = False
         while not complete:
             try:
                 for key in salted_keys:
                     if len(chars) < 32:  # Fernet key must be 32 chars
-                        chars.append(str(key)[i])
+                        chars.append(key[ix])  # str(key)[ix])
                     else:
                         complete = True
                         break
-                i += 1
+                ix += 1
             except IndexError:
-                i = 0
+                ix = 0
 
         return Fernet(self.encode("".join(chars), encoding))
 
