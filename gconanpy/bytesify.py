@@ -4,20 +4,30 @@
 Classes to convert objects to/from bytes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-23
-Updated: 2025-08-25
+Updated: 2025-08-29
 """
 # Import standard libraries
 import base64
+from collections.abc import Sequence
+import hashlib
+import os
+from more_itertools import interleave
+import random
 import re
-import struct
+import string
 import sys
-from typing import Any, cast, Literal, overload, SupportsBytes, TypeVar
+from typing import Any, Literal, overload, SupportsBytes, TypeVar
+
+# Import third-party PyPI libraries
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 DEFAULT_ENCODING = sys.getdefaultencoding()
 
 # Type variable to export indicating that a value is acceptable by
 # the Bytesifier.bytesify method
-Bytesifiable = SupportsBytes | int | str | float
+Bytesifiable = SupportsBytes | int | str | float | memoryview
 
 
 class Bytesifier:
@@ -28,57 +38,62 @@ class Bytesifier:
     # Default values for bytesify function's input parameters
     DEFAULT_LEN = 8
 
+    # String encoding error message
+    ERR_MSG = "Cannot convert {} into bytes."
+    STR_ERR = "Try calling `bytesify` again with a different `encoding`."
+
     @overload
-    @staticmethod
-    def bytesify(an_obj: str, errors: Literal["raise"], *,
+    @classmethod
+    def bytesify(cls, an_obj: str, *,
                  encoding: str = DEFAULT_ENCODING) -> bytes: ...
 
     @overload
-    @staticmethod
-    def bytesify(an_obj: str, errors: Literal["ignore", "print"], *,
+    @classmethod
+    def bytesify(cls, an_obj: str | float, errors: Literal["raise"], *,
+                 encoding: str = DEFAULT_ENCODING) -> bytes: ...
+
+    @overload
+    @classmethod
+    def bytesify(cls, an_obj: str, errors: Literal["ignore", "print"], *,
                  encoding: str = DEFAULT_ENCODING) -> bytes | str: ...
 
     @overload
-    @staticmethod
-    def bytesify(an_obj: int, errors: Literal["raise"], *,
+    @classmethod
+    def bytesify(cls, an_obj: float, errors: Literal["ignore", "print"], *,
+                 encoding: str = DEFAULT_ENCODING) -> bytes | float: ...
+
+    @overload
+    @classmethod
+    def bytesify(cls, an_obj: int, errors: Literal["raise"], *,
                  signed: bool = True, length: int = DEFAULT_LEN
                  ) -> bytes: ...
 
     @overload
-    @staticmethod
-    def bytesify(an_obj: int, errors: Literal["ignore", "print"], *,
+    @classmethod
+    def bytesify(cls, an_obj: int, errors: Literal["ignore", "print"], *,
                  signed: bool = True, length: int = DEFAULT_LEN
                  ) -> bytes | int: ...
 
     @overload
-    @staticmethod
-    def bytesify(an_obj: float, errors: Literal["raise"], *, fmt: str | bytes
-                 ) -> bytes: ...
+    @classmethod
+    def bytesify(cls, an_obj: SupportsBytes | memoryview,
+                 errors: ErrOption = "raise") -> bytes: ...
 
     @overload
-    @staticmethod
-    def bytesify(an_obj: float, errors: Literal["ignore", "print"], *,
-                 fmt: str | bytes) -> bytes | float: ...
+    @classmethod
+    def bytesify(cls, an_obj: _T, errors: Literal["ignore", "print"]
+                 ) -> _T: ...
 
     @overload
-    @staticmethod
-    def bytesify(an_obj: SupportsBytes, errors: ErrOption = "raise"
-                 ) -> bytes: ...
+    @classmethod
+    def bytesify(cls, an_obj: Any, errors: Literal["raise"]) -> bytes: ...
 
-    @overload
-    @staticmethod
-    def bytesify(an_obj: _T, errors: Literal["ignore", "print"]) -> _T: ...
-
-    @overload
-    @staticmethod
-    def bytesify(an_obj: Any, errors: Literal["raise"]) -> bytes: ...
-
-    @staticmethod
-    def bytesify(an_obj, errors="raise", *, encoding=DEFAULT_ENCODING,
-                 signed=True, length=DEFAULT_LEN, fmt=None):
+    @classmethod
+    def bytesify(cls, an_obj, errors="raise", *, encoding=DEFAULT_ENCODING,
+                 signed=True, length=DEFAULT_LEN):
         """ Convert `an_obj` to `bytes`.
 
-        :param an_obj: SupportsBytes | str | int, object to convert to bytes.
+        :param cls, an_obj: SupportsBytes | str | int, object to convert to bytes.
         :param strict: bool, True to raise TypeError on failure; else False \
             to return `an_obj` unchanged on failure. Defaults to True.
         :param encoding: str, the encoding in which to encode `an_obj` if \
@@ -89,39 +104,36 @@ class Bytesifier:
             Does nothing if `an_obj` is not an `int`.
         :param signed: bool, whether two's complement is used to represent \
             `an_obj` if it's an `int`; otherwise does nothing. \
-            `signed=False` cannot handle negative numbers. 
+            `signed=False` cannot handle negative numbers.
 
         :raises TypeError: if `an_obj` cannot be converted into bytes.
         :return: bytes, `an_obj` converted to bytes.
         """
         err_msg = None
         match an_obj:
-            case SupportsBytes():
+            case SupportsBytes() | memoryview():
                 bytesified = bytes(an_obj)
             case int():
                 try:
-                    bytesified = int.to_bytes(an_obj, length, signed=signed)
+                    bytesified = an_obj.to_bytes(length, signed=signed)
                 except OverflowError:
                     err_msg = (f"Cannot convert integer {an_obj} into "
                                "bytes. Try calling `bytesify` again "
                                "with `signed=True` or a higher `length`.")
             case str():
                 try:
-                    bytesified = str.encode(an_obj, encoding=encoding)
+                    bytesified = an_obj.encode(encoding=encoding)
                 except UnicodeEncodeError:
-                    err_msg = (f"Cannot convert string '{an_obj}' into "
-                               "bytes. Try calling `bytesify` again "
-                               "with a different `encoding`.")
+                    err_msg = cls.ERR_MSG.format(f"string '{an_obj}'"
+                                                 ) + cls.STR_ERR
             case float():
-                try:
-                    bytesified = struct.pack(cast(str | bytes, fmt), an_obj)
-                except struct.error as err:
-                    err_msg = str(err)
-                except TypeError:
-                    err_msg = (f"Cannot convert the float {an_obj} into "
-                               "bytes: incorrect format (`fmt`) provided.")
+                try:  # Store float as str to avoid headache/overcomplication
+                    bytesified = str(an_obj).encode(encoding=encoding)
+                except UnicodeEncodeError:
+                    err_msg = cls.ERR_MSG.format(f"float '{an_obj}'"
+                                                 ) + cls.STR_ERR
             case _:
-                err_msg = f"Cannot convert {an_obj} to bytes."
+                err_msg = cls.ERR_MSG.format(f"object `{an_obj}`")
         if err_msg is None:
             return bytesified
         elif errors == "raise":
@@ -134,7 +146,6 @@ class Bytesifier:
     @staticmethod
     def decode(bytestr: bytes, encoding: str = DEFAULT_ENCODING,
                altchars=b'-_') -> str:
-        print(bytestr)  # TODO REMOVE LINE
         bytestr = re.sub(rb'[^a-zA-Z0-9%s]+' % altchars, b'', bytestr)
 
         # Calculate missing padding:
@@ -143,13 +154,48 @@ class Bytesifier:
         # Add padding if needed:
         if missing_padding:
             bytestr += b'=' * (4 - missing_padding)
-        print(base64.urlsafe_b64decode(bytestr))  # TODO REMOVE LINE
         return base64.urlsafe_b64decode(bytestr).decode(encoding)
 
     @staticmethod
     def encode(string: str, encoding: str = DEFAULT_ENCODING) -> bytes:
         return base64.urlsafe_b64encode(string.encode(encoding)
                                         )  # .strip(b"=")
+
+
+class Encryptor(Bytesifier):
+    KEY_LEN = 32
+    SHA = hashes.SHA256()
+
+    def __init__(self, dim_names: Sequence[str] = tuple(),
+                 iterations: int = 1000, salt_len: int = 16) -> None:
+        """ _description_
+
+        :param dim_names: Iterable[str] naming each dimension/coordinate.
+        """
+        # Create encryption mechanism
+        self.encrypted: set[int] = set()
+        self.iterations = iterations
+        self.salt = os.urandom(salt_len)
+        self.sep = random.choices(string.punctuation,
+                                  k=len(dim_names))
+
+    def _keys2Fernet(self, keys: tuple[str, ...], dklen: int | None = 0,
+                     digest=None, encoding: str = DEFAULT_ENCODING) -> Fernet:
+        """
+        :param keys: tuple[str, ...], keys/coordinates mapped to the value \
+            to encrypt or decrypt. The keys are used in (en/de)cryption.
+        :param encoding: str, the encoding with which to encode values from \
+            `str` to `bytes`; defaults to the system default (usually "utf-8")
+        :return: cryptography.fernet.Fernet to (en/de)crypt values.
+        """  # TODO: This still seems overcustomized. Do it in a standard way?
+        if digest is None:
+            digest = hashlib.sha256
+        dklen = dklen or None
+        salted_keys = base64.urlsafe_b64encode("".join(
+            interleave(keys, self.sep))[:self.KEY_LEN].encode(encoding))
+        kdf = PBKDF2HMAC(algorithm=self.SHA, length=self.KEY_LEN,
+                         salt=self.salt, iterations=self.iterations)
+        return Fernet(base64.urlsafe_b64encode(kdf.derive(salted_keys)))
 
 
 class HumanBytes:

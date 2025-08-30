@@ -547,7 +547,7 @@ class TestHashGrid(DictTester):
             self.check_result(hg.dim_names, tuple(dim_keys[0]))
 
     def test_str_dims_pop(self, classes: CLASSES = TEST_CLASSES,
-                          n_tests: int = 20) -> None:
+                          n_tests: int = 500) -> None:
         for dim_keys, values, hg in self.str_dims_HG(classes, n_tests):
             for i in range(len(values)):
                 assert dim_keys[i] in hg

@@ -4,7 +4,7 @@
 Classes that wrap other classes, especially builtins, to add functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-08-13
+Updated: 2025-08-29
 """
 # Import standard libraries
 import argparse
@@ -26,12 +26,12 @@ import pathvalidate
 
 # Import local custom libraries
 try:
-    from iters import MapSubset
+    from iters import MapSubset, seq_truncate, seq_rtruncate
     from meta import (bool_pair_to_cases, ClassWrapper,
                       name_of, TimeSpec, tuplify)
     from meta.typeshed import NonTxtCollection
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.iters import MapSubset
+    from gconanpy.iters import MapSubset, seq_truncate, seq_rtruncate
     from gconanpy.meta import (bool_pair_to_cases, ClassWrapper,
                                name_of, TimeSpec, tuplify)
     from gconanpy.meta.typeshed import NonTxtCollection
@@ -121,7 +121,7 @@ class ToString(str):
         :return: ToString, `self` with `value` appended after it; \
             `if not value`, then `return self` unchanged.
         """
-        return self.__class__(super().__add__(value)) if value else self
+        return type(self)(super().__add__(value)) if value else self
 
     def __sub__(self, value: str | None) -> Self:
         """ Remove `value` from the end of `self`. Implements `self - value`.
@@ -132,7 +132,7 @@ class ToString(str):
             doesn't end with `value` or `if not value`, then \
             `return self` unchanged.
         """
-        return self.__class__(super().removesuffix(value)) if value else self
+        return type(self)(super().removesuffix(value)) if value else self
 
     def enclosed_by(self, affix: str) -> Self:
         """
@@ -535,7 +535,7 @@ class ToString(str):
         :return: ToString after replacing `count` key-substrings with their \
             corresponding value-substrings in `replace`.
         """
-        string = self  # cls = self.__class__
+        string = self  # cls = type(self)
         replace: Callable[[ToString, str, str, int], ToString] = \
             ToString.rreplace if reverse else \
             ToString.replace  # type: ignore[no-redef]  # TODO
@@ -559,6 +559,11 @@ class ToString(str):
         """
         return new.join(self.rsplit(old, count))  # type: ignore[no-redef]  # TODO
 
+    def rtruncate(self, max_len: int | None = None, prefix: str = "..."
+                  ) -> Self:
+        return self if max_len is None or len(self) <= max_len else \
+            type(self)(prefix + self[max_len - len(prefix):])
+
     def that_ends_with(self, suffix: str | None) -> Self:
         """ Append `suffix` to the end of `self` unless it is already there.
 
@@ -574,13 +579,12 @@ class ToString(str):
         :return: ToString beginning with `prefix`.
         """
         return self if not prefix or self.startswith(prefix) else \
-            self.__class__(prefix) + self
+            type(self)(prefix) + self
 
     def truncate(self, max_len: int | None = None, suffix: str = "..."
                  ) -> Self:
-        # TODO Use independent truncate() function here again (DRY)?
         return self if max_len is None or len(self) <= max_len else \
-            self.__class__(self[:max_len - len(suffix)] + suffix)
+            type(self)(self[:max_len - len(suffix)] + suffix)
 
 
 # Shorter names to export
@@ -734,7 +738,7 @@ class WrapFunction:  # WrapFunction(partial):
         """
         def is_as_expected(*args, **kwargs) -> bool:
             return self.func(*args, **kwargs) == output
-        return self.__class__(is_as_expected)
+        return type(self)(is_as_expected)
 
     def foreach(self, *objects: Any) -> Generator[Any, None, None]:
         """ Call the wrapped/"frozen" function with its specified parameters \

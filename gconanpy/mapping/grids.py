@@ -8,28 +8,20 @@ Updated: 2025-08-29
 """
 # Import standard libraries
 from collections.abc import Collection, Hashable, Iterable, Mapping, Sequence
-from math import sqrt
 import random
 import string
-from typing import cast, overload, TypeVar
+from typing import Any, cast, overload, TypeVar
 from typing_extensions import Self
-
-# Import third-party PyPI libraries
-from cryptography.fernet import Fernet
 
 # Import local custom libraries
 try:
-    from bytesify import Bytesifiable, Bytesifier, \
-        DEFAULT_ENCODING
+    from bytesify import Bytesifiable, DEFAULT_ENCODING, Encryptor
     from debug import Debuggable
-    from iters import Randoms
     from mapping.dicts import Explictionary, Invertionary, MapParts
     from meta import name_of
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.bytesify import Bytesifiable, Bytesifier, \
-        DEFAULT_ENCODING
+    from gconanpy.bytesify import Bytesifiable, DEFAULT_ENCODING, Encryptor
     from gconanpy.debug import Debuggable
-    from gconanpy.iters import Randoms
     from gconanpy.mapping.dicts import Explictionary, Invertionary, MapParts
     from gconanpy.meta import name_of
 
@@ -83,18 +75,18 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
     _D = TypeVar("_D")  # Type hint for "default" parameter
 
     @overload
-    def __init__(self, *pairs: tuple[Iterable[KT], VT]) -> None: ...
+    def __init__(self, *pairs: tuple[Collection[KT], VT]) -> None: ...
 
     @overload
-    def __init__(self, *pairs: tuple[Iterable[KT], VT],
+    def __init__(self, *pairs: tuple[Collection[KT], VT],
                  strict: bool) -> None: ...
 
     @overload
-    def __init__(self, *pairs: tuple[Iterable[KT], VT],
+    def __init__(self, *pairs: tuple[Collection[KT], VT],
                  dim_names: Sequence[str]) -> None: ...
 
     @overload
-    def __init__(self, *pairs: tuple[Iterable[KT], VT], strict: bool,
+    def __init__(self, *pairs: tuple[Collection[KT], VT], strict: bool,
                  dim_names: Sequence[str]) -> None: ...
 
     @overload
@@ -115,8 +107,8 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
 
         Initialize with either `pairs` or `values`, not both.
 
-        :param pairs: tuple[Iterable[KT], VT], a tuple of 2 items: the keys, \
-            and the value to assign to the combination of those keys.
+        :param pairs: tuple[Collection[KT], VT], a tuple of 2 items: the \
+            keys, and the value to assign to the combination of those keys.
         :param dim_names: Iterable[str] naming each dimension/coordinate in \
             this HashGrid. By default, the the dimensions are named in this \
             order: "x", "y", "z", the rest of the lowercase letters in \
@@ -126,7 +118,11 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
             dimensions in order. Include `values` and `dimensions` to create \
             a `HashGrid` where each value in `values` is mapped to the key \
             (coordinate) at the same index in each of the `dimensions`.
-        :param dimensions: Mapping[str, Sequence[KT]] of each dimension's \
+        :param strict: bool, True to raise a ValueError if the number of \
+            dimensions is not specified during initialization or if someone \
+            provides the wrong number of keys; else False to try to use the \
+            keys anyway; defaults to True
+        :param dimensions: Mapping[str, Iterable[KT]] of each dimension's \
             name to the coordinate of each element of `values` in/along that \
             dimension. `HashGrid(values=[1,2], x=[3, 4], y=[5, 6])`, for \
             example, maps the coordinate (x=3, y=5) to the value 1 and maps \
@@ -135,23 +131,8 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
         self.strict = strict
 
         # Save the dimension names in the correct order
-        if not dim_names:
-            if dimensions:
-                dim_names = dimensions
-            else:
-                if pairs:  # Count how many keys are in the first pair
-                    n_items = len(pairs[0][0])
-                elif strict:
-                    raise ValueError(f"Cannot initialize {name_of(self)} if "
-                                     "strict=True without specifying the "
-                                     "names or number of dimensions.")
-                else:
-                    n_items = 0
-
-                # Dynamically assign default dimension names if none are given
-                namer = NameDimension()
-                dim_names = (next(namer) for _ in range(n_items))
-        self.dim_names = tuple(dim_names)
+        self.dim_names = self._name_dimensions(
+            pairs, dim_names if dim_names else dimensions, strict)
 
         # Each dimension's place/index in the right order
         self.dim_ix = {v: k for k, v in enumerate(self.dim_names)}
@@ -213,6 +194,45 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
         except TypeError:
             return hash(self._sort_keys(keys))
 
+    @classmethod
+    def _name_dimensions(cls, pairs: Iterable[tuple[Collection[KT], Any]] =
+                         tuple(), dim_names: Iterable[str] = tuple(),
+                         strict: bool = True) -> tuple[str, ...]:
+        """ 
+
+        :param pairs: tuple[Collection[KT], VT], a tuple of 2 items where \
+            the first item is the keys (dimensional coordinates).
+        :param dim_names: Iterable[str] naming each dimension/coordinate in \
+            this HashGrid. By default, the the dimensions are named in this \
+            order: "x", "y", "z", the rest of the lowercase letters in \
+            alphabetical order, & then random lowercase letter \
+            combinations of increasing length.
+        :param strict: bool, True to raise a ValueError if the number of \
+            dimensions is not specified during initialization or if someone \
+            provides the wrong number of keys; else False to try to use the \
+            keys anyway; defaults to True
+        :raises ValueError: _description_
+        :return: tuple[str, ...], the dimension names in the correct order.
+        """
+        if not dim_names:
+            err_msg = f"Cannot initialize {name_of(cls)} if strict=True "
+            if pairs:  # Count how many keys are in each pair
+                lens = {len(p[0]) for p in pairs}
+                if strict and len(lens) != 1:
+                    raise ValueError(err_msg + "and the number of keys "
+                                     f"given is inconsistent: {lens}")
+                n_items = max(lens)
+            elif strict:
+                raise ValueError(err_msg + "without specifying the "
+                                 "names or number of dimensions.")
+            else:
+                n_items = 0
+
+            # Dynamically assign default dimension names if none are given
+            namer = NameDimension()
+            dim_names = (next(namer) for _ in range(n_items))
+        return tuple(dim_names)
+
     def _sort_keys(self, keys: Mapping[str, KT] | Iterable[KT]
                    ) -> tuple[KT, ...]:
         """ 
@@ -269,7 +289,8 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
             kwargs["passwords"] = passwords
         if not pairs:
             kwargs["values"] = values
-        return cls(*pairs, dim_names=("username", "password"), strict=strict, **kwargs)
+        return cls(*pairs, dim_names=("username", "password"), strict=strict,
+                   **kwargs)
 
     @overload
     def pop(self, keys: Iterable[KT] | Mapping[str, KT]) -> VT: ...
@@ -329,7 +350,7 @@ class Grid[XT: Hashable, YT: Hashable, VT](Invertionary):  # 2D Grid
 
 
 class Locktionary[KT: str, VT: Bytesifiable
-                  ](HashGrid[KT, bytes | None], Bytesifier, Debuggable):
+                  ](HashGrid[KT, bytes | None], Encryptor, Debuggable):
     """ Multidimensional dictionary ("grid") that only allows item access, \
         storage, and modification with a valid set of keys. On its own, \
         the `Locktionary` exposes neither its keys nor its values. \
@@ -337,17 +358,18 @@ class Locktionary[KT: str, VT: Bytesifiable
         `Locktionary` alone (without already possessing a valid set of \
         keys) unless keys are numeric. """
 
-    def __init__(self, *pairs: tuple[Iterable[KT], VT],
+    def __init__(self, *pairs: tuple[Collection[KT], VT],
                  dim_names: Sequence[str] = tuple(),
-                 values: Sequence[KT] = tuple(),
-                 debugging: bool = False, salt_len: int = 16,
-                 **dimensions: Sequence[KT]) -> None:
+                 values: Sequence[KT] = tuple(), strict: bool = True,
+                 debugging: bool = False, iterations: int = 1000,
+                 salt_len: int = 16,
+                 **dimensions: Iterable[KT]) -> None:
         """ Dictionary with an arbitrary number of keys ("dimensions") \
             that only allows item access, storage, and modification with a \
             valid set of keys, exposing neither its keys nor its values.
 
-        :param pairs: tuple[Iterable[KT], VT], a tuple of 2 items: the keys, \
-            and the value to assign to the combination of those keys.
+        :param pairs: tuple[Collection[KT], VT], a tuple of 2 items: the \
+            keys, and the value to assign to the combination of those keys.
         :param dim_names: Iterable[str] naming each dimension/coordinate in \
             this `Locktionary`. By default, the the dimensions are named in \
             this order: "x", "y", "z", the rest of the lowercase letters in \
@@ -357,21 +379,35 @@ class Locktionary[KT: str, VT: Bytesifiable
             dimensions in order. Include `values` and `dimensions` to create \
             a `Locktionary` where each value in `values` is mapped to the \
             keys at the same index in each of the `dimensions`.
-        :param dimensions: Mapping[str, Sequence[KT]] of each dimension's \
+        :param strict: bool, True to raise a ValueError if the number of \
+            dimensions is not specified during initialization or if someone \
+            provides the wrong number of keys; else False to try to use the \
+            keys anyway; defaults to True
+        :param dimensions: Mapping[str, Iterable[KT]] of each dimension's \
             name to the coordinate of each element of `values` in/along that \
             dimension.
         :param debugging: bool, True to pause and interact on error, else \
             False to raise errors/exceptions; defaults to False.
         """
-        try:  # Create encryption mechanism
-            self.encrypted: set[int] = set()
-            self.salt = Randoms.randstr(min_len=salt_len, max_len=salt_len)
+        try:
+            self.strict = strict
+
+            # Save the dimension names in the correct order
+            self.dim_names = self._name_dimensions(
+                pairs, dim_names if dim_names else dimensions, strict)
+
+            # Each dimension's place/index in the right order
+            self.dim_ix = {v: k for k, v in enumerate(self.dim_names)}
+
+            # Create encryption mechanism
+            Encryptor.__init__(self, dim_names, iterations, salt_len)
 
             # Define whether to raise any error(s) or pause and interact
             Debuggable.__init__(self, debugging=debugging)
 
+            # Initialize
             HashGrid.__init__(self, *pairs, dim_names=dim_names,
-                              values=values, **dimensions)
+                              values=values, strict=strict, **dimensions)
 
         except TypeError as err:
             self.debug_or_raise(err, locals())
@@ -405,6 +441,17 @@ class Locktionary[KT: str, VT: Bytesifiable
         except (KeyError, TypeError) as err:
             self.debug_or_raise(err, locals())
 
+    def __repr__(self) -> str:
+        """ Summarize this `Locktionary` without providing any specific \
+            details about any of its contents in particular.
+
+        :return: str, a Python-valid representation of the input parameters \
+            that define this `Locktionary`: the dimensions' names, `strict`, \
+            and `debugging`.
+        """
+        return (f"{name_of(self)}(dim_names={self.dim_names}, "
+                f"strict={self.strict}, debugging={self.debugging})")
+
     def __setitem__(self, keys: Collection[KT] | Mapping[str, KT], value: VT
                     ) -> None:
         """ Set `self[keys]` to `value` after encrypting `value` if possible.
@@ -430,41 +477,6 @@ class Locktionary[KT: str, VT: Bytesifiable
             # return super(Locktionary, self).__setitem__(keys, bytesified)
         except AttributeError as err:
             self.debug_or_raise(err, locals())
-
-    def _keys2Fernet(self, keys: tuple[KT, ...], encoding: str =
-                     DEFAULT_ENCODING) -> Fernet:
-        """
-        :param keys: tuple[str, ...], keys/coordinates mapped to the value \
-            to encrypt or decrypt. The keys are used in (en/de)cryption.
-        :param encoding: str, the encoding with which to encode values from \
-            `str` to `bytes`; defaults to the system default (usually "utf-8")
-        :return: cryptography.fernet.Fernet to (en/de)crypt values.
-        """  # TODO: This is waaay overcustomized. Do it in a standard way.
-        salted_keys = list()
-        for i in range(len(keys)):
-            salted_keys.append(str(keys[i]))
-
-            # Insert salt after every key that's at a perfect square index
-            # (semi-arbitrary but deterministic salting)
-            if sqrt(i) % 1 == 0:
-                salted_keys.append(self.salt)
-
-        ix = 0
-        chars: list[str] = list()
-        complete = False
-        while not complete:
-            try:
-                for key in salted_keys:
-                    if len(chars) < 32:  # Fernet key must be 32 chars
-                        chars.append(key[ix])  # str(key)[ix])
-                    else:
-                        complete = True
-                        break
-                ix += 1
-            except IndexError:
-                ix = 0
-
-        return Fernet(self.encode("".join(chars), encoding))
 
     @overload
     def pop(self, keys: Iterable[KT] | Mapping[str, KT]) -> VT: ...

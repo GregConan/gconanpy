@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-08-23
+Updated: 2025-08-29
 """
 # Import standard libraries
 import abc
@@ -12,6 +12,7 @@ import builtins
 from collections.abc import Callable, Collection, Container, \
     Hashable, Iterable, Iterator, Mapping
 from functools import wraps
+from math import log10
 import operator
 # from operator import attrgetter, methodcaller  # TODO?
 import sys
@@ -42,6 +43,15 @@ def areinstances(objects: Iterable, of_what: type | tuple[type, ...]) -> bool:
 
 def bool_pair_to_cases(cond1, cond2) -> int:  # TODO cond*: Boolable
     return sum({x + 1 for x in which_of(cond1, cond2)})
+
+
+def count_digits_of(a_num: int | float):
+    """
+    :param a_num: int | float, numeric value to count the digits of
+    :return: int, the number of digits in a_num
+    """
+    absnum = abs(a_num)
+    return int(log10(absnum)) + 1 if a_num % 1 == 0 else len(str(absnum)) - 1
 
 
 def geteverything() -> dict[str, Any]:

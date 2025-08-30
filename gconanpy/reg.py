@@ -10,6 +10,7 @@ Updated: 2025-08-11
 from collections.abc import Container, Generator
 import re
 from typing import Any
+from typing_extensions import Self
 
 # Import third-party PyPI libraries
 import inflection

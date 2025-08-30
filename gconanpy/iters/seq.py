@@ -17,8 +17,10 @@ import pandas as pd
 
 # Import local custom libraries
 try:
+    from iters import seq_startswith
     from wrappers import stringify
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from gconanpy.iters import seq_startswith
     from gconanpy.wrappers import stringify
 
 # NOTE All functions/classes below are in alphabetical order.
@@ -76,16 +78,6 @@ def search_sequence_numpy(arr: np.ndarray, subseq: np.ndarray) -> list[int]:
     return start_indices
 
 
-def seq_startswith(seq: Sequence, prefix: Sequence) -> bool:
-    """ Check if prefix is the beginning of seq.
-
-    :param seq: Sequence, _description_
-    :param prefix: Sequence, _description_
-    :return: bool, True if seq starts with the specified prefix, else False.
-    """
-    return len(seq) >= len(prefix) and seq[:len(prefix)] == prefix
-
-
 def startswith(an_obj: Any, prefix: Any) -> bool:
     """ Check if the beginning of an_obj is prefix.
     Type-agnostic extension of str.startswith and bytes.startswith.
@@ -102,14 +94,6 @@ def startswith(an_obj: Any, prefix: Any) -> bool:
     except TypeError:  # then an_obj isn't a Sequence or prefix isn't
         result = seq_startswith(stringify(an_obj), stringify(prefix))
     return result
-
-
-def truncate(a_seq: Sequence, max_len: int) -> Sequence:
-    return a_seq[:max_len] if len(a_seq) > max_len else a_seq
-
-
-def rtruncate(a_seq: Sequence, max_len: int) -> Sequence:
-    return a_seq[-max_len:] if len(a_seq) > max_len else a_seq
 
 
 def uniqs_in(listlike: Iterable[Hashable]) -> list[Hashable]:

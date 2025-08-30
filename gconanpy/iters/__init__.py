@@ -5,7 +5,7 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-08-23
+Updated: 2025-08-29
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Container, Generator, \
@@ -109,6 +109,24 @@ def merge(updatables: Iterable[U]) -> U:
 
 def powers_of_ten(orders_of_magnitude: int = 4) -> list[int]:
     return [10 ** i for i in range(orders_of_magnitude + 1)]
+
+
+def seq_startswith(seq: Sequence, prefix: Sequence) -> bool:
+    """ Check if prefix is the beginning of seq.
+
+    :param seq: Sequence, _description_
+    :param prefix: Sequence, _description_
+    :return: bool, True if seq starts with the specified prefix, else False.
+    """
+    return len(seq) >= len(prefix) and seq[:len(prefix)] == prefix
+
+
+def seq_truncate(a_seq: Sequence, max_len: int) -> Sequence:
+    return a_seq[:max_len] if len(a_seq) > max_len else a_seq
+
+
+def seq_rtruncate(a_seq: Sequence, max_len: int) -> Sequence:
+    return a_seq[-max_len:] if len(a_seq) > max_len else a_seq
 
 
 def update_return(self: U, other: U) -> U:
