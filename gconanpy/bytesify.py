@@ -4,14 +4,13 @@
 Classes to convert objects to/from bytes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-23
-Updated: 2025-08-29
+Updated: 2025-09-03
 """
 # Import standard libraries
 import base64
-from collections.abc import Sequence
 import hashlib
 import os
-from more_itertools import interleave
+from more_itertools import interleave_longest
 import random
 import re
 import string
@@ -20,8 +19,6 @@ from typing import Any, Literal, overload, SupportsBytes, TypeVar
 
 # Import third-party PyPI libraries
 from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 DEFAULT_ENCODING = sys.getdefaultencoding()
 
@@ -164,38 +161,30 @@ class Bytesifier:
 
 class Encryptor(Bytesifier):
     KEY_LEN = 32
-    SHA = hashes.SHA256()
 
-    def __init__(self, dim_names: Sequence[str] = tuple(),
-                 iterations: int = 1000, salt_len: int = 16) -> None:
-        """ _description_
-
-        :param dim_names: Iterable[str] naming each dimension/coordinate.
-        """
+    def __init__(self, k: int, iterations: int = 1000, salt_len=16) -> None:
         # Create encryption mechanism
         self.encrypted: set[int] = set()
         self.iterations = iterations
         self.salt = os.urandom(salt_len)
-        self.sep = random.choices(string.punctuation,
-                                  k=len(dim_names))
+        self.sep = random.choices(string.punctuation, k=k)
 
-    def _keys2Fernet(self, keys: tuple[str, ...], dklen: int | None = 0,
-                     digest=None, encoding: str = DEFAULT_ENCODING) -> Fernet:
-        """
+    def _keys2Fernet(self, keys: tuple[str, ...],
+                     encoding: str = DEFAULT_ENCODING) -> Fernet:
+        """ Adapted from https://stackoverflow.com/a/55147077 and \
+            https://github.com/django/django/blob/main/django/utils/crypto.py
+
         :param keys: tuple[str, ...], keys/coordinates mapped to the value \
             to encrypt or decrypt. The keys are used in (en/de)cryption.
         :param encoding: str, the encoding with which to encode values from \
             `str` to `bytes`; defaults to the system default (usually "utf-8")
         :return: cryptography.fernet.Fernet to (en/de)crypt values.
         """  # TODO: This still seems overcustomized. Do it in a standard way?
-        if digest is None:
-            digest = hashlib.sha256
-        dklen = dklen or None
-        salted_keys = base64.urlsafe_b64encode("".join(
-            interleave(keys, self.sep))[:self.KEY_LEN].encode(encoding))
-        kdf = PBKDF2HMAC(algorithm=self.SHA, length=self.KEY_LEN,
-                         salt=self.salt, iterations=self.iterations)
-        return Fernet(base64.urlsafe_b64encode(kdf.derive(salted_keys)))
+        byte_data = base64.urlsafe_b64encode("".join(interleave_longest(
+            keys, self.sep)).encode(encoding))
+        byte_data = hashlib.pbkdf2_hmac("sha256", byte_data, self.salt,
+                                        self.iterations, 32)
+        return Fernet(base64.urlsafe_b64encode(byte_data))
 
 
 class HumanBytes:

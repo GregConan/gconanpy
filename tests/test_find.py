@@ -3,15 +3,18 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-03
-Updated: 2025-07-06
+Updated: 2025-09-03
 """
 # Import standard libraries
 import datetime as dt
+import operator
+from shlex import join
 from typing import Any
 
 # Import local custom libraries
 from gconanpy.debug import ShowTimeTaken
-from gconanpy.iters.find import iterfind, modifind, ReadyChecker, UntilFound
+from gconanpy.iters.find import iterfind, modifind, ReadyChecker, \
+    Spliterator, UntilFound
 from gconanpy.testers import Tester
 
 # Import third-party PyPI libraries
@@ -67,21 +70,30 @@ class TestReadyChecker(Tester):
             self.check_result(check.to_check, result)
 
 
+class TestSpliterator(Tester):
+    def test_spliterate_1(self):
+        spliterator = Spliterator(max_len=20)
+        self.check_result(spliterator.spliterate(["Hello", "World"])[0],
+                          "Hello World")
+
+    def test_spliterate_2(self):
+        spliterator = Spliterator(max_len=10)
+        self.check_result(spliterator.spliterate(["Hello", "World"])[0],
+                          "Hello")
+
+
 class TestIterFind(Tester):
-    @staticmethod
-    def greater(x, y):
-        return x > y
 
     def test_iterfind(self):
         self.add_basics()
         for eachnum in self.alist:
-            bigger = iterfind(self.alist, self.greater, [eachnum],
+            bigger = iterfind(self.alist, operator.gt, [eachnum],
                               default=max(self.alist) + 1)
             self.check_result(bigger, eachnum + 1)
 
     def test_UntilFound(self):
         self.add_basics()
         for eachnum in self.alist:
-            bigger = UntilFound(self.greater, post=[eachnum]).check_each(
+            bigger = UntilFound(operator.gt, post=[eachnum]).check_each(
                 self.alist, default=max(self.alist) + 1)
             self.check_result(bigger, eachnum + 1)

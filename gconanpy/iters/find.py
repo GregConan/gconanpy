@@ -5,11 +5,12 @@ Classes and functions that iterate and then break once they find what \
     they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-08-12
+Updated: 2025-09-03
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping, Sequence
 # from more_itertools import iter_except  # TODO?
+import operator
 import sys
 from typing import Any, TypeVar
 from typing_extensions import Self
@@ -75,29 +76,37 @@ def modifind(find_in: Iterable,
 class Spliterator:
     _Target = TypeVar("_Target")
 
-    def __init__(self, max_len: int = sys.maxunicode) -> None:
+    def __init__(self, *, max_len: int = sys.maxunicode, min_parts: int = 1
+                 ) -> None:
         self.max_len = max_len
+        self.min_parts = min_parts
 
-    def spliterate(self, parts: list[str], *,
-                   pop_ix: int = -1, min_parts: int = 1,
+    def spliterate(self, parts: list[str], *, join_on: str = " ",
+                   max_len: int | None = None, min_parts: int | None = None,
                    get_target: Callable[[str], _Target] = always_none,
-                   join_on: str = " ") -> tuple[str, _Target]:
+                   pop_ix: int = -1) -> tuple[str, _Target]:
         """ _summary_
 
         :param parts: list[str] to iteratively modify, check, and recombine
-        :param ready_if: Callable[[str | None], bool], function that returns \
-            True if join_on.join(parts) is ready to return and False if it \
-            still needs to be modified further; defaults to `is not None`
-        :param pop_ix: int, index of item to remove from parts once per \
+        :param join_on: str, delimiter to insert between `parts`; \
+            defaults to " "
+        :param max_len: int, _description_
+        :param min_parts: int, _description_
+        :param get_target: Callable[[str | None], bool], function that \
+            returns None unless `join_on.join(parts)` is ready to return; \
+            defaults to `always_none`
+        :param pop_ix: int, index of item to remove from `parts` once per \
             iteration; defaults to -1 (the last item)
-        :param join_on: str, delimiter to insert between parts; defaults to " "
-        :return: tuple[str, Any], the modified and recombined string built from \
-            parts and then something retrieved from within parts
+        :return: tuple[str, Any], the modified and recombined string built \
+            from `parts` and then something retrieved from within `parts` 
         """
+        max_len = max_len or self.max_len
+        min_parts = min_parts or self.min_parts
+
         gotten = get_target(parts[pop_ix])
         rejoined = join_on.join(parts)
-        while len(parts) > min_parts and len(rejoined) <= self.max_len \
-                and gotten is None:
+        while gotten is None and len(rejoined) > max_len and \
+                min_parts < len(parts):
             parts.pop(pop_ix)
             gotten = get_target(parts[pop_ix])
             rejoined = join_on.join(parts)
@@ -122,23 +131,25 @@ class BasicRange(Iterable[Item]):
                  step: int = 1) -> None:
         """ 
         :param iter_over: Sequence[Any] to iterate over
-        :param start_at: int, iter_over index to begin at; defaults to 0
-        :param end_at: int, iter_over index to stop at; defaults to len(iter_over)
-        :param step: int, increment to iterate iter_over by; defaults to 1
+        :param start_at: int, `iter_over` index to begin at; defaults to 0
+        :param end_at: int, `iter_over` index to stop at; defaults to \
+            last index
+        :param step: int, increment to iterate `iter_over` by; defaults to 1
         """
         self.end = len(iter_over) - 1 if end_at is None else end_at
         self.is_iterating = True
         self.ix = start_at
         self.start = start_at
-        self.step, self.not_yet_at = (-abs(step), int.__ge__) if \
-            self.start > self.end else (abs(step), int.__lt__)
+        abs_step = abs(step)
+        self.step, self.not_yet_at = (-abs_step, operator.ge) if \
+            self.start > self.end else (abs_step, operator.lt)
         self.to_iter = iter_over
 
     def __getitem__(self, ix: int) -> Item:
         return self.to_iter[ix]
 
     def __iter__(self) -> Self:
-        """ Reset some variables to start iterating.
+        """ Reset variables to start iterating.
 
         :return: BasicRange, self
         """

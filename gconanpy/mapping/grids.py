@@ -10,7 +10,7 @@ Updated: 2025-08-29
 from collections.abc import Collection, Hashable, Iterable, Mapping, Sequence
 import random
 import string
-from typing import Any, cast, overload, TypeVar
+from typing import Any, Type, cast, overload, TypeVar
 from typing_extensions import Self
 
 # Import local custom libraries
@@ -41,7 +41,7 @@ class NameDimension:  # for HashGrid
         try:
             to_return = self.names[self.ix]
         except IndexError:
-            nextlen = self.ix // 26
+            nextlen = (self.ix // 26) + 1
             to_return = "".join(random.choices(
                 string.ascii_lowercase, k=nextlen))
         self.ix += 1
@@ -134,19 +134,7 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
         self.dim_names = self._name_dimensions(
             pairs, dim_names if dim_names else dimensions, strict)
 
-        # Each dimension's place/index in the right order
-        self.dim_ix = {v: k for k, v in enumerate(self.dim_names)}
-
-        # If groups of keys/coordinates are given as parallel sequences,
-        # then line up the dimensions in the right order to convert them
-        # into (keys, value) pairs to add to this HashGrid
-        if dimensions:
-            for pair in zip(values, *dimensions.values()):
-                self[pair[1:]] = pair[0]
-
-        # Add all coordinates-to-value mappings/pairs into this HashGrid
-        for keys, value in pairs:
-            self[keys] = value
+        self._fill(*pairs, values=values, **dimensions)
 
     def __contains__(self, keys: Iterable[KT] | Mapping[str, KT], /) -> bool:
         """ Return `bool(keys in self)`.
@@ -178,6 +166,24 @@ class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
         if self.strict:
             self._validate_n_keys(keys)
         return super().__setitem__(self._hash_keys(keys), value)
+
+    def _fill(self, *pairs, values=tuple(), **dimensions):
+
+        # Each dimension's place/index in the right order
+        self.dim_ix = {v: k for k, v in enumerate(self.dim_names)}
+
+        # If groups of keys/coordinates are given as parallel sequences,
+        # then line up the dimensions in the right order to convert them
+        # into (keys, value) pairs to add to this HashGrid
+        if bool(values) != bool(dimensions):
+            raise TypeError("Must provide `dimensions` and `values`.")
+        elif values:  # and dimensions:
+            for pair in zip(values, *dimensions.values()):
+                self[pair[1:]] = pair[0]
+
+        # Add all coordinates-to-value mappings/pairs into this HashGrid
+        for keys, value in pairs:
+            self[keys] = value
 
     def _hash_keys(self, keys: Iterable[KT] | Mapping[str, KT]) -> int:
         """
@@ -361,8 +367,8 @@ class Locktionary[KT: str, VT: Bytesifiable
     def __init__(self, *pairs: tuple[Collection[KT], VT],
                  dim_names: Sequence[str] = tuple(),
                  values: Sequence[KT] = tuple(), strict: bool = True,
-                 debugging: bool = False, iterations: int = 1000,
-                 salt_len: int = 16,
+                 debugging: bool = False,
+                 iterations: int = 500,  # TODO Increase after optimizing?
                  **dimensions: Iterable[KT]) -> None:
         """ Dictionary with an arbitrary number of keys ("dimensions") \
             that only allows item access, storage, and modification with a \
@@ -396,18 +402,13 @@ class Locktionary[KT: str, VT: Bytesifiable
             self.dim_names = self._name_dimensions(
                 pairs, dim_names if dim_names else dimensions, strict)
 
-            # Each dimension's place/index in the right order
-            self.dim_ix = {v: k for k, v in enumerate(self.dim_names)}
-
             # Create encryption mechanism
-            Encryptor.__init__(self, dim_names, iterations, salt_len)
+            Encryptor.__init__(self, len(dim_names), iterations)
 
             # Define whether to raise any error(s) or pause and interact
             Debuggable.__init__(self, debugging=debugging)
 
-            # Initialize
-            HashGrid.__init__(self, *pairs, dim_names=dim_names,
-                              values=values, strict=strict, **dimensions)
+            self._fill(*pairs, values=values, **dimensions)
 
         except TypeError as err:
             self.debug_or_raise(err, locals())
