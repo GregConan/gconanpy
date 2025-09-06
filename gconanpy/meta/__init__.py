@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-08-29
+Updated: 2025-09-05
 """
 # Import standard libraries
 import abc
@@ -143,6 +143,10 @@ def names_of(objects: Collection, max_n: int | None = None,
         [get_name(x) for i, x in enumerate(objects) if i < max_n]
 
 
+def slots(an_obj) -> tuple[str, ...]:
+    return getattr(an_obj, "__slots__", tuple(an_obj.__dict__))
+
+
 def tuplify(an_obj: Any, split_string: bool = False) -> tuple:
     """
     :param an_obj: Any, object to convert into a tuple.
@@ -157,6 +161,13 @@ def tuplify(an_obj: Any, split_string: bool = False) -> tuple:
         return tuple(an_obj)
     except (AssertionError, TypeError):
         return (an_obj, )
+
+
+def varsof(an_obj) -> dict[str, Any]:
+    try:
+        return vars(an_obj)
+    except TypeError:
+        return {x: getattr(an_obj, x) for x in an_obj.__slots__}
 
 
 def which_of(*conditions: Any) -> set[int]:  # TODO conditions: Boolable

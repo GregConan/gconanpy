@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-08-30
+Updated: 2025-09-05
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -23,7 +23,8 @@ from gconanpy.mapping.grids import HashGrid, Locktionary  # GridCryptionary,
 from gconanpy.meta import Lazily, TimeSpec
 # from tests import test_mapping
 from gconanpy.testers import Tester  # , TimeTester
-from gconanpy.trivial import always_false, always_none, always_true
+from gconanpy.trivial import (always_false, always_none,
+                              always_true, return_self)
 
 
 # Make various combinations of custom dicts to validate them all
@@ -217,8 +218,8 @@ class TestDictFunctions(DictTester):
             inverted = invertable
         self.check_result(inverted, invertable)
 
-    def test_lazyget_1(self, lazyget: Callable = mapping.lazyget,
-                       dict_class: type[dict] = dict) -> None:
+    def test_lazyget_key(self, lazyget: Callable = mapping.lazyget,
+                         dict_class: type[dict] = dict) -> None:
         self.add_basics()
         a_dict = dict_class(self.adict)
         for k, v in a_dict.items():
@@ -237,8 +238,8 @@ class TestDictFunctions(DictTester):
                         self.check_result(lazyget(a_dict, k, triv_fn, args,
                                                   kwargs, {v}), triv_out)
 
-    def test_lazyget_2(self, lazyget: Callable = mapping.lazyget,
-                       dict_class: type[dict] = dict) -> None:
+    def test_lazyget_nonkey(self, lazyget: Callable = mapping.lazyget,
+                            dict_class: type[dict] = dict) -> None:
         self.add_basics()
         a_dict = dict_class(self.adict)
         for nonkey in (None, 50, "hello", dict, dict_class, 3.14, lazyget):
@@ -250,6 +251,33 @@ class TestDictFunctions(DictTester):
                 self.check_result(lazyget(
                     a_dict, nonkey, self.multiply_subtract, args, kwargs
                 ), self.multiply_subtract(*args, **kwargs))
+
+    def unhashable_lazytest(self, lazy_getter: Callable,
+                            dict_class: type[dict] = dict) -> None:
+        VALUE = ["arbitrary", "unhashable", "list", set(), dict()]
+        KEY = "a"
+        a_dict = dict_class({KEY: VALUE})
+        self.check_result(VALUE, lazy_getter(
+            a_dict, KEY, return_self, [VALUE], exclude={None}))
+
+    def test_has(self, dict_has: Callable = mapping.has,
+                 dict_class: type[dict] = dict) -> None:
+        self.add_basics()
+        VALUE = ["arbitrary", "unhashable", "list", set(), dict()]
+        KEY = "a"
+        a_dict = dict_class({KEY: VALUE})
+        assert dict_has(a_dict, KEY)
+        assert not dict_has(a_dict, KEY, exclude=[VALUE])
+        assert not dict_has(dict_class(), KEY)
+
+    def test_lazyget_unhashable(self, lazyget: Callable = mapping.lazyget,
+                                dict_class: type[dict] = dict) -> None:
+        self.unhashable_lazytest(lazyget, dict_class)
+
+    def test_lazysetdefault_unhashable(
+            self, lazysetdefault: Callable = mapping.lazysetdefault,
+            dict_class: type[dict] = dict) -> None:
+        self.unhashable_lazytest(lazysetdefault, dict_class)
 
     def test_lookup(self, lookup: Callable = mapping.lookup,
                     args_class: type[dict] = dict,
@@ -351,6 +379,10 @@ class TestDefaultionary(DictTester):
     def test_chain_get(self, classes: CLASSES = TEST_CLASSES) -> None:
         for DictClass in classes:
             return TestDictFunctions().test_chain_get(DictClass.chain_get, DictClass)
+
+    def test_has(self, classes: CLASSES = TEST_CLASSES) -> None:
+        for DictClass in classes:
+            TestDictFunctions().test_has(DictClass.has_all, DictClass)
 
     def test_has_all(self, classes: CLASSES = TEST_CLASSES) -> None:
         for DictClass in classes:
@@ -477,13 +509,25 @@ class TestLazyDict(DictTester):
     TEST_CLASSES: CLASSES = (FancyDict, LazyDict, LazyDotDict,
                              Promptionary, DotPromptionary)
 
-    def test_lazyget_1(self, classes: CLASSES = TEST_CLASSES) -> None:
+    def test_lazyget_key(self, classes: CLASSES = TEST_CLASSES) -> None:
         for DictClass in classes:
-            TestDictFunctions().test_lazyget_1(DictClass.lazyget, DictClass)
+            TestDictFunctions().test_lazyget_key(
+                DictClass.lazyget, DictClass)
 
-    def test_lazyget_2(self, classes: CLASSES = TEST_CLASSES) -> None:
+    def test_lazyget_nonkey(self, classes: CLASSES = TEST_CLASSES) -> None:
         for DictClass in classes:
-            TestDictFunctions().test_lazyget_2(DictClass.lazyget, DictClass)
+            TestDictFunctions().test_lazyget_nonkey(
+                DictClass.lazyget, DictClass)
+
+    def test_lazyget_unhashable(self, classes: CLASSES = TEST_CLASSES) -> None:
+        for DictClass in classes:
+            TestDictFunctions().test_lazyget_unhashable(
+                DictClass.lazyget, DictClass)
+
+    def test_lazysetdefault_unhashable(self, classes: CLASSES = TEST_CLASSES) -> None:
+        for DictClass in classes:
+            TestDictFunctions().test_lazysetdefault_unhashable(
+                DictClass.lazyget, DictClass)
 
 
 class TestSortionary(DictTester):

@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2025-08-12
+Updated: 2025-09-05
 """
 # Import standard libraries
 import abc
@@ -14,7 +14,7 @@ import inspect
 import re
 import sys
 from types import ModuleType
-from typing import Any, cast
+from typing import Any, cast, TypeVar
 
 # Import third-party PyPI libraries
 from makefun import create_function, with_signature
@@ -104,8 +104,7 @@ def initialize(self: HasSlots, *args: Any, **kwargs: Any) -> None:
     :param self: HasSlots, object with a `__slots__: tuple[str, ...]` attribute \
         naming the `__init__` input arguments.
     """
-    if "__slots__" in kwargs:
-        kwargs.pop("__slots__")
+    kwargs.pop("__slots__", None)
     for i in range(len(args)):
         kwargs[self.__slots__[i]] = args[i]
     attributes.add_to(self, **kwargs)
