@@ -3,24 +3,26 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-09-05
+Updated: 2025-09-06
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
                              Mapping, MutableMapping)
 from math import prod
 import pdb
+from pprint import pprint
 import random
 import string
+from types import SimpleNamespace
 from typing import Any, TypeVar
 
 # Import local custom libraries
-from gconanpy import mapping
+from gconanpy import attributes, mapping
 from gconanpy.debug import StrictlyTime
 from gconanpy.iters import Combinations, MapWalker, powers_of_ten, Randoms
 from gconanpy.mapping.dicts import *
 from gconanpy.mapping.grids import HashGrid, Locktionary  # GridCryptionary,
-from gconanpy.meta import Lazily, TimeSpec
+from gconanpy.meta import ACCESS, Accessor, TimeSpec
 # from tests import test_mapping
 from gconanpy.testers import Tester  # , TimeTester
 from gconanpy.trivial import (always_false, always_none,
@@ -38,7 +40,7 @@ SubDotDict = type("SubDotDict", (DotDict, Subsetionary), dict())
 
 
 class DictTester(Tester):
-    _E = TypeVar("_E", bound=Explictionary)
+    _E = TypeVar("_E", bound=CustomDict)
     CLASSES = tuple[type[_E], ...]
     TEST_CLASSES: CLASSES
 
@@ -324,29 +326,45 @@ class TestDictFunctions(DictTester):
         self.one_update_test(new_dict, 4, dict(a=3), c=1)
 
 
-class TestLazily(DictTester):
-    CLASSES = tuple[type[Lazily], ...]
-    TEST_CLASSES: CLASSES = (Lazily, )
+class TestAccessor(DictTester):
+    CLASSES = tuple[type[Accessor], ...]
+    TEST_CLASSES: CLASSES = (Accessor, )
     UNIT: TimeSpec.UNIT = "seconds"
+
+    class TRIPLETTERS:
+        """ Example/dummy object to access attributes of """
+        a = 1
+        b = 2
+        c = 3
 
     def prep(self, n_tests_orders_of_magnitude: int = 4) -> None:
         self.add_basics()
-        self.randicts = [{**Randoms.randict(max_len=10), **self.adict}
-                         for _ in Randoms.randrange(max_len=20)]
+        randicts = list()
+        randobjs = list()
+        for _ in Randoms.randrange(max_len=20):
+            randicts.append({**Randoms.randict(
+                keys=string.ascii_letters, max_len=10), **self.adict})
+            randobjs.append(SimpleNamespace(**randicts[-1]))
+        self.randicts = tuple(randicts)
+        self.randobjs = tuple(randobjs)
         self.test_Ns = powers_of_ten(n_tests_orders_of_magnitude)
 
-    def time_lazy(self, name: str, lazy_meth: Callable,
-                  lazy_result: Any, input_obj: Any, **kwargs) -> None:
-
+    def time_lazy(self, name: str, lazy_meth: Callable, lazy_result: Any,
+                  input_obj: Any, asattrs: bool = False, **kwargs: Any) -> None:
+        rands = self.randobjs if asattrs else self.randicts
+        items = dict.items if not asattrs else \
+            lambda x: attributes.AttrsOf(x).public()
+        # randicts = SimpleNamespace(**self.randicts) if attrs else self.randicts
         with StrictlyTime(f"running {name} {sum(self.test_Ns)} times",
                           time_unit=self.UNIT):
             for eachN in self.test_Ns:
                 for _ in range(eachN):
-                    for d in self.randicts:
-                        for k, v in input_obj.items():
+                    for d in rands:
+                        for k, v in items(input_obj):
                             assert lazy_meth(d, k, **kwargs) == v
-                        for digit in range(10):
-                            assert lazy_meth(d, digit, **kwargs
+                        for wrong in ("this isn't a key", "neither is this",
+                                      "nor this", "nor that"):
+                            assert lazy_meth(d, wrong, **kwargs
                                              ) == lazy_result
 
     # Remove the initial underscore to run time test
@@ -355,26 +373,32 @@ class TestLazily(DictTester):
         kwargs = dict(get_if_absent=set.union,  # sum, getter_args=[self.alist]
                       getter_args=({1, 2}, set(), {5}, {"foo", "bar"}))
         result = {1, 2, 5, "foo", "bar"}  # sum(self.alist)  #
-        '''
+        # TRIPLETTERS = SimpleNamespace(**self.adict)
         self.time_lazy("attributes.lazysetdefault", attributes.lazysetdefault,
-                       result, self.Tripletters(), **kwargs)
+                       result, self.TRIPLETTERS, asattrs=True, **kwargs)
         self.time_lazy("attributes.lazyget", attributes.lazyget,
-                       result, self.Tripletters(), **kwargs)
-        '''
+                       result, self.TRIPLETTERS, asattrs=True, **kwargs)
         self.time_lazy("map_funcs.lazysetdefault",
-                       mapping.lazysetdefault, result, self.adict, **kwargs)
+                       mapping.lazysetdefault, result, self.adict,
+                       asattrs=False, **kwargs)
         self.time_lazy("map_funcs.lazyget", mapping.lazyget, result,
-                       self.adict, **kwargs)
-        self.time_lazy("Lazily.setdefault", Lazily.setdefault,
-                       result, self.adict, get_an="item", **kwargs)
-        self.time_lazy("Lazily.get", Lazily.get,
-                       result, self.adict, get_an="item", **kwargs)
+                       self.adict, asattrs=False, **kwargs)
+        self.time_lazy("ACCESS[item].lazysetdefault",
+                       ACCESS["item"].lazysetdefault,
+                       result, self.adict, asattrs=False, **kwargs)
+        self.time_lazy("ACCESS[item].lazyget", ACCESS["item"].lazyget,
+                       result, self.adict, asattrs=False, **kwargs)
+        self.time_lazy("ACCESS[attr].lazysetdefault",
+                       ACCESS["attribute"].lazysetdefault,
+                       result, self.TRIPLETTERS, asattrs=True, **kwargs)
+        self.time_lazy("ACCESS[attr].lazyget", ACCESS["attribute"].lazyget,
+                       result, self.TRIPLETTERS, asattrs=True, **kwargs)
         assert False
 
 
-class TestDefaultionary(DictTester):
-    CLASSES = tuple[type[Defaultionary], ...]
-    TEST_CLASSES: CLASSES = (Defaultionary, FancyDict, LazyDict, LazyDotDict)
+class TestExclutionary(DictTester):
+    CLASSES = tuple[type[Exclutionary], ...]
+    TEST_CLASSES: CLASSES = (Exclutionary, FancyDict, LazyDict, LazyDotDict)
 
     def test_chain_get(self, classes: CLASSES = TEST_CLASSES) -> None:
         for DictClass in classes:
@@ -592,7 +616,7 @@ class TestUpdationary(DictTester):
 
 
 class TestWalktionary(DictTester):
-    CLASSES = tuple[type[Explictionary], ...]
+    CLASSES = tuple[type[CustomDict], ...]
     TEST_CLASSES: CLASSES = (DotWalktionary, FancyDict, Walktionary)
 
     def test_walk_keys_1(self, classes: CLASSES = TEST_CLASSES) -> None:
@@ -778,7 +802,7 @@ class TestOOPvsFunctions(TimeTester):
     def test_all(self, n_tests_orders_of_magnitude: int = 3):
         func_tester = TestDictFunctions()
         results = set()
-        for OOPClass in (TestDefaultionary, TestDotDicts, TestInvertionary,
+        for OOPClass in (TestExclutionary, TestDotDicts, TestInvertionary,
                          TestUpdationary, TestWalktionary):
             oop_tester = OOPClass()
             for method_name in attributes.Of(OOPClass).method_names():

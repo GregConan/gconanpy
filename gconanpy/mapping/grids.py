@@ -4,25 +4,25 @@
 Custom multidimensional dictionaries extending dicts.py classes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-23
-Updated: 2025-08-29
+Updated: 2025-09-06
 """
 # Import standard libraries
 from collections.abc import Collection, Hashable, Iterable, Mapping, Sequence
 import random
 import string
-from typing import Any, Type, cast, overload, TypeVar
+from typing import Any, cast, overload, TypeVar
 from typing_extensions import Self
 
 # Import local custom libraries
 try:
     from bytesify import Bytesifiable, DEFAULT_ENCODING, Encryptor
     from debug import Debuggable
-    from mapping.dicts import Explictionary, Invertionary, MapParts
+    from mapping.dicts import CustomDict, Invertionary, MapParts
     from meta import name_of
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.bytesify import Bytesifiable, DEFAULT_ENCODING, Encryptor
     from gconanpy.debug import Debuggable
-    from gconanpy.mapping.dicts import Explictionary, Invertionary, MapParts
+    from gconanpy.mapping.dicts import CustomDict, Invertionary, MapParts
     from gconanpy.meta import name_of
 
 # Type variable for .__init__(...) and .update(...) method input parameters
@@ -48,7 +48,7 @@ class NameDimension:  # for HashGrid
         return to_return
 
 
-class HashGrid[KT: Hashable, VT](Explictionary[int, VT]):
+class HashGrid[KT: Hashable, VT](CustomDict[int, VT]):
     """ `dict` mapping combinations of keys to specific values.
 
     Called a "Grid" because it maps 1 group of multiple keys to 1 value in \
@@ -342,8 +342,8 @@ class Grid[XT: Hashable, YT: Hashable, VT](Invertionary):  # 2D Grid
                  values: Iterable[VT]): ...
 
     def __init__(self, *tuples, x=tuple(), y=tuple(), values=tuple()) -> None:
-        self.X: Explictionary[XT, Explictionary[YT, VT]] = Explictionary()
-        self.Y: Explictionary[YT, Explictionary[XT, VT]] = Explictionary()
+        self.X: CustomDict[XT, CustomDict[YT, VT]] = CustomDict()
+        self.Y: CustomDict[YT, CustomDict[XT, VT]] = CustomDict()
         if tuples:
             triples = tuples
         elif x and y and values:  # and len(x) == len(y) == len(values):

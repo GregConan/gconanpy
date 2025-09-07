@@ -96,9 +96,9 @@ These classes provide general reusable functionality used later by the `Corer` c
 
 These classes attempt to abstract out the basic functionality shared by access/modification methods for items and attributes, potentially allowing functionality that treats them interchangeably.
 
-Consider wanting to perform the same operation on an `Iterable`'s elements/items as its attributes. Ideally, using the `Methods` and/or `Lazily` class, you could define that operation exactly once in one function with a boolean "attributes or elements?" parameter. However, I have not yet found a use case that makes the added complexity and performance overhead worth it.
+Consider wanting to perform the same operation on an `Iterable`'s elements/items as its attributes. Ideally, using the `Accessor` and/or `Lazily` class, you could define that operation exactly once in one function with a boolean "attributes or elements?" parameter. However, I have not yet found a use case that makes the added complexity and performance overhead worth it.
 
-- **`Methods`** defines get/has/set methods.
+- **`Accessor`** defines get/has/set methods.
 - **`Lazily`** defines lazy access/modification methods.
 
 #### Usage Examples

@@ -478,7 +478,8 @@ class Comparer(IteratorFactory):
         return biggest
 
 
-class Methods(NamedTuple):
+class Accessor(NamedTuple):
+    delete: CALL_2ARG
     get: CALL_2ARG
     has: CALL_2ARG
     set_to: CALL_3ARG
@@ -492,22 +493,22 @@ class Methods(NamedTuple):
         :return: bool, True if `key` is not mapped to a value in `a_dict` or \
             is mapped to something in `exclude`
         """
-        return not self.has(an_obj, key) or an_obj[key] in exclude
+        if not self.has(an_obj, key):
+            return True
 
+        try:  # If an_obj has key, return True iff its value doesn't count
+            return self.get(an_obj, key) in exclude
 
-class Lazily:
-    attribute = Methods(get=getattr, has=hasattr, set_to=setattr)
-    item = Methods(get=operator.getitem, has=operator.contains,
-                   set_to=operator.setitem)
-    _TO_GET = Literal["item", "attribute"]
+        # `self.<name> in exclude` raises TypeError if self.<name> isn't Hashable.
+        # In that case, self.<name> can't be in exclude, so self has name.
+        except TypeError:
+            return False
 
-    @classmethod
-    def get(cls, an_obj: Any, key: Hashable,
-            get_if_absent: Callable,
-            get_an: _TO_GET = "attribute",
-            exclude: Container = set(),
-            getter_args: Iterable = tuple(),
-            getter_kwargs: Mapping = dict()) -> Any:
+    def lazyget(self, an_obj: Any, key: Hashable,
+                get_if_absent: Callable,
+                getter_args: Iterable = tuple(),
+                getter_kwargs: Mapping = dict(),
+                exclude: Container = set()) -> Any:
         """ Return the value for key if key is in the dictionary, else \
         return the result of calling the `get_if_absent` parameter with args \
         & kwargs. Adapted from `LazyButHonestDict.lazyget` from \
@@ -521,17 +522,14 @@ class Lazily:
             `key` in `a_dict`) will not be returned; instead returning \
             `get_if_absent(*getter_args, **getter_kwargs)`
         """
-        meths: Methods = getattr(cls, get_an)
         return get_if_absent(*getter_args, **getter_kwargs) if \
-            meths.lacks(an_obj, key, exclude) else meths.get(an_obj, key)
+            self.lacks(an_obj, key, exclude) else self.get(an_obj, key)
 
-    @classmethod
-    def setdefault(cls, an_obj: Any, key: Hashable,
-                   get_if_absent: Callable,
-                   get_an: _TO_GET = "attribute",
-                   getter_args: Iterable = tuple(),
-                   getter_kwargs: Mapping = dict(),
-                   exclude: Container = set()) -> Any:
+    def lazysetdefault(self, an_obj: Any, key: Hashable,
+                       get_if_absent: Callable,
+                       getter_args: Iterable = tuple(),
+                       getter_kwargs: Mapping = dict(),
+                       exclude: Container = set()) -> Any:
         """ Return the value for key if key is in the dictionary; else add \
         that key to the dictionary, set its value to the result of calling \
         the `get_if_absent` parameter with args & kwargs, then return that \
@@ -546,11 +544,18 @@ class Lazily:
             `get_if_absent(*getter_args, **getter_kwargs)` and return if \
             they are mapped to `key` in `a_dict`
         """
-        meths: Methods = getattr(cls, get_an)
-        if meths.lacks(an_obj, key, exclude):
-            meths.set_to(an_obj, key, get_if_absent(
+        if self.lacks(an_obj, key, exclude):
+            self.set_to(an_obj, key, get_if_absent(
                 *getter_args, **getter_kwargs))
-        return meths.get(an_obj, key)
+        return self.get(an_obj, key)
+
+
+# TODO Change to frozendict so it's a global constant (& maybe faster?)
+#      https://github.com/Marco-Sulla/python-frozendict/issues/18
+ACCESS = {"item": Accessor(get=operator.getitem, has=operator.contains,
+                           set_to=operator.setitem, delete=operator.delitem),
+          "attribute": Accessor(get=getattr, has=hasattr,
+                                set_to=setattr, delete=delattr)}
 
 
 class ClassWrapper:

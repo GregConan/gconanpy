@@ -4,7 +4,7 @@
 Functions/classes to access and/or modify the attributes of any object(s).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-02
-Updated: 2025-08-10
+Updated: 2025-09-06
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Collection, Generator, \
@@ -79,7 +79,16 @@ def has(an_obj: Any, name: str, exclude: Container = set()) -> bool:
     :return: bool, True if `key` is not mapped to a value in `an_obj` or \
         is mapped to something in `exclude`
     """
-    return not hasattr(an_obj, name) or getattr(an_obj, name) in exclude
+    if not hasattr(an_obj, name):
+        return False
+
+    try:  # If an_obj has the attribute, return True unless it doesn't count
+        return getattr(an_obj, name) not in exclude
+
+    # `self.<name> in exclude` raises TypeError if self.<name> isn't Hashable.
+    # In that case, self.<name> can't be in exclude, so self has name.
+    except TypeError:
+        return True
 
 
 def lazyget(an_obj: Any, name: str,
@@ -101,7 +110,7 @@ def lazyget(an_obj: Any, name: str,
         in `exclude`; else `get_if_absent(*getter_args, **getter_kwargs)`
     """
     return get_if_absent(*getter_args, **getter_kwargs) if \
-        has(an_obj, name, exclude) else getattr(an_obj, name)
+        not has(an_obj, name, exclude) else getattr(an_obj, name)
 
 
 def lazysetdefault(an_obj: Any, name: str, get_if_absent:
@@ -122,7 +131,7 @@ def lazysetdefault(an_obj: Any, name: str, get_if_absent:
     :return: Any, the `name` attribute of `an_obj` if it exists and is not \
         in `exclude`; else `get_if_absent(*getter_args, **getter_kwargs)`
     """
-    if has(an_obj, name, exclude):
+    if not has(an_obj, name, exclude):
         setattr(an_obj, name, get_if_absent(*getter_args, **getter_kwargs))
     return getattr(an_obj, name)
 

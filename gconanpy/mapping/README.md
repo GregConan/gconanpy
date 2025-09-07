@@ -21,9 +21,9 @@ Custom dictionary classes with specialized functionality for various use cases. 
 #### Basic Classes
 
 - **`Cryptionary`** can automatically encrypt the values that it stores.
-- **`Defaultionary`** can fill missing values or overwrite unwanted values.
+- **`Exclutionary`** can fill missing values or overwrite unwanted values.
 - **`DotDict`** can access and modify items as attributes using dot notation.
-- **`Explictionary`** is the base class for these custom dict classes.
+- **`CustomDict`** is the base class for these custom dict classes.
 - **`HashGrid`** can map a combination of an arbitrary number of keys to each value.
 - **`Invertionary`** can swap its keys and values.
 - **`LazyDict`** can delay execution of code to get/set default values.
@@ -128,7 +128,7 @@ All dictionary operations include comprehensive error handling:
 ### About This Document
 
 - Created by @[GregConan](https://github.com/GregConan) on 2025-08-05
-- Updated by @[GregConan](https://github.com/GregConan) on 2025-08-09
+- Updated by @[GregConan](https://github.com/GregConan) on 2025-09-06
 - Current as of `v0.13.2`
 
 ### License

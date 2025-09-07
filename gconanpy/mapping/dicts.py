@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-09-05
+Updated: 2025-09-06
 """
 # Import standard libraries
 from collections import defaultdict
@@ -41,14 +41,14 @@ MapParts = Iterable[tuple[Hashable, Any]]
 FromMap = TypeVar("FromMap", Mapping, MapParts, None)
 
 
-class Explictionary[KT, VT](dict[KT, VT]):
+class CustomDict[KT, VT](dict[KT, VT]):
     """ Custom dict base class that explicitly includes its class name in \
         its string representation(s) via __repr__ method. """
 
     def __repr__(self) -> str:
         """
         :return: str, string representation of custom dict class including \
-                 its class name: "Explictionary({...})"
+                 its class name: "CustomDict({...})"
         """
         return f"{name_of(self)}({dict.__repr__(self)})"
 
@@ -58,12 +58,13 @@ class Explictionary[KT, VT](dict[KT, VT]):
         return self.__class__(self)
 
 
-class Defaultionary[KT, VT](Explictionary[KT, VT]):
-    """ Custom dict class with extended functionality centered around the \
-        `default=` option, functionality used by various other custom dicts. \
-        The Defaultionary can ignore specified values as if they were blank \
-        in its `get` method. It can also use `setdefault` on many different \
-        elements at once via `setdefaults`. `LazyDict` base class.
+class Exclutionary[KT, VT](CustomDict[KT, VT]):
+    """ Custom dict class that adds `exclude=` options to `dict` methods, \
+        letting it ignore specified values as if they were blank. It also
+        has extended functionality centered around the `default=` option, \
+        functionality used by various other CustomDicts. The Exclutionary \
+        can also use `setdefault` on many different elements at once via \
+        `setdefaults`. `LazyDict` base class. Previously "Defaultionary".
     """
     _D = TypeVar("_D")  # Type hint for "default" parameter
 
@@ -75,7 +76,7 @@ class Defaultionary[KT, VT](Explictionary[KT, VT]):
 
         :param keys: Sequence[KT], keys mapped to the value to return
         :param default: _D: Any, object to return if none of the `keys` are \
-            in this Defaultionary
+            in this Exclutionary
         :param exclude: Container[VT], values to ignore or overwrite. If one \
             of the `keys` is mapped to a value in `exclude`, then skip that \
             key as if `key is not in self`.
@@ -124,7 +125,7 @@ class Defaultionary[KT, VT](Explictionary[KT, VT]):
     def has_all(self, keys: Iterable[KT], exclude: Container[VT] = set()
                 ) -> bool:
         """
-        :param keys: Iterable[KT], keys to find in this Defaultionary.
+        :param keys: Iterable[KT], keys to find in this Exclutionary.
         :param exclude: Container[VT], values to overlook/ignore such that \
             if `self` maps a key to one of those values, then this method \
             will return False as if `key is not in self`.
@@ -140,12 +141,12 @@ class Defaultionary[KT, VT](Explictionary[KT, VT]):
     def missing_keys(self, keys: Iterable[KT], exclude: Container[VT] = set()
                      ) -> Generator[KT, None, None]:
         """
-        :param keys: Iterable[KT], keys to find in this Defaultionary.
+        :param keys: Iterable[KT], keys to find in this Exclutionary.
         :param exclude: Container[VT], values to overlook/ignore such that \
             if `self` maps a key to one of those values, then this method \
             will yield that key as if `key is not in self`.
         :yield: Generator[KT, None, None], all `keys` that either are not in \
-            this Defaultionary or are mapped to a value in `exclude`.
+            this Exclutionary or are mapped to a value in `exclude`.
         """
         if exclude:
             for key in keys:
@@ -176,7 +177,7 @@ class Defaultionary[KT, VT](Explictionary[KT, VT]):
             self[key] = kwargs[cast(str, key)]
 
 
-class Invertionary(Explictionary):
+class Invertionary(CustomDict):
     # Type variables for invert method
     _K = bool | Literal["unpack"]  # type[Collection]  # TODO
 
@@ -229,7 +230,7 @@ class Invertionary(Explictionary):
 
 
 class Sortionary[KT: SupportsRichComparison, VT: SupportsRichComparison
-                 ](Explictionary[KT, VT]):
+                 ](CustomDict[KT, VT]):
     """ Custom dict class that can yield a generator of its key-value pairs \
         sorted in order of either keys or values. """
     _BY = Literal["keys", "values"]
@@ -254,7 +255,7 @@ class Sortionary[KT: SupportsRichComparison, VT: SupportsRichComparison
             yield (k, v)
 
 
-class Subsetionary[KT, VT](Explictionary[KT, VT]):
+class Subsetionary[KT, VT](CustomDict[KT, VT]):
 
     @classmethod
     def from_subset_of(cls, from_map: Mapping, keys: Container[KT] = set(),
@@ -295,7 +296,7 @@ class Subsetionary[KT, VT](Explictionary[KT, VT]):
                          ).of(self)
 
 
-class Updationary[KT, VT](Explictionary[KT, VT]):
+class Updationary[KT, VT](CustomDict[KT, VT]):
 
     def __init__(self, from_map: FromMap = None, **kwargs: Any) -> None:
         """
@@ -338,7 +339,7 @@ class Updationary[KT, VT](Explictionary[KT, VT]):
             return updated
 
 
-class Walktionary[KT, VT](Explictionary[KT, VT]):
+class Walktionary[KT, VT](CustomDict[KT, VT]):
     def walk(self, only_yield_maps: bool = True) -> MapWalker:
         """ Recursively iterate over this dict and every dict inside it. \
             Defined explicitly to make `only_yield_maps` default to False.
@@ -353,7 +354,7 @@ class Walktionary[KT, VT](Explictionary[KT, VT]):
 
 
 class OverlapPercents[Sortable: SupportsRichComparison
-                      ](Explictionary[str, Sortionary[Sortable, float]]):
+                      ](CustomDict[str, Sortionary[Sortable, float]]):
     def __init__(self, **collecs: Collection[Sortable]) -> None:
         """ Calculate what percentage of the elements of each `Collection` \
             are also in each other `Collection`.
@@ -565,7 +566,7 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
         return default if keypath else cast(VT, retrieved)
 
 
-class LazyDict[KT, VT](Updationary[KT, VT], Defaultionary[KT, VT]):
+class LazyDict[KT, VT](Updationary[KT, VT], Exclutionary[KT, VT]):
     """ Dict that can get/set items and ignore the default parameter \
         until/unless it is needed, ONLY evaluating it after failing to \
         get/set an existing key. Benefit: The `default=` code does not \

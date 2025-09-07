@@ -3,14 +3,13 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-07
-Updated: 2025-08-12
+Updated: 2025-09-06
 """
 # Import standard libraries
 import builtins
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from copy import deepcopy
-from pprint import pprint
 import random
 import string
 from timeit import timeit
@@ -23,8 +22,8 @@ import pandas as pd
 from gconanpy import attributes
 from gconanpy.debug import StrictlyTime
 from gconanpy.iters import Combinations
-from gconanpy.mapping.dicts import Cryptionary, Defaultionary, DotDict, \
-    Explictionary, LazyDict, LazyDotDict
+from gconanpy.mapping.dicts import Cryptionary, CustomDict, DotDict, \
+    Exclutionary, LazyDict, LazyDotDict, Sortionary
 from gconanpy.meta import Boolable, name_of, names_of, \
     Recursively, TimeSpec
 from gconanpy.meta.metaclass import MakeMetaclass, name_type_class
@@ -69,9 +68,9 @@ class TestAccessSpeed(Tester):
 from typing import Mapping
 
 try:
-    from gconanpy.meta.funcs import method
+    from gconanpy.meta import method
 except (ImportError, ModuleNotFoundError):
-    from meta.funcs import method
+    from meta import method
 
 
 class BareObject():
@@ -119,9 +118,12 @@ allattrs={allattrs}
                 sumtimes[newkey] += times[old]
             sumtimes[newkey] /= len(oldkeys)
 
+        # sumtimes = Sortionary(**sumtimes)
+
         for d in times, sumtimes:
-            pprint({k.rjust(40): round(v * 1000, 3)
-                    for k, v in d.items()})
+            for k, v in Sortionary(**d).sorted_by("values"):
+                print(f"{k.rjust(40)} = {round(v * 1000, 3)}")
+            print()  # Separate the specifics from the averages w/ a newline
         assert False
 
 
@@ -222,7 +224,7 @@ class TestMetaFunctions(Tester):
 
     def test_metaclass_issubclass(self) -> None:
         self.add_basics()
-        subclasses = (dict, Explictionary, Defaultionary, DotDict)
+        subclasses = (dict, CustomDict, Exclutionary, DotDict)
         not_subclasses = (LazyDict, LazyDotDict, Cryptionary)
 
         class DictTestType(metaclass=MakeMetaclass.for_classes(

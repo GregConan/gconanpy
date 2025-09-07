@@ -4,7 +4,7 @@
 Classes that wrap other classes, especially builtins, to add functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-08-29
+Updated: 2025-09-05
 """
 # Import standard libraries
 import argparse

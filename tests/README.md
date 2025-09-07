@@ -15,7 +15,7 @@ Tests for the mapping/dictionary classes and utilities.
 #### Test Coverage
 
 - `Cryptionary` class encryption/decryption
-- `Defaultionary` class with extended defaults
+- `Exclutionary` class with extended defaults
 - `DotDict` class dot notation item access and modification
 - `Invertionary` class inversion capabilities
 - `LazyDict` class lazy loading
@@ -222,7 +222,7 @@ TODO:
 ### About This Document
 
 - Created by @[GregConan](https://github.com/GregConan) on 2025-08-05
-- Updated by @[GregConan](https://github.com/GregConan) on 2025-08-09
+- Updated by @[GregConan](https://github.com/GregConan) on 2025-09-06
 - Current as of `v0.13.2`
 
 ### License
