@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-09-06
+Updated: 2025-09-11
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -22,7 +22,8 @@ from gconanpy.debug import StrictlyTime
 from gconanpy.iters import Combinations, MapWalker, powers_of_ten, Randoms
 from gconanpy.mapping.dicts import *
 from gconanpy.mapping.grids import HashGrid, Locktionary  # GridCryptionary,
-from gconanpy.meta import ACCESS, Accessor, TimeSpec
+from gconanpy.meta import TimeSpec
+from gconanpy.meta.access import ACCESS, Accessor
 # from tests import test_mapping
 from gconanpy.testers import Tester  # , TimeTester
 from gconanpy.trivial import (always_false, always_none,
@@ -337,6 +338,13 @@ class TestAccessor(DictTester):
         b = 2
         c = 3
 
+    def test_lazyget_basic(self) -> None:
+        self.add_basics()
+        VALUE = "arbitrary"
+        getdefault = lambda *_: VALUE
+        self.check_result(ACCESS["item"].lazyget(
+            self.adict, "a", getdefault), 1)
+
     def prep(self, n_tests_orders_of_magnitude: int = 4) -> None:
         self.add_basics()
         randicts = list()
@@ -349,51 +357,73 @@ class TestAccessor(DictTester):
         self.randobjs = tuple(randobjs)
         self.test_Ns = powers_of_ten(n_tests_orders_of_magnitude)
 
-    def time_lazy(self, name: str, lazy_meth: Callable, lazy_result: Any,
+    def time_lazy(self, lazy_meth: Callable, lazy_result: Any,
                   input_obj: Any, asattrs: bool = False, **kwargs: Any) -> None:
+        # randicts = SimpleNamespace(**self.randicts) if attrs else self.randicts
+        with StrictlyTime(f"running {kwargs.pop('lazyname')} "
+                          f"{sum(self.test_Ns)} times",
+                          time_unit=self.UNIT):
+            self.lazytest(lazy_meth, lazy_result, input_obj, asattrs, **kwargs)
+
+    def lazytest(self, lazy_meth: Callable, lazy_result: Any,
+                 input_obj: Any, asattrs: bool = False, **kwargs: Any) -> None:
+        if "lazyname" in kwargs:
+            kwargs.pop("lazyname")
         rands = self.randobjs if asattrs else self.randicts
         items = dict.items if not asattrs else \
             lambda x: attributes.AttrsOf(x).public()
-        # randicts = SimpleNamespace(**self.randicts) if attrs else self.randicts
-        with StrictlyTime(f"running {name} {sum(self.test_Ns)} times",
-                          time_unit=self.UNIT):
-            for eachN in self.test_Ns:
-                for _ in range(eachN):
-                    for d in rands:
-                        for k, v in items(input_obj):
-                            assert lazy_meth(d, k, **kwargs) == v
-                        for wrong in ("this isn't a key", "neither is this",
-                                      "nor this", "nor that"):
-                            assert lazy_meth(d, wrong, **kwargs
-                                             ) == lazy_result
+        for eachN in self.test_Ns:
+            for _ in range(eachN):
+                for d in rands:
+                    for k, v in items(input_obj):
+                        assert lazy_meth(d, k, **kwargs) == v
+                    for wrong in ("this isn't a key", "neither is this",
+                                  "nor this", "nor that"):
+                        assert lazy_meth(d, wrong, **kwargs
+                                         ) == lazy_result
 
-    # Remove the initial underscore to run time test
-    def _test_time_lazyget(self, n_tests_orders_of_magnitude: int = 4):
+    # TODO?
+    # def test_lazyget_nonkey(self):
+    #   TestDictFunctions().test_lazyget_nonkey(ACCESS[item].lazyget)
+    #   TestDictFunctions().test_lazyget_nonkey(ACCESS[attribute].lazyget)
+
+    # Change to `timing: bool = True` to run time test
+    def test_lazy(self, n_tests_orders_of_magnitude: int = 3,
+                  timing: bool = False):
         self.prep(n_tests_orders_of_magnitude)
         kwargs = dict(get_if_absent=set.union,  # sum, getter_args=[self.alist]
                       getter_args=({1, 2}, set(), {5}, {"foo", "bar"}))
-        result = {1, 2, 5, "foo", "bar"}  # sum(self.alist)  #
+        result = {1, 2, 5, "foo", "bar"}
         # TRIPLETTERS = SimpleNamespace(**self.adict)
-        self.time_lazy("attributes.lazysetdefault", attributes.lazysetdefault,
-                       result, self.TRIPLETTERS, asattrs=True, **kwargs)
-        self.time_lazy("attributes.lazyget", attributes.lazyget,
-                       result, self.TRIPLETTERS, asattrs=True, **kwargs)
-        self.time_lazy("map_funcs.lazysetdefault",
-                       mapping.lazysetdefault, result, self.adict,
-                       asattrs=False, **kwargs)
-        self.time_lazy("map_funcs.lazyget", mapping.lazyget, result,
-                       self.adict, asattrs=False, **kwargs)
-        self.time_lazy("ACCESS[item].lazysetdefault",
-                       ACCESS["item"].lazysetdefault,
-                       result, self.adict, asattrs=False, **kwargs)
-        self.time_lazy("ACCESS[item].lazyget", ACCESS["item"].lazyget,
-                       result, self.adict, asattrs=False, **kwargs)
-        self.time_lazy("ACCESS[attr].lazysetdefault",
-                       ACCESS["attribute"].lazysetdefault,
-                       result, self.TRIPLETTERS, asattrs=True, **kwargs)
-        self.time_lazy("ACCESS[attr].lazyget", ACCESS["attribute"].lazyget,
-                       result, self.TRIPLETTERS, asattrs=True, **kwargs)
-        assert False
+        if not timing:
+            lazytest = self.lazytest
+        else:  # Only include the mapping.lazy* method tests if we're timing
+            # (for comparison); otherwise they are redundant
+            lazytest = self.time_lazy
+            lazytest(mapping.lazysetdefault, result, self.adict,
+                     lazyname="map_funcs.lazysetdefault",
+                     asattrs=False, **kwargs)
+            lazytest(mapping.lazyget, result, self.adict,
+                     lazyname="map_funcs.lazyget",
+                     asattrs=False, **kwargs)
+        lazytest(attributes.lazysetdefault, result, self.TRIPLETTERS,
+                 lazyname="attributes.lazysetdefault", asattrs=True,
+                 **kwargs)
+        lazytest(attributes.lazyget, result, self.TRIPLETTERS,
+                 asattrs=True, lazyname="attributes.lazyget", **kwargs)
+        lazytest(ACCESS["item"].lazysetdefault, result, self.adict,
+                 lazyname="ACCESS[item].lazysetdefault",
+                 asattrs=False, **kwargs)
+        lazytest(ACCESS["item"].lazyget, result, self.adict,
+                 lazyname="ACCESS[item].lazyget",
+                 asattrs=False, **kwargs)
+        lazytest(ACCESS["attribute"].lazysetdefault, result, self.TRIPLETTERS,
+                 lazyname="ACCESS[attr].lazysetdefault",
+                 asattrs=True, **kwargs)
+        lazytest(ACCESS["attribute"].lazyget, result, self.TRIPLETTERS,
+                 lazyname="ACCESS[attr].lazyget",
+                 asattrs=True, **kwargs)
+        assert not timing  # If we're timing, raise err to print results
 
 
 class TestExclutionary(DictTester):

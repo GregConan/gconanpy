@@ -4,9 +4,10 @@
 Custom multidimensional dictionaries extending dicts.py classes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-23
-Updated: 2025-09-06
+Updated: 2025-09-11
 """
 # Import standard libraries
+import abc
 from collections.abc import Collection, Hashable, Iterable, Mapping, Sequence
 import random
 import string
@@ -19,11 +20,13 @@ try:
     from debug import Debuggable
     from mapping.dicts import CustomDict, Invertionary, MapParts
     from meta import name_of
+    from meta.typeshed import ComparableHashable
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.bytesify import Bytesifiable, DEFAULT_ENCODING, Encryptor
     from gconanpy.debug import Debuggable
     from gconanpy.mapping.dicts import CustomDict, Invertionary, MapParts
     from gconanpy.meta import name_of
+    from gconanpy.meta.typeshed import ComparableHashable
 
 # Type variable for .__init__(...) and .update(...) method input parameters
 FromMap = TypeVar("FromMap", Mapping, MapParts, None)
@@ -48,7 +51,101 @@ class NameDimension:  # for HashGrid
         return to_return
 
 
-class HashGrid[KT: Hashable, VT](CustomDict[int, VT]):
+class BaseHashGrid[KT: Hashable, VT](abc.ABC, CustomDict[int, VT]):
+    _D = TypeVar("_D")
+
+    @abc.abstractmethod
+    def _sort_keys(self, keys) -> tuple[KT, ...]: ...
+
+    def __contains__(self, keys: Iterable[KT], /) -> bool:
+        """ Return `bool(keys in self)`.
+
+        :param keys: Iterable[KT] | Mapping[str, KT], keys/coordinates
+        :return: bool, True if the `keys` are mapped to a value in this \
+            `HashGrid`; else False if they aren't.
+        """
+        return super().__contains__(self._hash_keys(keys))
+
+    def __getitem__(self, keys: Iterable[KT], /) -> VT:
+        """ Return `self[keys]`.
+
+        :param keys: Iterable[KT] | Mapping[str, KT], keys/coordinates
+        :return: VT, `self[keys]`; the value mapped to the `keys`
+        """
+        return super().__getitem__(self._hash_keys(keys))
+
+    def __setitem__(self, keys: Iterable[KT] | Mapping[str, KT],
+                    value: VT, /) -> None:
+        """ Set `self[keys]` to `value`.
+
+        :param keys: Iterable[KT] | Mapping[str, KT], keys/coordinates
+        :param value: VT, new value to map to `keys` in this `HashGrid`.
+        :raises ValueError: if `strict=True` and `keys` is the wrong length \
+            (its length should equal the number of dimensions).
+        """
+        return super().__setitem__(self._hash_keys(keys), value)
+
+    def _hash_keys(self, keys: Iterable[KT] | Mapping[str, KT]) -> int:
+        """
+        :param keys: Iterable[KT] | Mapping[str, KT], the coordinates \
+            that are (or will be) mapped to a value in this `HashGrid`; one \
+            key for every dimension
+        :raises KeyError: if the `keys` cannot be converted into a valid \
+            hash value mapped to a value in this `HashGrid`, especially if \
+            the `keys` are of the wrong number or type.
+        :return: int, the hash number mapped to a value in this `HashGrid`.
+        """
+        try:
+            return hash(keys)
+        except TypeError:
+            return hash(self._sort_keys(keys))
+
+    @overload
+    def pop(self, keys: Iterable[KT] | Mapping[str, KT]) -> VT: ...
+
+    @overload
+    def pop(self, keys: Iterable[KT] | Mapping[str, KT],
+            default: VT) -> VT: ...
+
+    @overload
+    def pop(self, keys: Iterable[KT] | Mapping[str, KT],
+            default: _D = None) -> VT | _D: ...
+
+    def pop(self, keys, default=None):
+        """ D.pop(k[,d]) -> v, remove specified keys/coordinates and return \
+            the corresponding value.
+
+        If the keys are not found, return the `default` value if given; \
+        otherwise, raise a `KeyError`.
+
+        :param keys: Iterable[KT] | Mapping[str, KT], the coordinates/keys \
+            mapped to a value in this `HashGrid`; one key for every dimension
+        :param default: _D: Any, what to return if the `keys` are not found; \
+            defaults to None
+        :return: VT | _D, the value mapped to `keys`, if any; else `default`
+        """
+        return super().pop(self._hash_keys(keys), default)
+
+    def setdefault(self, keys: Iterable[KT] | Mapping[str, KT],
+                   default: VT = None) -> VT:
+        return super().setdefault(self._hash_keys(keys), default)
+
+
+class UnorderedHashGrid[KT: ComparableHashable, VT
+                        ](BaseHashGrid[KT, VT]):
+    def __init__(self, *pairs: tuple[Iterable[KT], VT]) -> None:
+        super().__init__(*pairs)
+
+    def _sort_keys(self, keys: Iterable[KT]) -> tuple[KT, ...]:
+        """ 
+        :param keys: Iterable[KT] | Mapping[str, KT], keys/coordinates
+        :return: tuple[KT, ...], the `keys` as a tuple sorted in the \
+            correct order to access values stored in this `HashGrid`.
+        """
+        return tuple(sorted(tuple(keys)))
+
+
+class HashGrid[KT: Hashable, VT](BaseHashGrid[KT, VT]):
     """ `dict` mapping combinations of keys to specific values.
 
     Called a "Grid" because it maps 1 group of multiple keys to 1 value in \
@@ -131,28 +228,10 @@ class HashGrid[KT: Hashable, VT](CustomDict[int, VT]):
         self.strict = strict
 
         # Save the dimension names in the correct order
-        self.dim_names = self._name_dimensions(
-            pairs, dim_names if dim_names else dimensions, strict)
+        self.dim_names = tuple(dim_names if dim_names else
+                               self._name_dims(pairs, dimensions, strict))
 
         self._fill(*pairs, values=values, **dimensions)
-
-    def __contains__(self, keys: Iterable[KT] | Mapping[str, KT], /) -> bool:
-        """ Return `bool(keys in self)`.
-
-        :param keys: Iterable[KT] | Mapping[str, KT], keys/coordinates
-        :return: bool, True if the `keys` are mapped to a value in this \
-            `HashGrid`; else False if they aren't.
-        """
-        return super().__contains__(self._hash_keys(keys))
-
-    def __getitem__(self, keys: Iterable[KT] | Mapping[str, KT],
-                    /) -> VT:
-        """ Return `self[keys]`.
-
-        :param keys: Iterable[KT] | Mapping[str, KT], keys/coordinates
-        :return: VT, `self[keys]`; the value mapped to the `keys`
-        """
-        return super().__getitem__(self._hash_keys(keys))
 
     def __setitem__(self, keys: Collection[KT] | Mapping[str, KT],
                     value: VT, /) -> None:
@@ -165,7 +244,7 @@ class HashGrid[KT: Hashable, VT](CustomDict[int, VT]):
         """
         if self.strict:
             self._validate_n_keys(keys)
-        return super().__setitem__(self._hash_keys(keys), value)
+        return super().__setitem__(keys, value)
 
     def _fill(self, *pairs, values=tuple(), **dimensions):
 
@@ -185,25 +264,10 @@ class HashGrid[KT: Hashable, VT](CustomDict[int, VT]):
         for keys, value in pairs:
             self[keys] = value
 
-    def _hash_keys(self, keys: Iterable[KT] | Mapping[str, KT]) -> int:
-        """
-        :param keys: Iterable[KT] | Mapping[str, KT], the coordinates \
-            that are (or will be) mapped to a value in this `HashGrid`; one \
-            key for every dimension
-        :raises KeyError: if the `keys` cannot be converted into a valid \
-            hash value mapped to a value in this `HashGrid`, especially if \
-            the `keys` are of the wrong number or type.
-        :return: int, the hash number mapped to a value in this `HashGrid`.
-        """
-        try:
-            return hash(keys)
-        except TypeError:
-            return hash(self._sort_keys(keys))
-
     @classmethod
-    def _name_dimensions(cls, pairs: Iterable[tuple[Collection[KT], Any]] =
-                         tuple(), dim_names: Iterable[str] = tuple(),
-                         strict: bool = True) -> tuple[str, ...]:
+    def _name_dims(cls, pairs: Iterable[tuple[Collection[KT], Any]] =
+                   tuple(), dim_names: Iterable[str] = tuple(),
+                   strict: bool = True) -> Iterable[str]:
         """ 
 
         :param pairs: tuple[Collection[KT], VT], a tuple of 2 items where \
@@ -218,7 +282,7 @@ class HashGrid[KT: Hashable, VT](CustomDict[int, VT]):
             provides the wrong number of keys; else False to try to use the \
             keys anyway; defaults to True
         :raises ValueError: _description_
-        :return: tuple[str, ...], the dimension names in the correct order.
+        :return: Iterable[str], the dimension names in the correct order.
         """
         if not dim_names:
             err_msg = f"Cannot initialize {name_of(cls)} if strict=True "
@@ -237,7 +301,7 @@ class HashGrid[KT: Hashable, VT](CustomDict[int, VT]):
             # Dynamically assign default dimension names if none are given
             namer = NameDimension()
             dim_names = (next(namer) for _ in range(n_items))
-        return tuple(dim_names)
+        return dim_names
 
     def _sort_keys(self, keys: Mapping[str, KT] | Iterable[KT]
                    ) -> tuple[KT, ...]:
@@ -297,36 +361,6 @@ class HashGrid[KT: Hashable, VT](CustomDict[int, VT]):
             kwargs["values"] = values
         return cls(*pairs, dim_names=("username", "password"), strict=strict,
                    **kwargs)
-
-    @overload
-    def pop(self, keys: Iterable[KT] | Mapping[str, KT]) -> VT: ...
-
-    @overload
-    def pop(self, keys: Iterable[KT] | Mapping[str, KT],
-            default: VT) -> VT: ...
-
-    @overload
-    def pop(self, keys: Iterable[KT] | Mapping[str, KT],
-            default: _D = None) -> VT | _D: ...
-
-    def pop(self, keys, default=None):
-        """ D.pop(k[,d]) -> v, remove specified keys/coordinates and return \
-            the corresponding value.
-
-        If the keys are not found, return the `default` value if given; \
-        otherwise, raise a `KeyError`.
-
-        :param keys: Iterable[KT] | Mapping[str, KT], the coordinates/keys \
-            mapped to a value in this `HashGrid`; one key for every dimension
-        :param default: _D: Any, what to return if the `keys` are not found; \
-            defaults to None
-        :return: VT | _D, the value mapped to `keys`, if any; else `default`
-        """
-        return super().pop(self._hash_keys(keys), default)
-
-    def setdefault(self, keys: Iterable[KT] | Mapping[str, KT],
-                   default: VT = None) -> VT:
-        return super().setdefault(self._hash_keys(keys), default)
 
 
 class Grid[XT: Hashable, YT: Hashable, VT](Invertionary):  # 2D Grid
@@ -399,8 +433,8 @@ class Locktionary[KT: str, VT: Bytesifiable
             self.strict = strict
 
             # Save the dimension names in the correct order
-            self.dim_names = self._name_dimensions(
-                pairs, dim_names if dim_names else dimensions, strict)
+            self.dim_names = tuple(dim_names if dim_names else
+                                   self._name_dims(pairs, dimensions, strict))
 
             # Create encryption mechanism
             Encryptor.__init__(self, len(dim_names), iterations)

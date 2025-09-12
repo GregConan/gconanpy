@@ -4,13 +4,13 @@
 Classes for use in type hints/checks. No behavior, except in MultiTypeMeta.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-12
-Updated: 2025-08-25
+Updated: 2025-09-11
 """
 # Import standard libraries
 import abc
 from collections.abc import Callable, Collection, Hashable, Iterable, Mapping
 from typing import Any, Protocol, overload, SupportsIndex, \
-    runtime_checkable, TYPE_CHECKING, TypeVar
+    runtime_checkable, TYPE_CHECKING
 
 # Purely "internal" errors only involving local data; ignorable in some cases
 DATA_ERRORS = (AttributeError, IndexError, KeyError, TypeError, ValueError)
@@ -46,6 +46,11 @@ class SupportsRichComparison(Protocol):
     def __ge__(self, value, /) -> bool: ...
     def __gt__(self, value, /) -> bool: ...
     def __ne__(self, value, /) -> bool: ...
+
+
+@runtime_checkable
+class ComparableHashable(SupportsRichComparison, Protocol):
+    def __hash__(self) -> int: ...
 
 
 @runtime_checkable

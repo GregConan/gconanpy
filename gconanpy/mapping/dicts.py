@@ -111,16 +111,18 @@ class Exclutionary[KT, VT](CustomDict[KT, VT]):
         :return: bool, True if `key` is mapped to a value in `self` and \
             is not mapped to anything in `exclude`.
         """
-        if key not in self:
-            return False
-
         try:  # If we have the key, return True unless its value doesn't count
-            return self[key] not in exclude
+            result = self[key] not in exclude
+
+        except KeyError:  # If we don't have the key, return False
+            result = False
 
         # `self[key] in exclude` raises TypeError if self[key] isn't Hashable.
         # In that case, self[key] can't be in exclude, so self has key.
         except TypeError:
-            return True
+            result = True
+
+        return result
 
     def has_all(self, keys: Iterable[KT], exclude: Container[VT] = set()
                 ) -> bool:

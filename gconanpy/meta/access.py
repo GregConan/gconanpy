@@ -1,0 +1,297 @@
+#!/usr/bin/env python3
+
+"""
+Greg Conan: gregmconan@gmail.com
+Created: 2025-09-11
+Updated: 2025-09-11
+"""
+# Import standard libraries
+from collections.abc import Callable, Collection, Container, \
+    Generator, Iterable, Mapping, MutableMapping, Sequence
+import operator
+# from operator import attrgetter, methodcaller  # TODO?
+from typing import Any, cast, Literal, NamedTuple, TypeVar
+from typing_extensions import Self
+
+try:
+    from typeshed import DATA_ERRORS
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from gconanpy.meta.typeshed import DATA_ERRORS
+
+# TypeVars for Accessor class methods' input parameters
+_D = TypeVar("_D")  # "default"
+_T = TypeVar("_T")  # "obj"
+CALL_2ARG = Callable[[Any, Any], Any]
+CALL_3ARG = Callable[[Any, Any, Any], Any]
+
+WHICH = Literal["attribute", "item"]
+
+
+class Accessor[KT, VT](NamedTuple):
+    delete: CALL_2ARG
+    get: CALL_2ARG
+    contains: CALL_2ARG
+    set_to: CALL_3ARG
+
+    def chain_get(self, obj: Mapping[KT, VT] | Any, keys: Sequence[KT],
+                  default: _D = None, exclude: Container[VT] = set()
+                  ) -> VT | _D:
+        """ Return the value mapped to the first key if any, else return \
+            the value mapped to the second key if any, ... etc. recursively. \
+            Return `default` if `obj` doesn't contain any of the `keys`.
+
+        :param obj: Mapping[KT: Hashable, VT: Any] | Any
+        :param keys: Sequence[KT], keys mapped to the value to return
+        :param default: _D: Any, object to return if no `keys` are in `obj`
+        :param exclude: Container[VT], values to ignore or overwrite. \
+            If one of the `keys` is mapped to a value in `exclude`, then skip \
+            that key as if it is not in `obj`.
+        :return: KT | _D, value mapped to the first key (of `keys`) in `obj` \
+            if any; otherwise `default` if none of the `keys` are in `obj`.
+        """
+        for key in keys:
+            if self.has(obj, key, exclude):
+                return self.get(obj, key)
+        return default
+
+    def get_or_prompt_for(self, obj: Mapping[KT, VT] | Any, key: KT,
+                          prompt: str, prompt_fn: Callable[[str], VT] = input,
+                          exclude: Container[VT] = set()) -> VT | str:
+        """ Return the value mapped to `key` in `obj` if one already exists \
+            and is not in `exclude`; else prompt the user to interactively \
+            provide it and return that.
+
+        :param obj: Mapping[KT: Hashable, VT: Any] | Any, _description_
+        :param key: str possibly mapped to the value to retrieve
+        :param prompt: str to display when prompting the user.
+        :param prompt_fn: Callable that interactively prompts the user to \
+                            get a string, like `input` or `getpass.getpass`.
+        :param exclude: Container[VT], values to ignore or overwrite. If \
+            `obj` maps `key` to one, prompt the user as if `key` is not in \
+            `obj`.
+        :return: Any, the value mapped to key if one exists, else the value \
+            that the user interactively provided
+        """
+        return self.lazyget(obj, key, prompt_fn, [prompt], exclude=exclude)
+
+    def get_subset_from_lookups(self, obj: Mapping[str, VT] | Any,
+                                to_look_up: Mapping[str, str],
+                                sep: str = ".", default: _D = None
+                                ) -> dict[str, VT | _D]:
+        """ `get_subset_from_lookups(obj, {"a": "b/c"}, sep="/")` \
+            -> `{"a": obj["b"]["c"]}` or `{"a": obj.b.c}
+
+        :param obj: Mapping[str, _VT: Any] | Any to return a dict subset of
+        :param to_look_up: Mapping[str, str] of every key to put in the \
+            returned dict to the path to its value in `obj`
+        :param sep: str, separator between subkeys in `to_look_up.values()`; \
+            defaults to "."
+        :param default: _D: Any, value to map to any keys not found in `obj`; \
+            defaults to None
+        :return: dict[str, _VT | _D] mapping every key in `to_look_up` to the \
+            value at its mapped path in `obj`
+        """
+        return {key: self.lookup(obj, path, sep, default)
+                for key, path in to_look_up.items()}
+
+    def getdefault(self, obj: Mapping[KT, VT] | Any,
+                   key: KT, default: _D = None,
+                   exclude: Container[VT] = set()) -> VT | _D:
+        """ Return the value mapped to `key` in `obj`, if any; else return \
+            `default`. Defined to add `exclude` option.
+
+        :param key: KT: Hashable, key mapped to the value to return
+        :param default: _D: Any, object to return if `key` isn't in `obj`; \
+            i.e. `if not self.has(obj, key, exclude)`
+        :param exclude: Container[VT], values to ignore or overwrite. If \
+            `obj` maps `key` to one, then return `default` as if `obj` does \
+            not contain `key`.
+        :return: VT | _D, value `self` maps to `key` if any; else `default`
+        """
+        return self.get(obj, key) if \
+            self.has(obj, key, exclude) else default
+
+    def has(self, obj: Mapping[KT, VT] | Any, key: KT,
+            exclude: Container[VT] = set()) -> bool:
+        """ Check whether `key` is in `obj` as an item or attribute. \
+            Defined to add `exclude` option.
+
+        :param key: KT: Hashable
+        :param exclude: Container[VT], values to ignore or overwrite. If \
+            `obj` maps `key` to one, then return False as if `obj` does not \
+            contain `key`.
+        :return: bool, True if `key` is not mapped to a value in `obj` or \
+            is mapped to something in `exclude`
+        """
+        try:  # If obj has key, return True iff its value doesn't count
+            result = self.get(obj, key) not in exclude
+
+        except (AttributeError, KeyError):  # If obj lacks key return False
+            result = False
+
+        # `self.<name> in exclude` raises TypeError if self.<name> isn't Hashable.
+        # In that case, self.<name> can't be in exclude, so obj has name.
+        except TypeError:
+            result = True
+
+        return result
+
+    def has_all(self, obj: Mapping[KT, VT] | Any,
+                keys: Iterable[KT], exclude: Container[VT] = set()
+                ) -> bool:
+        """
+        :param obj: Mapping[KT, VT] to check whether it contains all `keys`.
+        :param keys: Iterable[_K], keys to find in `obj`.
+        :param exclude: Container[VT], values to overlook/ignore such that if \
+            `obj` maps a key to one of those values, then this function \
+            will return False as if `key is not in obj`.
+        :return: bool, True if every key in `keys` is mapped to a value that \
+            is not in `exclude`; else False.
+        """
+        try:
+            next(self.missing_keys(obj, keys, exclude))
+            return False
+        except StopIteration:
+            return True
+
+    def lazyget(self, obj: Mapping[KT, VT] | Any, key: KT,
+                get_if_absent: Callable[..., _D],
+                getter_args: Iterable = tuple(),
+                getter_kwargs: Mapping = dict(),
+                exclude: Container[VT] = set()) -> VT | _D:
+        """ Return the value for key if key is in the dictionary, else \
+        return the result of calling the `get_if_absent` parameter with args \
+        & kwargs. Adapted from `LazyButHonestDict.lazyget` from \
+        https://stackoverflow.com/q/17532929
+
+        :param key: Hashable to use as a dict key to map to value
+        :param get_if_absent: function that returns the default value
+        :param getter_args: Iterable[Any] of get_if_absent arguments
+        :param getter_kwargs: Mapping of get_if_absent keyword arguments
+        :param exclude: set of possible values which (if they are mapped to \
+            `key` in `a_dict`) will not be returned; instead returning \
+            `get_if_absent(*getter_args, **getter_kwargs)`
+        """
+        return get_if_absent(*getter_args, **getter_kwargs) if not \
+            self.has(obj, key, exclude) else self.get(obj, key)
+
+    def lazysetdefault(self, obj: Mapping[KT, VT] | Any, key: KT,
+                       get_if_absent: Callable[..., _D],
+                       getter_args: Iterable = tuple(),
+                       getter_kwargs: Mapping = dict(),
+                       exclude: Container[VT] = set()) -> VT | _D:
+        """ Return the value for key if key is in the dictionary; else add \
+        that key to the dictionary, set its value to the result of calling \
+        the `get_if_absent` parameter with args & kwargs, then return that \
+        result. Adapted from `LazyButHonestDict.lazysetdefault` from \
+        https://stackoverflow.com/q/17532929
+
+        :param key: Hashable to use as a dict key to map to value
+        :param get_if_absent: Callable, function to set & return default value
+        :param getter_args: Iterable[Any] of get_if_absent arguments
+        :param getter_kwargs: Mapping[Any] of get_if_absent keyword arguments
+        :param exclude: Container of possible values to replace with \
+            `get_if_absent(*getter_args, **getter_kwargs)` and return if \
+            they are mapped to `key` in `a_dict`
+        """
+        if not self.has(obj, key, exclude):
+            self.set_to(obj, key, get_if_absent(
+                *getter_args, **getter_kwargs))
+        return self.get(obj, key)
+
+    def lookup(self, obj: Mapping[KT, VT] | Any, path: str,
+               sep: str = ".", default: _D = None) -> VT | _D:
+        """ Get the value mapped to a key in nested structure. Adapted from \
+            https://gist.github.com/miku/dc6d06ed894bc23dfd5a364b7def5ed8
+
+        :param obj: Mapping[KT: Hashable, VT: Any] to find a value in
+        :param path: str, path to key in nested structure, e.g. "a.b.c"
+        :param sep: str, separator between keys in path; defaults to "."
+        :param default: Any, value to return if key is not found
+        :return: VT | _D, the value mapped to the nested key if any, else default
+        """
+        keypath = list(reversed(path.split(sep)))
+        retrieved = obj
+        try:
+            while keypath:
+                key = keypath.pop()
+                try:
+                    retrieved = self.get(retrieved, key)
+                except KeyError:
+                    retrieved = self.get(retrieved, int(key))
+
+        # If value is not found, then return the default value
+        except DATA_ERRORS:
+            retrieved = default
+        return default if keypath else cast(VT, retrieved)
+
+    def missing_keys(self, obj: Mapping[KT, VT] | Any,
+                     keys: Iterable[KT], exclude: Container[VT] = set()
+                     ) -> Generator[KT, None, None]:
+        """
+        :param obj: Mapping[KT: Hashable, VT: Any] | Any, _description_
+        :param keys: Iterable[KT], keys to find in `obj`
+        :param exclude: Container[VT], values to overlook/ignore such that if \
+            `obj` maps a key to one of those values, then this function \
+            will yield that key as if `key` is not in `obj`.
+        :yield: Generator[KT, None, None], all `keys` that either are not in \
+            `obj` or are mapped to a value in `exclude`.
+        """
+        if exclude:
+            for key in keys:
+                if not self.has(obj, key, exclude):
+                    yield key
+        else:
+            for key in keys:
+                if not self.contains(obj, key):
+                    yield key
+
+    def setdefault(self, obj: MutableMapping[KT, VT] | Any,
+                   key: KT, default: _D) -> VT | _D:
+        """ Return the value for key if key is in `obj`; else add \
+        that key to `obj`, set its value to the result of calling \
+        the `get_if_absent` parameter with `args` & `kwargs`, then return \
+        result. Adapted from `LazyButHonestDict.lazysetdefault` from \
+        https://stackoverflow.com/q/17532929
+
+        :param key: KT: Hashable to use as a key to map to value
+        :param default: _type_, _description_
+        """
+        if not self.contains(obj, key):
+            self.set_to(obj, key, default)
+        return self.get(obj, key)
+
+    def setdefaults(self, obj: MutableMapping[KT, VT] | _T,
+                    exclude: Container[VT] = set(),
+                    **kwargs: Any) -> MutableMapping[KT, VT] | _T:
+        """ Fill any missing values in obj from kwargs.
+            dict.update prefers to overwrite old values with new ones.
+            setdefaults is basically dict.update that prefers to keep old values.
+
+        :param obj: MutableMapping[KT: Hashable, VT: Any] | _T: Any, \
+            _description_
+        :param exclude: Container[VT], values to overlook/ignore such that \
+            if `obj` maps `key` to one of those values, then this function \
+            will try to overwrite that value with a value mapped to the \
+            same key in `kwargs`, as if `key` is not in `obj`.
+        :param kwargs: Mapping[str, VT] of values to add to `obj` if needed.
+        :return: MutableMapping[KT, VT] | _T
+        """
+        for key in self.missing_keys(obj, cast(Iterable[KT], kwargs), exclude):
+            self.set_to(obj, key, kwargs[cast(str, key)])
+        return obj
+
+
+class Access:
+    item = Accessor(get=operator.getitem, contains=operator.contains,
+                    set_to=operator.setitem, delete=operator.delitem)
+    attribute = Accessor(get=getattr, contains=hasattr,
+                         set_to=setattr, delete=delattr)
+
+
+# TODO Change to frozendict so it's a global constant (& maybe faster?)
+#      https://github.com/Marco-Sulla/python-frozendict/issues/18
+ACCESS = {"item": Accessor(get=operator.getitem, contains=operator.contains,
+                           set_to=operator.setitem, delete=operator.delitem),
+          "attribute": Accessor(get=getattr, contains=hasattr,
+                                set_to=setattr, delete=delattr)}

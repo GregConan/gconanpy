@@ -4,7 +4,7 @@
 Classes to convert objects to/from bytes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-23
-Updated: 2025-09-03
+Updated: 2025-09-07
 """
 # Import standard libraries
 import base64
@@ -183,7 +183,7 @@ class Encryptor(Bytesifier):
         byte_data = base64.urlsafe_b64encode("".join(interleave_longest(
             keys, self.sep)).encode(encoding))
         byte_data = hashlib.pbkdf2_hmac("sha256", byte_data, self.salt,
-                                        self.iterations, 32)
+                                        self.iterations, self.KEY_LEN)
         return Fernet(base64.urlsafe_b64encode(byte_data))
 
 

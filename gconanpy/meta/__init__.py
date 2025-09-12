@@ -4,20 +4,18 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-09-05
+Updated: 2025-09-11
 """
 # Import standard libraries
 import abc
 import builtins
-from collections.abc import Callable, Collection, Container, \
-    Hashable, Iterable, Iterator, Mapping
+from collections.abc import Callable, Collection, Hashable, \
+    Iterable, Iterator
 from functools import wraps
 from math import log10
-import operator
 # from operator import attrgetter, methodcaller  # TODO?
-import sys
-from typing import Any, Concatenate, get_args, Literal, NamedTuple, \
-    no_type_check, overload, ParamSpec, SupportsBytes, SupportsFloat, TypeVar
+from typing import Any, Concatenate, get_args, Literal, \
+    no_type_check, overload, ParamSpec, SupportsFloat, TypeVar
 from typing_extensions import Self
 
 from gconanpy.meta.typeshed import Unhashable
@@ -30,6 +28,9 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
                                         SkipException, SupportsItemAccess)
 
 # TypeVars for Lazily class methods' input parameters
+_D = TypeVar("_D")
+_KT = TypeVar("_KT", bound=Hashable)
+_VT = TypeVar("_VT")
 CALL_2ARG = Callable[[Any, Any], Any]
 CALL_3ARG = Callable[[Any, Any, Any], Any]
 
@@ -476,86 +477,6 @@ class Comparer(IteratorFactory):
                 biggest = item
                 max_size = item_size
         return biggest
-
-
-class Accessor(NamedTuple):
-    delete: CALL_2ARG
-    get: CALL_2ARG
-    has: CALL_2ARG
-    set_to: CALL_3ARG
-
-    def lacks(self, an_obj: Any, key: Hashable,
-              exclude: Container = set()) -> bool:
-        """
-        :param key: Hashable
-        :param exclude: Container, values to ignore or overwrite. If `a_dict` \
-            maps `key` to one, then return True as if `key is not in a_dict`.
-        :return: bool, True if `key` is not mapped to a value in `a_dict` or \
-            is mapped to something in `exclude`
-        """
-        if not self.has(an_obj, key):
-            return True
-
-        try:  # If an_obj has key, return True iff its value doesn't count
-            return self.get(an_obj, key) in exclude
-
-        # `self.<name> in exclude` raises TypeError if self.<name> isn't Hashable.
-        # In that case, self.<name> can't be in exclude, so self has name.
-        except TypeError:
-            return False
-
-    def lazyget(self, an_obj: Any, key: Hashable,
-                get_if_absent: Callable,
-                getter_args: Iterable = tuple(),
-                getter_kwargs: Mapping = dict(),
-                exclude: Container = set()) -> Any:
-        """ Return the value for key if key is in the dictionary, else \
-        return the result of calling the `get_if_absent` parameter with args \
-        & kwargs. Adapted from `LazyButHonestDict.lazyget` from \
-        https://stackoverflow.com/q/17532929
-
-        :param key: Hashable to use as a dict key to map to value
-        :param get_if_absent: function that returns the default value
-        :param getter_args: Iterable[Any] of get_if_absent arguments
-        :param getter_kwargs: Mapping of get_if_absent keyword arguments
-        :param exclude: set of possible values which (if they are mapped to \
-            `key` in `a_dict`) will not be returned; instead returning \
-            `get_if_absent(*getter_args, **getter_kwargs)`
-        """
-        return get_if_absent(*getter_args, **getter_kwargs) if \
-            self.lacks(an_obj, key, exclude) else self.get(an_obj, key)
-
-    def lazysetdefault(self, an_obj: Any, key: Hashable,
-                       get_if_absent: Callable,
-                       getter_args: Iterable = tuple(),
-                       getter_kwargs: Mapping = dict(),
-                       exclude: Container = set()) -> Any:
-        """ Return the value for key if key is in the dictionary; else add \
-        that key to the dictionary, set its value to the result of calling \
-        the `get_if_absent` parameter with args & kwargs, then return that \
-        result. Adapted from `LazyButHonestDict.lazysetdefault` from \
-        https://stackoverflow.com/q/17532929
-
-        :param key: Hashable to use as a dict key to map to value
-        :param get_if_absent: Callable, function to set & return default value
-        :param getter_args: Iterable[Any] of get_if_absent arguments
-        :param getter_kwargs: Mapping[Any] of get_if_absent keyword arguments
-        :param exclude: Container of possible values to replace with \
-            `get_if_absent(*getter_args, **getter_kwargs)` and return if \
-            they are mapped to `key` in `a_dict`
-        """
-        if self.lacks(an_obj, key, exclude):
-            self.set_to(an_obj, key, get_if_absent(
-                *getter_args, **getter_kwargs))
-        return self.get(an_obj, key)
-
-
-# TODO Change to frozendict so it's a global constant (& maybe faster?)
-#      https://github.com/Marco-Sulla/python-frozendict/issues/18
-ACCESS = {"item": Accessor(get=operator.getitem, has=operator.contains,
-                           set_to=operator.setitem, delete=operator.delitem),
-          "attribute": Accessor(get=getattr, has=hasattr,
-                                set_to=setattr, delete=delattr)}
 
 
 class ClassWrapper:

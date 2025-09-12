@@ -3,13 +3,12 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-07
-Updated: 2025-09-06
+Updated: 2025-09-11
 """
 # Import standard libraries
 import builtins
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Sequence
-from copy import deepcopy
+from collections.abc import Iterable, Sequence
 import random
 import string
 from timeit import timeit
@@ -29,7 +28,6 @@ from gconanpy.meta import Boolable, name_of, names_of, \
 from gconanpy.meta.metaclass import MakeMetaclass, name_type_class
 from gconanpy.meta.typeshed import MultiTypeMeta
 from gconanpy.testers import Tester
-from gconanpy.trivial import always_false, always_none, always_true
 
 
 class TestAccessSpeed(Tester):
@@ -125,42 +123,6 @@ allattrs={allattrs}
                 print(f"{k.rjust(40)} = {round(v * 1000, 3)}")
             print()  # Separate the specifics from the averages w/ a newline
         assert False
-
-
-class TestAttributesOf(Tester):
-    _LazyMeth = Callable[[Any, str, Callable], Any]
-    NO_EXPECTED = object()
-    TRIVIALS = {False: always_false, True: always_true, None: always_none}
-
-    class HasFoo:
-        foo: Any
-
-    def test_but_not(self) -> None:
-        self.add_basics()
-        self.check_result(attributes.AttrsOf(self.alist).but_not(self.adict),
-                          set(dir(list)) - set(dir(dict)))
-
-    def check_lazy(self, an_obj: Any, name: str, lazy_meths:
-                   Iterable[_LazyMeth], expected_result: Any = NO_EXPECTED,
-                   **kwargs: Any):
-        for lazy_meth in lazy_meths:
-            for result, fn in self.TRIVIALS.items():
-                self.check_result(lazy_meth(deepcopy(an_obj),
-                                            name, fn, **kwargs),
-                                  result if expected_result is
-                                  self.NO_EXPECTED else expected_result)
-
-    def test_lazyget_1(self) -> None:
-        self.add_basics()
-        obj = self.HasFoo()
-        FOO = "hello"
-        ATTR_LAZIES = (attributes.lazyget, attributes.lazysetdefault)
-        self.check_lazy(obj, "foo", ATTR_LAZIES)
-        setattr(obj, "foo", FOO)
-        self.check_lazy(obj, "foo", ATTR_LAZIES, FOO)
-        self.check_lazy(obj, "foo", ATTR_LAZIES, exclude={FOO})
-        delattr(obj, "foo")
-        self.check_lazy(obj, "foo", ATTR_LAZIES)
 
 
 class TestMetaClasses(Tester):

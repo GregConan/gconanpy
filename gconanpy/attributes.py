@@ -4,19 +4,21 @@
 Functions/classes to access and/or modify the attributes of any object(s).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-02
-Updated: 2025-09-06
+Updated: 2025-09-11
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Collection, Generator, \
     Iterable, Mapping
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal, Self, TypeVar
 
 # Import local custom libraries
 try:
     from iters import merge
+    from meta import tuplify
     from trivial import always_none, always_true
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.iters import merge
+    from gconanpy.meta import tuplify
     from gconanpy.trivial import always_none, always_true
 
 
@@ -118,7 +120,7 @@ def lazysetdefault(an_obj: Any, name: str, get_if_absent:
                    getter_kwargs: Mapping = dict(),
                    exclude: Container = set()) -> Any:
     """ Return the named attribute of `an_obj` if it exists; else set it \
-        it to `get_if_absent(*args, **kwargs)` and return that. 
+        it to `get_if_absent(*args, **kwargs)` and return that.
 
     :param an_obj: Any, object to get (or set) an attribute of.
     :param name: str naming the attribute to get (or set).
@@ -153,16 +155,20 @@ def setdefault(an_obj: Any, name: str, value: Any,
         setattr(an_obj, name, value)
 
 
-class Filter2:
-    # Class variables: method input argument types
-    _SELECTOR = Callable[[Any], bool]  #
-    _SELECTORS = Iterable[_SELECTOR]
+class Filter:
+    _STRSELECTOR = Callable[[str], bool]
+    _STRSELECT = _STRSELECTOR | Iterable[_STRSELECTOR]
+    _SELECTOR = Callable[[Any], bool]
+    _SELECTORS = _SELECTOR | Iterable[_SELECTOR]
+    _WHICH = Literal["names", "values"]
 
-    def __init__(self, names_are: _SELECTORS = tuple(),
+    FilterFunction = Callable[[str, Any], bool]
+
+    def __init__(self, names_are: _STRSELECT = tuple(),
                  values_are: _SELECTORS = tuple(),
-                 names_arent: _SELECTORS = tuple(),
+                 names_arent: _STRSELECT = tuple(),
                  values_arent: _SELECTORS = tuple()) -> None:
-        """ _summary_ 
+        """ _summary_
 
         :param names_are: Iterable[Callable[[Any], bool]] of \
             Callables to run on the NAME of every attribute of this object \
@@ -181,54 +187,25 @@ class Filter2:
             to check whether the returned generator function should include \
             that attribute (if False) or skip it (if True).
         """
-        ...
+        self.names = {True: tuplify(names_are), False: tuplify(names_arent)}
+        self.values = {True: tuplify(values_are), False: tuplify(values_arent)}
 
+    __getitem__ = getattr
 
-class Filter:
-    # Class variables: method input argument types
-    _SELECTOR = Callable[[Any], bool]  #
-    _SELECTORS = list[_SELECTOR]
-    _WHICH = Literal["names", "values"]
-    FilterFunction = Callable[[str, Any], bool]
+    def __add__(self, other: Self) -> Self:
+        return type(self)(
+            *((self[which][are] + other[which][are])
+              for which in ("names", "values")
+              for are in (True, False))
+        )
 
-    include: dict[_WHICH, bool]
-    selectors: dict[_WHICH, _SELECTORS]
-
-    def __init__(self, if_names: _SELECTORS = list(),
-                 if_values: _SELECTORS = list(),
-                 include_names: bool = True,
-                 include_values: bool = True) -> None:
-        """ _summary_ 
-
-        :param if_names: list[Callable[[Any], bool]] of \
-            Callables to run on the NAME of every attribute of this object \
-            to check whether the returned generator function should include \
-            that attribute or skip it; all must return the `include_names` \
-            value (default True) to pass the filter.
-        :param if_values: list[Callable[[Any], bool]] of \
-            Callables to run on the VALUE of every attribute of this object, \
-            to check whether the returned generator function should include \
-            that attribute or skip it; all must return the `include_values` \
-            value (default True) to pass the filter.
-        """
-        self.include = {"names": include_names, "values": include_values}
-        self.selectors = {"names": if_names, "values": if_values}
-
-    def build(self) -> FilterFunction:
-        """
-        :return: Callable[[str, Any], bool] that returns True if the `str` \
-            argument passes all of the name filters and the `Any` \
-            argument passes all of the value filters, else False
-        """
-        @staticmethod
-        def is_filtered(name: str, value: Any) -> bool:
-            return self.check("names", name) and self.check("values", value)
-        return is_filtered
-
-    def check(self, which: _WHICH, to_check: Any) -> bool:
-        for passes_filter in self.selectors[which]:
-            if passes_filter(to_check) is not self.include[which]:
-                return False
+    def __call__(self, name: str, value: Any) -> Any:
+        for selectors, to_check in ((self.names, name),
+                                    (self.values, value)):
+            for correct in (True, False):
+                for is_valid in selectors[correct]:
+                    if is_valid(to_check) is not correct:
+                        return False
         return True
 
 
@@ -243,11 +220,10 @@ class AttrsOf:
 
     # Filters to choose which attributes to copy or iterate over
     newFilter = Filter
-    METHOD_FILTERS: Filter.FilterFunction = \
-        Filter(if_values=[callable]).build()
+    METHOD_FILTERS = Filter(values_are=callable)
 
     def __init__(self, what: Any) -> None:
-        """ 
+        """
         :param what: Any, the object to select/iterate/copy attributes of. \
             "Attributes of what?" <==> `attributes.AttrsOf(what)`
         """
@@ -276,7 +252,7 @@ class AttrsOf:
     @staticmethod
     def attr_is_private(name: str, *_: Any) -> bool:
         """ If an attribute/method name starts with an underscore, then \
-            assume that it's private, and vice versa if it doesn't 
+            assume that it's private, and vice versa if it doesn't
 
         :param name: str, _description_
         :return: bool, _description_
@@ -348,7 +324,7 @@ class AttrsOf:
 
         :param attribute_names: Iterable[str] of attribute names. The first \
                                 names an attribute of an_obj; the second \
-                                names an attribute of the first; etc. 
+                                names an attribute of the first; etc.
         :return: Any, the attribute of an attribute ... of an attribute of an_obj
         """
         attributes = list(attribute_names)  # TODO reversed(attribute_names) ?
@@ -381,7 +357,7 @@ class AttrsOf:
 
     def select(self, filter_if: newFilter.FilterFunction,
                exclude: bool = False) -> _IterAttrPairs:
-        """ Iterate over some of this object's attributes. 
+        """ Iterate over some of this object's attributes.
 
         :param filter_if: Callable[[str, Any], bool] that returns True if \
             the `str` argument passes all of the name filters and \
@@ -403,7 +379,8 @@ class AttrsOf:
 
 
 class MultiWrapperFactory:
-    IsPublicMethod = Filter(if_values=[callable, AttrsOf.attr_is_private])
+    IsPublicMethod = Filter(values_are=callable,
+                            names_arent=AttrsOf.attr_is_private)
 
     def __init__(self, superclass: type) -> None:
         for meth_name, meth in AttrsOf(superclass).methods():
