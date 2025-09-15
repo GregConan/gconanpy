@@ -4,28 +4,26 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-09-11
+Updated: 2025-09-14
 """
 # Import standard libraries
 import abc
 import builtins
-from collections.abc import Callable, Collection, Hashable, \
-    Iterable, Iterator
+from collections.abc import Callable, Collection, Hashable, Iterable, Iterator
 from functools import wraps
 from math import log10
 # from operator import attrgetter, methodcaller  # TODO?
+# from types import MappingProxyType  # TODO freeze TimeSpec?
 from typing import Any, Concatenate, get_args, Literal, \
     no_type_check, overload, ParamSpec, SupportsFloat, TypeVar
 from typing_extensions import Self
 
-from gconanpy.meta.typeshed import Unhashable
-
 try:
-    from typeshed import (DATA_ERRORS, HasClass, Unhashable, SkipException,
-                          SupportsItemAccess)
+    from typeshed import DATA_ERRORS, HasClass, Unhashable, \
+        SkipException, SupportsItemAccess
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.meta.typeshed import (DATA_ERRORS, HasClass, Unhashable,
-                                        SkipException, SupportsItemAccess)
+    from gconanpy.meta.typeshed import DATA_ERRORS, HasClass, Unhashable, \
+        SkipException, SupportsItemAccess
 
 # TypeVars for Lazily class methods' input parameters
 _D = TypeVar("_D")
@@ -53,6 +51,11 @@ def count_digits_of(a_num: int | float):
     """
     absnum = abs(a_num)
     return int(log10(absnum)) + 1 if a_num % 1 == 0 else len(str(absnum)) - 1
+
+
+def full_name_of(an_obj: Any) -> str:
+    return ".".join((getattr(an_obj, "__module__"),
+                     getattr(an_obj, "__name__")))
 
 
 def geteverything() -> dict[str, Any]:
@@ -144,7 +147,16 @@ def names_of(objects: Collection, max_n: int | None = None,
         [get_name(x) for i, x in enumerate(objects) if i < max_n]
 
 
-def slots(an_obj) -> tuple[str, ...]:
+def slots(an_obj: Any) -> tuple[str, ...]:
+    """ Get an object's `__slots__` or its `__dict__` keys.
+
+    Defined to access object attributes without caring which meta-attribute \
+    it defines (`__slots__` or `__dict__`).
+
+    :param an_obj: Any
+    :return: tuple[str, ...], the `__slots__` attribute of `an_obj` if one \
+        exists; else the keys of `an_obj.__dict__` (of `vars(an_obj)`).
+    """
     return getattr(an_obj, "__slots__", tuple(an_obj.__dict__))
 
 
@@ -165,6 +177,15 @@ def tuplify(an_obj: Any, split_string: bool = False) -> tuple:
 
 
 def varsof(an_obj) -> dict[str, Any]:
+    """ Get an object's `vars`, or its `__slots__` and their values.
+
+    Defined to access object attributes without caring which meta-attribute \
+    it defines (`__slots__` or `__dict__`).
+
+    :param an_obj: Any
+    :return: dict[str, Any], `vars(an_obj)` if that works; else the names \
+        and values of everything in `an_obj.__slots__`
+    """
     try:
         return vars(an_obj)
     except TypeError:
@@ -195,6 +216,10 @@ class TimeSpec(dict[str, int]):
         self[units[0]] = self.OFFSETS[0]  # Initialize for iteration
         for i in range(1, len(self.OFFSETS)):  # Calculate unit ratios/offsets
             self[units[i]] = self[units[i-1]] * self.OFFSETS[i]
+
+
+# `TimeSpec`s need not differ or change. Export this "frozen" dict instead?
+# TIME_SPEC = MappingProxyType(TimeSpec())
 
 
 class BoolableMeta(type):  # https://realpython.com/python-interface/

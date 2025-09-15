@@ -49,7 +49,8 @@ class TestAttributesFunctions(Tester):
 
 
 class TestAttrsOf(Tester):
-    EXAMPLE_TYPES = (list, dict, int, float, str, tuple, bytes)
+    EXAMPLE_TYPES: tuple[type, ...] = (
+        list, dict, int, float, str, tuple, bytes)
 
     def test_but_not_1(self) -> None:
         self.add_basics()

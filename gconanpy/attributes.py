@@ -4,7 +4,7 @@
 Functions/classes to access and/or modify the attributes of any object(s).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-02
-Updated: 2025-09-11
+Updated: 2025-09-14
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Collection, Generator, \
@@ -13,13 +13,13 @@ from typing import Any, Literal, Self, TypeVar
 
 # Import local custom libraries
 try:
-    from iters import merge
+    from iters import IterableMap, merge
     from meta import tuplify
-    from trivial import always_none, always_true
+    from trivial import always_none
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.iters import merge
+    from gconanpy.iters import IterableMap, merge
     from gconanpy.meta import tuplify
-    from gconanpy.trivial import always_none, always_true
+    from gconanpy.trivial import always_none
 
 
 _T = TypeVar("_T")  # Constant: TypeVar for add_to function
@@ -53,7 +53,8 @@ def get_names(an_obj: Any) -> set[str]:
     # If it's a class, name some attributes of its base class(es)
     bases = getattr(an_obj, "__bases__", None)
     if bases:
-        names.update(merge((set(base.__dict__) for base in bases)))
+        names.update(get_all_names(*bases))
+        # names.update(merge((set(base.__dict__) for base in bases)))
 
     # Name some of its own attributes
     names.update(dir(an_obj))
@@ -81,16 +82,28 @@ def has(an_obj: Any, name: str, exclude: Container = set()) -> bool:
     :return: bool, True if `key` is not mapped to a value in `an_obj` or \
         is mapped to something in `exclude`
     """
-    if not hasattr(an_obj, name):
-        return False
-
     try:  # If an_obj has the attribute, return True unless it doesn't count
-        return getattr(an_obj, name) not in exclude
+        result = getattr(an_obj, name) not in exclude
+
+    except AttributeError:  # If an_obj lacks the attribute, return False
+        result = False
 
     # `self.<name> in exclude` raises TypeError if self.<name> isn't Hashable.
     # In that case, self.<name> can't be in exclude, so self has name.
     except TypeError:
-        return True
+        result = True
+
+    return result
+
+
+def is_private(name: str, *_: Any) -> bool:
+    """ If an attribute/method name starts with an underscore, then \
+        assume that it's private, and vice versa if it doesn't
+
+    :param name: str, _description_
+    :return: bool, True if `name` starts with an underscore; else False
+    """
+    return name.startswith("_")
 
 
 def lazyget(an_obj: Any, name: str,
@@ -156,13 +169,20 @@ def setdefault(an_obj: Any, name: str, value: Any,
 
 
 class Filter:
-    _STRSELECTOR = Callable[[str], bool]
-    _STRSELECT = _STRSELECTOR | Iterable[_STRSELECTOR]
-    _SELECTOR = Callable[[Any], bool]
-    _SELECTORS = _SELECTOR | Iterable[_SELECTOR]
-    _WHICH = Literal["names", "values"]
+    # Private class variables: own method parameters'/returns' type hints
+    _SELECTOR = Callable[[Any], bool]  # Any value filter function
+    _SELECTORS = _SELECTOR | Iterable[_SELECTOR]  # Any value filter functions
+    _STRSELECTOR = Callable[[str], bool]  # str filter function
+    _STRSELECT = _STRSELECTOR | Iterable[_STRSELECTOR]  # str filter functions
+    _WHICH = Literal["names", "values"]  # Names of each Filter's attributes
+    _FILTERDICT = dict[bool, tuple[_SELECTOR, ...]]  # Types of Filter attrs
 
-    FilterFunction = Callable[[str, Any], bool]
+    # Public class variable: filter type hint for other methods/functions
+    FilterFunction = Callable[[str, Any], bool]  # type(Filter(...))
+
+    # Public instance variables: name filters and value filters
+    names: _FILTERDICT
+    values: _FILTERDICT
 
     def __init__(self, names_are: _STRSELECT = tuple(),
                  values_are: _SELECTORS = tuple(),
@@ -190,16 +210,25 @@ class Filter:
         self.names = {True: tuplify(names_are), False: tuplify(names_arent)}
         self.values = {True: tuplify(values_are), False: tuplify(values_arent)}
 
-    __getitem__ = getattr
-
     def __add__(self, other: Self) -> Self:
-        return type(self)(
-            *((self[which][are] + other[which][are])
-              for which in ("names", "values")
-              for are in (True, False))
-        )
+        """ 
+        :param other: Self, `Filter` to combine with this one
+        :return: Self, new `Filter` including every filter function in this \
+            `Filter` (`self`) and in the other `Filter` (`other`)
+        """
+        return type(self)(*((self[which][are] + other[which][are])
+                          for which in ("names", "values")
+                          for are in (True, False)))
 
-    def __call__(self, name: str, value: Any) -> Any:
+    def __call__(self, name: str, value: Any) -> bool:
+        """ 
+        :param name: str, attribute name to check whether it passes all \
+            conditions defined by this `Filter`
+        :param value: Any, attribute value to check whether it passes all \
+            conditions defined by this `Filter`
+        :return: bool, True if the input name/value pair passes all \
+            conditions defined by this `Filter`; else False
+        """
         for selectors, to_check in ((self.names, name),
                                     (self.values, value)):
             for correct in (True, False):
@@ -208,8 +237,31 @@ class Filter:
                         return False
         return True
 
+    def __getitem__(self, key: _WHICH) -> _FILTERDICT:
+        """ Access `names` and `values` attributes as elements/items.
 
-class AttrsOf:
+        Defined mostly for convenient use by `Filter.__call__` method.
+
+        :param key: _WHICH, either "names" or "values"
+        :return: _FILTERDICT, `getattr(self, key)`; \
+            either `self.names` or `self.values`
+        """
+        return getattr(self, key)
+
+    def invert(self) -> Self:
+        """ 
+        :return: Self, inverted version of this `Filter` which will always \
+            return the opposite boolean value as the original `Filter`; for \
+            any `Filter` `f`, string `s`, and value `v`, \
+            `not f.invert()(s, v) is f(s, v)`
+        """
+        return type(self)(names_are=self.names[False],
+                          values_are=self.values[False],
+                          names_arent=self.names[True],
+                          values_arent=self.values[True])
+
+
+class AttrsOf(IterableMap):
     """ Select/iterate/copy the attributes of any object. """
     _T = TypeVar("_T")  # Type of object to copy attributes to
 
@@ -219,8 +271,10 @@ class AttrsOf:
     _IterAttrPairs = Generator[_AttrPair, None, None]
 
     # Filters to choose which attributes to copy or iterate over
-    newFilter = Filter
-    METHOD_FILTERS = Filter(values_are=callable)
+    IS_METHOD = Filter(values_are=callable)
+    IS_PRIVATE = Filter(names_are=is_private)
+    IS_PUBLIC = IS_PRIVATE.invert()
+    IS_PUBLIC_METHOD = IS_PUBLIC + IS_METHOD
 
     def __init__(self, what: Any) -> None:
         """
@@ -230,12 +284,15 @@ class AttrsOf:
         self.names = get_names(what)  # set(dir(what))
         self.what = what
 
+    def __iter__(self) -> Generator[str, None, None]:
+        yield from self.names
+
     def _copy_to(self, an_obj: _T, to_copy: _AttrPair | _IterAttrPairs) -> _T:
         for attr_name, attr_value in to_copy:
             setattr(an_obj, attr_name, attr_value)
         return an_obj
 
-    def add_to(self, an_obj: _T, filter_if: newFilter.FilterFunction,
+    def add_to(self, an_obj: _T, filter_if: Filter.FilterFunction,
                exclude: bool = False) -> _T:
         """ Copy attributes and their values into `an_obj`.
 
@@ -249,23 +306,13 @@ class AttrsOf:
         """
         return self._copy_to(an_obj, self.select(filter_if, exclude))
 
-    @staticmethod
-    def attr_is_private(name: str, *_: Any) -> bool:
-        """ If an attribute/method name starts with an underscore, then \
-            assume that it's private, and vice versa if it doesn't
-
-        :param name: str, _description_
-        :return: bool, _description_
-        """
-        return name.startswith("_")
-
     def but_not(self, *others: Any) -> set[str]:
         """
         :param others: Iterable of objects to exclude attributes shared by
         :return: set[str] naming all attributes that are in this object but \
             not in any of the `others`
         """
-        return set(self.names) - get_all_names(*others)
+        return self.names - get_all_names(*others)
 
     def first_of(self, attr_names: Iterable[str], default: Any = None,
                  method_names: set[str] = set()) -> Any:
@@ -301,7 +348,8 @@ class AttrsOf:
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each selected attribute.
         """
-        yield from self.select(always_true)
+        for name in self.names:
+            yield name, getattr(self.what, name)
 
     def methods(self) -> Generator[tuple[str, Callable], None, None]:
         """ Iterate over this object's methods (callable attributes).
@@ -309,7 +357,7 @@ class AttrsOf:
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each method of this object.
         """
-        yield from self.select(filter_if=self.METHOD_FILTERS)
+        yield from self.select(filter_if=self.IS_METHOD)
 
     def method_names(self) -> list[str]:
         """
@@ -339,7 +387,7 @@ class AttrsOf:
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each private attribute.
         """
-        yield from self.select(self.attr_is_private)
+        yield from self.select(filter_if=self.IS_PRIVATE)
 
     def public(self) -> _IterAttrPairs:
         """ Iterate over this object's public attributes.
@@ -347,7 +395,7 @@ class AttrsOf:
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each public attribute.
         """
-        yield from self.select(self.attr_is_private, exclude=True)
+        yield from self.select(filter_if=self.IS_PUBLIC)  # , exclude=True)
 
     def public_names(self) -> list[str]:
         """
@@ -355,7 +403,7 @@ class AttrsOf:
         """
         return [attr_name for attr_name, _ in self.public()]
 
-    def select(self, filter_if: newFilter.FilterFunction,
+    def select(self, filter_if: Filter.FilterFunction,
                exclude: bool = False) -> _IterAttrPairs:
         """ Iterate over some of this object's attributes.
 
@@ -367,21 +415,19 @@ class AttrsOf:
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each selected attribute.
         """
-        for name in self.names:
-            attr = getattr(self.what, name)
+        for name, attr in self.items():
             if filter_if(name, attr) is not exclude:
                 yield name, attr
 
-    def select_all(self, filter_if: newFilter.FilterFunction = always_true,
+    def list_pairs(self, filter_if: Filter.FilterFunction | None = None,
                    exclude: bool = False) -> list[_AttrPair]:
-        return [(name, attr) for name, attr in
-                self.select(filter_if, exclude)]
+        pair_generator = self.items() if filter_if is None \
+            else self.select(filter_if, exclude)
+        return [(name, attr) for name, attr in pair_generator]
 
 
 class MultiWrapperFactory:
-    IsPublicMethod = Filter(values_are=callable,
-                            names_arent=AttrsOf.attr_is_private)
-
     def __init__(self, superclass: type) -> None:
-        for meth_name, meth in AttrsOf(superclass).methods():
+        super_attrs = AttrsOf(superclass)
+        for meth_name, meth in super_attrs.select(AttrsOf.IS_PUBLIC_METHOD):
             ...  # TODO

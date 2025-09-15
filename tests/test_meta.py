@@ -25,6 +25,7 @@ from gconanpy.mapping.dicts import Cryptionary, CustomDict, DotDict, \
     Exclutionary, LazyDict, LazyDotDict, Sortionary
 from gconanpy.meta import Boolable, name_of, names_of, \
     Recursively, TimeSpec
+# from gconanpy.meta.access import ACCESS, Access
 from gconanpy.meta.metaclass import MakeMetaclass, name_type_class
 from gconanpy.meta.typeshed import MultiTypeMeta
 from gconanpy.testers import Tester
@@ -39,14 +40,13 @@ class TestAccessSpeed(Tester):
         arbitraries = dict(anint=-1234, atup=(1, 2, 3), alist=self.alist,
                            adict=self.adict, afloat=-3.14159265358,
                            astr=f"'{randstr}'")
-        allattrs = ('anint', 'atup', 'alist', 'adict', 'afloat', 'astr')
-        to_test = ("obj.{}",
+        # allattrs = ('anint', 'atup', 'alist', 'adict', 'afloat', 'astr')
+        allattrs = tuple(arbitraries)
+        to_test = ("obj.{}",  # Test default getters
                    "adict['{}']",
+                   "adict.get('{}')",
                    "getattr(obj, '{}')",
                    "hasattr(obj, '{}')",
-                   "method_get(adict, '{}')",
-                   "method_getattribute(obj, '{}')",
-                   "method_getitem(adict, '{}')",
                    "operator.getitem(adict, '{}')",
                    "operator.contains(adict, '{}')",
                    "dict.__contains__(adict, '{}')",
@@ -55,25 +55,60 @@ class TestAccessSpeed(Tester):
                    "dict.get(adict, '{}')",
                    "Mapping.get(adict, '{}')",
                    "object.__getattribute__(obj, '{}')",
+
+                   # Test custom getters from meta/__init__.py
+                   "getdefault(adict, '{}')",
+                   "method_get(adict, '{}')",
+                   "method_getattribute(obj, '{}')",
+                   "method_getitem(adict, '{}')",
+
+                   # Test custom getters from meta/access.py
+                   "Access.item.get(adict, '{}')",
+                   "Access.item.getdefault(adict, '{}')",
+                   "Access.item.contains(adict, '{}')",
+                   "Access.attribute.get(obj, '{}')",
+                   "Access.attribute.contains(obj, '{}')",
+                   "ACCESS['item'].get(adict, '{}')",
+                   "ACCESS['item'].getdefault(adict, '{}')",
+                   "ACCESS['item'].contains(adict, '{}')",
+                   "ACCESS['attribute'].get(obj, '{}')",
+                   "ACCESS['attribute'].contains(obj, '{}')",
+
+                   # Test default setters
                    "setattr(obj, '{}', None)",
                    "object.__setattr__(obj, '{}', None)",
+                   "dict.setdefault(adict, '{}', None)",
+                   "adict.setdefault('{}', None)",
+                   "setdefault(adict, '{}', None)",
+                   "adict['{}'] = None",
+                   "obj.{} = None",
+
+                   # Test custom setters
                    "method_setattr(obj, '{}', None)",
                    "method_setitem(adict, '{}', None)",
-                   "adict['{}'] = None",
-                   "obj.{} = None")
+                   "attributes.setdefault(obj, '{}', None)",
+                   "Access.item.set_to(adict, '{}', None)",
+                   "Access.attribute.set_to(obj, '{}', None)",
+                   "ACCESS['item'].set_to(adict, '{}', None)",
+                   "ACCESS['attribute'].set_to(obj, '{}', None)")
 
         SETUP = f"""import operator
 from typing import Mapping
 
 try:
+    from gconanpy import attributes
     from gconanpy.meta import method
+    from gconanpy.meta.access import ACCESS, Access, getdefault, setdefault
 except (ImportError, ModuleNotFoundError):
+    import attributes
     from meta import method
+    from meta.access import ACCESS, Access, getdefault, setdefault
 
 
 class BareObject():
     ''' Bare/empty object to freely add new attributes to. Must be defined in
         the same file where it is used. '''
+
 
 method_get = method('get')
 method_getattribute = method('__getattribute__')
@@ -93,12 +128,13 @@ adict={arbitraries}
 allattrs={allattrs}
 """
         times = {eachcall: sum([
-            timeit(eachcall.format(ex), setup=SETUP, number=100000)
+            timeit(eachcall.format(ex), setup=SETUP, number=200000)
             for ex in allattrs]) for eachcall in to_test}  # for _ in range(5)
         # sumtimes = {x: 0.0 for x in times.keys()}
         sumtimes = defaultdict(float)
         keys = defaultdict(set)
-        newkeys = ("dict", "method", "operator", "Mapping", "adict")
+        newkeys = ("dict", "method", "operator", "Mapping", "adict", "access",
+                   "Access", "ACCESS", "attributes")
         for k in times:
             new_key = None
             for new_k in newkeys:
@@ -108,20 +144,23 @@ allattrs={allattrs}
             if not new_key:
                 new_key = "adict" if k.endswith("adict") \
                     else "attr" if len(k) > 7 and k[3:7] == "attr" \
-                    else "default"
+                    else "access" if k[1:10] == "etdefault" else "default"
             keys[new_key].add(k)
 
+        # Sort each access method, and category average thereof, by time taken
         for newkey, oldkeys in keys.items():
             for old in oldkeys:
                 sumtimes[newkey] += times[old]
             sumtimes[newkey] /= len(oldkeys)
+        to_print = [f"{k} = {round(v * 1000, 3)}" for d in (times, sumtimes)
+                    for k, v in Sortionary(**d).sorted_by("values")]
 
-        # sumtimes = Sortionary(**sumtimes)
+        # Check how far to the right to justify the printed text so all of the
+        # times line up in the output, then print them
+        indent = max(len(eachline) for eachline in to_print)
+        for eachline in to_print:
+            print(eachline.rjust(indent))
 
-        for d in times, sumtimes:
-            for k, v in Sortionary(**d).sorted_by("values"):
-                print(f"{k.rjust(40)} = {round(v * 1000, 3)}")
-            print()  # Separate the specifics from the averages w/ a newline
         assert False
 
 

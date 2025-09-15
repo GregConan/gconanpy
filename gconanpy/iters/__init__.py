@@ -5,9 +5,10 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-08-29
+Updated: 2025-09-14
 """
 # Import standard libraries
+import abc
 from collections.abc import Callable, Collection, Container, Generator, \
     Hashable, Iterable, Mapping, Sequence
 from functools import reduce
@@ -400,20 +401,21 @@ class Combinations:
                     yield combo
 
 
-class IterableMap:
-    """ Base class for a custom object to emulate Mapping iter methods. """
+class IterableMap(abc.ABC):
+    """ Base class for a custom object to emulate `Mapping` iter methods. """
     _KeyType = Hashable | None
     _KeyWalker = Generator[_KeyType, None, None]
     _Walker = Generator[tuple[_KeyType, Any], None, None]
 
     def __iter__(self) -> _KeyWalker:
-        yield from self.keys()
-
-    items: Callable[[], _Walker]  # Must be defined in subclass
-
-    def keys(self) -> _KeyWalker:
         for k, _ in self.items():
             yield k
+
+    @abc.abstractmethod
+    def items(self) -> _Walker: ...
+
+    def keys(self) -> _KeyWalker:
+        yield from self
 
     def values(self) -> Generator[Any, None, None]:
         for _, v in self.items():

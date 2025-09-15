@@ -1,37 +1,104 @@
 #!/usr/bin/env python3
 
 """
+Item/attribute accessor functions/classes more broadly usable than builtins.
+Expanding Python's built-in accessor (getter/setter/deleter/etc) functions \
+    for use on more kinds of objects.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-09-11
-Updated: 2025-09-11
+Updated: 2025-09-14
 """
 # Import standard libraries
-from collections.abc import Callable, Collection, Container, \
-    Generator, Iterable, Mapping, MutableMapping, Sequence
+from collections.abc import Callable, Container, Generator, Hashable, \
+    Iterable, Mapping, MutableMapping, MutableSequence, Sequence
 import operator
 # from operator import attrgetter, methodcaller  # TODO?
-from typing import Any, cast, Literal, NamedTuple, TypeVar
-from typing_extensions import Self
+from typing import Any, cast, Literal, NamedTuple, overload, TypeVar
 
 try:
-    from typeshed import DATA_ERRORS
+    from typeshed import DATA_ERRORS, SupportsGetItem, SupportsItemAccess
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.meta.typeshed import DATA_ERRORS
+    from gconanpy.meta.typeshed import \
+        DATA_ERRORS, SupportsGetItem, SupportsItemAccess
 
-# TypeVars for Accessor class methods' input parameters
+# TypeVars for (g/s)etdefault and Accessor class methods' input parameters
 _D = TypeVar("_D")  # "default"
-_T = TypeVar("_T")  # "obj"
+_T = TypeVar("_T")  # "obj" (when returning the same input object)
+_KT = TypeVar("_KT", bound=Hashable)  # keys
+_VT = TypeVar("_VT")  # values
+WHICH = Literal["names", "values"]  # TODO: Remove if unneeded
+
+# Specify how many input parameters each Accessor input arg function takes
 CALL_2ARG = Callable[[Any, Any], Any]
 CALL_3ARG = Callable[[Any, Any, Any], Any]
 
-WHICH = Literal["attribute", "item"]
+
+@overload
+def getdefault(o: Mapping[_KT, _VT], key: _KT) -> _VT: ...
+@overload
+def getdefault(o: Mapping[_KT, _VT], key: _KT, default: _D) -> _VT | _D: ...
+@overload
+def getdefault(o: Sequence[_VT], key: int) -> _VT: ...
+@overload
+def getdefault(o: Sequence[_VT], key: int, default: _D) -> _VT | _D: ...
+
+
+def getdefault(o: SupportsGetItem, key: Hashable, default: Any = None):
+    """ Return the value for `key` if `key` is in `o`, else `default`.
+
+    Same as `dict.get`, but can also be used on `MutableSequence`s \
+    such as `list`s.
+
+    :param o: SupportsGetItem[_VT: Any], object with a `__getitem__` method
+    :param key: _KT: Hashable, key to try to retrieve the mapped value of
+    :param default: _D: Any, value to return if `key` isn't in `o`; \
+        defaults to None
+    :return: _VT | _D, the value `o` maps to `key`, if any; else `default`
+    """
+    try:
+        return o[key]
+    except KeyError:
+        return default
+
+
+@overload
+def setdefault(o: MutableMapping[_KT, _VT], key: _KT, default: _D
+               ) -> _VT | _D: ...
+
+
+@overload
+def setdefault(o: MutableSequence[_VT], key: int, default: _D
+               ) -> _VT | _D: ...
+
+
+def setdefault(o: SupportsItemAccess, key, default=None):
+    """ Return the value for key if key is in `o`; else add \
+        that key to `o` with the value `default` and return `default`.
+
+    Same as `dict.setdefault`, but can also be used on `MutableSequence`s \
+    such as `list`s.
+
+    :param o: SupportsItemAccess[_VT: Any], object with `__getitem__`, \
+        `__setitem__`, and `__delitem__` methods
+    :param key: _KT: Hashable, key to retrieve (or set) the mapped value of
+    :param default: _D: Any, value to map `key` to in `o` if none exists; \
+        defaults to None
+    :return: _VT | _D, the value that `o` now maps to `key`
+    """
+    try:
+        return o[key]
+    except KeyError:
+        o[key] = default
+        return default
 
 
 class Accessor[KT, VT](NamedTuple):
-    delete: CALL_2ARG
-    get: CALL_2ARG
-    contains: CALL_2ARG
-    set_to: CALL_3ARG
+    contains: CALL_2ARG    # hasattr or operator.contains
+    delete: CALL_2ARG      # delattr or operator.delitem
+    get: CALL_2ARG         # getattr or operator.getitem (can raise err)
+    getdefault: CALL_3ARG  # getattr or getdefault / Mapping.get / dict.get
+    set_to: CALL_3ARG      # setattr or operator.setitem
+    MissingError: type[BaseException]  # AttributeError or KeyError
 
     def chain_get(self, obj: Mapping[KT, VT] | Any, keys: Sequence[KT],
                   default: _D = None, exclude: Container[VT] = set()
@@ -94,23 +161,6 @@ class Accessor[KT, VT](NamedTuple):
         return {key: self.lookup(obj, path, sep, default)
                 for key, path in to_look_up.items()}
 
-    def getdefault(self, obj: Mapping[KT, VT] | Any,
-                   key: KT, default: _D = None,
-                   exclude: Container[VT] = set()) -> VT | _D:
-        """ Return the value mapped to `key` in `obj`, if any; else return \
-            `default`. Defined to add `exclude` option.
-
-        :param key: KT: Hashable, key mapped to the value to return
-        :param default: _D: Any, object to return if `key` isn't in `obj`; \
-            i.e. `if not self.has(obj, key, exclude)`
-        :param exclude: Container[VT], values to ignore or overwrite. If \
-            `obj` maps `key` to one, then return `default` as if `obj` does \
-            not contain `key`.
-        :return: VT | _D, value `self` maps to `key` if any; else `default`
-        """
-        return self.get(obj, key) if \
-            self.has(obj, key, exclude) else default
-
     def has(self, obj: Mapping[KT, VT] | Any, key: KT,
             exclude: Container[VT] = set()) -> bool:
         """ Check whether `key` is in `obj` as an item or attribute. \
@@ -126,7 +176,7 @@ class Accessor[KT, VT](NamedTuple):
         try:  # If obj has key, return True iff its value doesn't count
             result = self.get(obj, key) not in exclude
 
-        except (AttributeError, KeyError):  # If obj lacks key return False
+        except self.MissingError:  # If obj lacks key return False
             result = False
 
         # `self.<name> in exclude` raises TypeError if self.<name> isn't Hashable.
@@ -195,9 +245,11 @@ class Accessor[KT, VT](NamedTuple):
             they are mapped to `key` in `a_dict`
         """
         if not self.has(obj, key, exclude):
-            self.set_to(obj, key, get_if_absent(
-                *getter_args, **getter_kwargs))
-        return self.get(obj, key)
+            new_value = get_if_absent(*getter_args, **getter_kwargs)
+            self.set_to(obj, key, new_value)
+            return new_value
+        else:
+            return self.get(obj, key)
 
     def lookup(self, obj: Mapping[KT, VT] | Any, path: str,
                sep: str = ".", default: _D = None) -> VT | _D:
@@ -283,15 +335,20 @@ class Accessor[KT, VT](NamedTuple):
 
 
 class Access:
-    item = Accessor(get=operator.getitem, contains=operator.contains,
-                    set_to=operator.setitem, delete=operator.delitem)
-    attribute = Accessor(get=getattr, contains=hasattr,
-                         set_to=setattr, delete=delattr)
+    item = Accessor(contains=operator.contains, get=operator.getitem,
+                    getdefault=getdefault, set_to=operator.setitem,
+                    delete=operator.delitem, MissingError=KeyError)
+    attribute = Accessor(contains=hasattr, get=getattr, getdefault=getattr,
+                         set_to=setattr, delete=delattr,
+                         MissingError=AttributeError)
 
 
-# TODO Change to frozendict so it's a global constant (& maybe faster?)
-#      https://github.com/Marco-Sulla/python-frozendict/issues/18
-ACCESS = {"item": Accessor(get=operator.getitem, contains=operator.contains,
-                           set_to=operator.setitem, delete=operator.delitem),
-          "attribute": Accessor(get=getattr, contains=hasattr,
-                                set_to=setattr, delete=delattr)}
+# TODO REMOVE(?) bc it's slightly slower & using it is less concise?
+# Change to frozendict so it's a global constant (& maybe faster?)
+# https://github.com/Marco-Sulla/python-frozendict/issues/18
+ACCESS = {"item": Accessor(contains=operator.contains, get=operator.getitem,
+                           getdefault=getdefault, set_to=operator.setitem,
+                           delete=operator.delitem, MissingError=KeyError),
+          "attribute": Accessor(contains=hasattr, get=getattr,
+                                getdefault=getattr, set_to=setattr,
+                                delete=delattr, MissingError=AttributeError)}

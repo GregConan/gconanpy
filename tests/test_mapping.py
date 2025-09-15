@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-09-11
+Updated: 2025-09-12
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -22,8 +22,8 @@ from gconanpy.debug import StrictlyTime
 from gconanpy.iters import Combinations, MapWalker, powers_of_ten, Randoms
 from gconanpy.mapping.dicts import *
 from gconanpy.mapping.grids import HashGrid, Locktionary  # GridCryptionary,
-from gconanpy.meta import TimeSpec
-from gconanpy.meta.access import ACCESS, Accessor
+from gconanpy.meta import full_name_of, TimeSpec
+from gconanpy.meta.access import ACCESS, Access, Accessor
 # from tests import test_mapping
 from gconanpy.testers import Tester  # , TimeTester
 from gconanpy.trivial import (always_false, always_none,
@@ -358,12 +358,15 @@ class TestAccessor(DictTester):
         self.test_Ns = powers_of_ten(n_tests_orders_of_magnitude)
 
     def time_lazy(self, lazy_meth: Callable, lazy_result: Any,
-                  input_obj: Any, asattrs: bool = False, **kwargs: Any) -> None:
+                  input_obj: Any, asattrs: bool = False, **kwargs: Any) -> float:
         # randicts = SimpleNamespace(**self.randicts) if attrs else self.randicts
+        duration = 0.0
         with StrictlyTime(f"running {kwargs.pop('lazyname')} "
                           f"{sum(self.test_Ns)} times",
-                          time_unit=self.UNIT):
+                          time_unit=self.UNIT) as strictimer:
             self.lazytest(lazy_meth, lazy_result, input_obj, asattrs, **kwargs)
+        duration += strictimer.elapsed
+        return duration
 
     def lazytest(self, lazy_meth: Callable, lazy_result: Any,
                  input_obj: Any, asattrs: bool = False, **kwargs: Any) -> None:
@@ -395,34 +398,33 @@ class TestAccessor(DictTester):
                       getter_args=({1, 2}, set(), {5}, {"foo", "bar"}))
         result = {1, 2, 5, "foo", "bar"}
         # TRIPLETTERS = SimpleNamespace(**self.adict)
+
+        item_funcs = [ACCESS["item"].lazyget, ACCESS["item"].lazysetdefault]
+        # Access.item.lazyget, Access.item.lazysetdefault]  # TODO ?
         if not timing:
             lazytest = self.lazytest
-        else:  # Only include the mapping.lazy* method tests if we're timing
-            # (for comparison); otherwise they are redundant
+
+        else:
             lazytest = self.time_lazy
-            lazytest(mapping.lazysetdefault, result, self.adict,
-                     lazyname="map_funcs.lazysetdefault",
-                     asattrs=False, **kwargs)
-            lazytest(mapping.lazyget, result, self.adict,
-                     lazyname="map_funcs.lazyget",
-                     asattrs=False, **kwargs)
-        lazytest(attributes.lazysetdefault, result, self.TRIPLETTERS,
-                 lazyname="attributes.lazysetdefault", asattrs=True,
-                 **kwargs)
-        lazytest(attributes.lazyget, result, self.TRIPLETTERS,
-                 asattrs=True, lazyname="attributes.lazyget", **kwargs)
-        lazytest(ACCESS["item"].lazysetdefault, result, self.adict,
-                 lazyname="ACCESS[item].lazysetdefault",
-                 asattrs=False, **kwargs)
-        lazytest(ACCESS["item"].lazyget, result, self.adict,
-                 lazyname="ACCESS[item].lazyget",
-                 asattrs=False, **kwargs)
-        lazytest(ACCESS["attribute"].lazysetdefault, result, self.TRIPLETTERS,
-                 lazyname="ACCESS[attr].lazysetdefault",
-                 asattrs=True, **kwargs)
-        lazytest(ACCESS["attribute"].lazyget, result, self.TRIPLETTERS,
-                 lazyname="ACCESS[attr].lazyget",
-                 asattrs=True, **kwargs)
+
+            # Only include the mapping.lazy* method tests if we're timing
+            # (for comparison); otherwise they are redundant
+            item_funcs.append(mapping.lazyget)
+            item_funcs.append(mapping.lazysetdefault)
+
+        print("Testing item access")
+        for itemfunc in item_funcs:
+            lazytest(itemfunc, result, self.adict, asattrs=False,
+                     lazyname=full_name_of(itemfunc), **kwargs)
+
+        print("Testing attribute access")
+        for attrfunc in [attributes.lazyget,
+                         attributes.lazysetdefault,
+                         ACCESS["attribute"].lazyget,
+                         ACCESS["attribute"].lazysetdefault]:
+            # Access.attribute.lazyget, Access.attribute.lazysetdefault]:  # TODO ?
+            lazytest(attrfunc, result, self.TRIPLETTERS, asattrs=True,
+                     lazyname=full_name_of(attrfunc), **kwargs)
         assert not timing  # If we're timing, raise err to print results
 
 
