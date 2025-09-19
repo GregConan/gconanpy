@@ -6,7 +6,7 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-08-13
+Updated: 2025-09-18
 """
 # Import standard libraries
 from abc import ABC
@@ -31,19 +31,19 @@ from pympler.asizeof import asizeof
 
 # Import local custom libraries
 try:
-    from . import ROOT_DIR
-    from bytesify import HumanBytes
-    from IO.local import walk_dir
-    from meta import name_of, TimeSpec
-    from iters.seq import uniqs_in
-    from wrappers import stringify_dt, stringify_iter
-except ModuleNotFoundError:  # TODO DRY?
     from gconanpy import ROOT_DIR
     from gconanpy.bytesify import HumanBytes
     from gconanpy.IO.local import walk_dir
     from gconanpy.meta import name_of, TimeSpec
     from gconanpy.iters.seq import uniqs_in
     from gconanpy.wrappers import stringify_dt, stringify_iter
+except ModuleNotFoundError:  # TODO DRY?
+    from . import ROOT_DIR
+    from bytesify import HumanBytes
+    from IO.local import walk_dir
+    from meta import name_of, TimeSpec
+    from iters.seq import uniqs_in
+    from wrappers import stringify_dt, stringify_iter
 
 # Constants
 LOGGER_NAME = __package__ if __package__ else __file__

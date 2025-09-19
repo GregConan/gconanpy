@@ -3,18 +3,17 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-03
-Updated: 2025-09-03
+Updated: 2025-09-18
 """
 # Import standard libraries
 import datetime as dt
 import operator
-from shlex import join
 from typing import Any
 
 # Import local custom libraries
-from gconanpy.debug import ShowTimeTaken
-from gconanpy.iters.find import iterfind, modifind, ReadyChecker, \
+from gconanpy.access.find import iterfind, modifind, ReadyChecker, \
     Spliterator, UntilFound
+from gconanpy.debug import ShowTimeTaken
 from gconanpy.testers import Tester
 
 # Import third-party PyPI libraries

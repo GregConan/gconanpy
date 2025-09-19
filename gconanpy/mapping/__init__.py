@@ -4,7 +4,7 @@
 Useful/convenient functions for dicts (taken from dicts.py class methods).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-09-05
+Updated: 2025-09-18
 """
 # Import standard libraries
 from collections import defaultdict
@@ -17,13 +17,13 @@ from typing import Any, cast, Literal, overload, TypeVar
 
 # Import local custom libraries
 try:
-    from ..iters import SimpleShredder
-    from ..meta.typeshed import DATA_ERRORS, SupportsRichComparison
-    from ..trivial import always_none
-except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.iters import SimpleShredder
     from gconanpy.meta.typeshed import DATA_ERRORS, SupportsRichComparison
     from gconanpy.trivial import always_none
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from iters import SimpleShredder
+    from meta.typeshed import DATA_ERRORS, SupportsRichComparison
+    from trivial import always_none
 
 # Constants: type variables
 _D = TypeVar("_D")

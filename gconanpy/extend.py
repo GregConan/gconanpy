@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2025-09-05
+Updated: 2025-09-18
 """
 # Import standard libraries
 import abc
@@ -21,17 +21,19 @@ from makefun import create_function, with_signature
 
 # Import local custom libraries
 try:
-    import attributes
-    from iters import MapSubset, merge
-    from meta import name_of
-    from meta.typeshed import HasSlots
-    from wrappers import ToString
-except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy import attributes
-    from gconanpy.iters import MapSubset, merge
+    from gconanpy.access import attributes
+    from gconanpy.iters import merge
+    from gconanpy.iters.filters import MapSubset
     from gconanpy.meta import name_of
     from gconanpy.meta.typeshed import HasSlots
     from gconanpy.wrappers import ToString
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from access import attributes
+    from iters import merge
+    from iters.filters import MapSubset
+    from meta import name_of
+    from meta.typeshed import HasSlots
+    from wrappers import ToString
 
 
 # Function wrapper type variable  # TODO DRY (can't import it from metafunc?)
@@ -52,9 +54,9 @@ def all_type_classes() -> dict[str, type | abc.ABCMeta]:
     """
     :return: dict[str, type | abc.ABCMeta] mapping names to type classes
     """
-    type_modules = MapSubset(keys=("builtins", "collections", "types",
-                                   "typing", "collections.abc"),
-                             include_keys=True).of(sys.modules)
+    type_modules = MapSubset(keys_are=("builtins", "collections", "types",
+                                       "typing", "collections.abc")
+                             ).of(sys.modules)
     return {name: value for class_module in type_modules.values()
             for name, value in vars(class_module).items()
             if isinstance(value, (type, abc.ABCMeta)

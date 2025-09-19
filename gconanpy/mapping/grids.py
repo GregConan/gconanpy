@@ -4,7 +4,7 @@
 Custom multidimensional dictionaries extending dicts.py classes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-23
-Updated: 2025-09-11
+Updated: 2025-09-18
 """
 # Import standard libraries
 import abc
@@ -16,17 +16,17 @@ from typing_extensions import Self
 
 # Import local custom libraries
 try:
-    from bytesify import Bytesifiable, DEFAULT_ENCODING, Encryptor
-    from debug import Debuggable
-    from mapping.dicts import CustomDict, Invertionary, MapParts
-    from meta import name_of
-    from meta.typeshed import ComparableHashable
-except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.bytesify import Bytesifiable, DEFAULT_ENCODING, Encryptor
     from gconanpy.debug import Debuggable
     from gconanpy.mapping.dicts import CustomDict, Invertionary, MapParts
     from gconanpy.meta import name_of
     from gconanpy.meta.typeshed import ComparableHashable
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from bytesify import Bytesifiable, DEFAULT_ENCODING, Encryptor
+    from debug import Debuggable
+    from mapping.dicts import CustomDict, Invertionary, MapParts
+    from meta import name_of
+    from meta.typeshed import ComparableHashable
 
 # Type variable for .__init__(...) and .update(...) method input parameters
 FromMap = TypeVar("FromMap", Mapping, MapParts, None)

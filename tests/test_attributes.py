@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-09-11
-Updated: 2025-09-11
+Updated: 2025-09-18
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable
@@ -12,7 +12,7 @@ import itertools
 from typing import Any
 
 # Import local custom libraries
-from gconanpy import attributes
+from gconanpy.access import attributes
 from gconanpy.testers import Tester
 from gconanpy.trivial import always_false, always_none, always_true
 

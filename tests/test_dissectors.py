@@ -3,14 +3,16 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-07-28
+Updated: 2025-09-18
 """
 # Import standard libraries
 from typing import Any
 
 # Import local custom libraries
-from gconanpy.dissectors import Corer, DifferenceBetween, Shredder, Xray
-from gconanpy.iters import MapSubset, SimpleShredder
+from gconanpy.access.dissectors import \
+    Corer, DifferenceBetween, Shredder, Xray
+from gconanpy.iters import SimpleShredder
+from gconanpy.iters.filters import MapSubset
 from gconanpy.mapping.dicts import Cryptionary, DotDict
 from gconanpy.testers import Tester
 
@@ -50,7 +52,7 @@ class TestCorers(Tester):
     def check_excluder(self, subsetter: MapSubset, expected_result: Any,
                        **corer_kwargs: Any):
         self.core_tests(self.build_cli_args(DotDict, Cryptionary),
-                        expected_result, map_filter=subsetter.filter,
+                        expected_result, map_filter=subsetter,
                         **corer_kwargs)
 
     def test_1(self):
@@ -61,7 +63,7 @@ class TestCorers(Tester):
 
     def test_2(self):
         self.add_basics()
-        self.check_excluder(MapSubset(keys={"__doc__"}, include_keys=False),
+        self.check_excluder(MapSubset(keys_arent="__doc__"),
                             self.bytes_nums.strip())
 
     def test_3(self):
@@ -89,7 +91,7 @@ class TestCorers(Tester):
     def test_5(self):
         cli_args = self.build_cli_args(DotDict, Cryptionary)
         print(f"cli_args: {cli_args}")
-        excluder = MapSubset(keys={"b"}, include_keys=True).filter
+        excluder = MapSubset(keys_are={"b"})
         self.core_tests(cli_args, 2, map_filter=excluder)
 
     def test_6(self):
@@ -141,8 +143,8 @@ class TestDifferenceBetween(Tester):
 
     def test_attr_diff(self):
         self.add_basics()
-        sub1 = MapSubset(keys=self.alist)
-        sub2 = MapSubset(values=self.alist)
+        sub1 = MapSubset(keys_arent=self.alist)
+        sub2 = MapSubset(values_arent=self.alist)
         sub_diff = DifferenceBetween(sub1, sub2)
         assert sub_diff.difference
         assert sub_diff.difference.startswith("unique attribute(s)")

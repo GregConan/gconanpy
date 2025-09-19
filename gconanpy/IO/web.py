@@ -4,7 +4,7 @@
 Functions to import/export data from/to remote files/pages/APIs on the Web.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-13
-Updated: 2025-07-29
+Updated: 2025-09-18
 """
 # Import standard libraries
 from collections.abc import Mapping
@@ -17,9 +17,9 @@ import urllib.request
 
 # Import local custom libraries
 try:
-    from ..wrappers import ToString
-except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.wrappers import ToString
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from wrappers import ToString
 
 
 def download_GET(path_URL: str, headers: Mapping[str, Any]) -> Any:

@@ -4,7 +4,7 @@
 Functions/classes to access and/or modify the attributes of any object(s).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-02
-Updated: 2025-09-14
+Updated: 2025-09-18
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Collection, Generator, \
@@ -13,13 +13,15 @@ from typing import Any, Literal, Self, TypeVar
 
 # Import local custom libraries
 try:
-    from iters import IterableMap, merge
-    from meta import tuplify
-    from trivial import always_none
-except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from gconanpy.iters.filters import Filter
     from gconanpy.iters import IterableMap, merge
     from gconanpy.meta import tuplify
     from gconanpy.trivial import always_none
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from iters.filters import Filter
+    from iters import IterableMap, merge
+    from meta import tuplify
+    from trivial import always_none
 
 
 _T = TypeVar("_T")  # Constant: TypeVar for add_to function
@@ -166,99 +168,6 @@ def setdefault(an_obj: Any, name: str, value: Any,
     if (getattr(an_obj, name, next(iter(exclude))) in exclude) \
             if exclude else hasattr(an_obj, name):
         setattr(an_obj, name, value)
-
-
-class Filter:
-    # Private class variables: own method parameters'/returns' type hints
-    _SELECTOR = Callable[[Any], bool]  # Any value filter function
-    _SELECTORS = _SELECTOR | Iterable[_SELECTOR]  # Any value filter functions
-    _STRSELECTOR = Callable[[str], bool]  # str filter function
-    _STRSELECT = _STRSELECTOR | Iterable[_STRSELECTOR]  # str filter functions
-    _WHICH = Literal["names", "values"]  # Names of each Filter's attributes
-    _FILTERDICT = dict[bool, tuple[_SELECTOR, ...]]  # Types of Filter attrs
-
-    # Public class variable: filter type hint for other methods/functions
-    FilterFunction = Callable[[str, Any], bool]  # type(Filter(...))
-
-    # Public instance variables: name filters and value filters
-    names: _FILTERDICT
-    values: _FILTERDICT
-
-    def __init__(self, names_are: _STRSELECT = tuple(),
-                 values_are: _SELECTORS = tuple(),
-                 names_arent: _STRSELECT = tuple(),
-                 values_arent: _SELECTORS = tuple()) -> None:
-        """ _summary_
-
-        :param names_are: Iterable[Callable[[Any], bool]] of \
-            Callables to run on the NAME of every attribute of this object \
-            to check whether the returned generator function should include \
-            that attribute (if True) or skip it (if False).
-        :param values_are: Iterable[Callable[[Any], bool]] of \
-            Callables to run on the VALUE of every attribute of this object, \
-            to check whether the returned generator function should include \
-            that attribute (if True) or skip it (if False).
-        :param names_arent: Iterable[Callable[[Any], bool]] of \
-            Callables to run on the NAME of every attribute of this object \
-            to check whether the returned generator function should include \
-            that attribute (if False) or skip it (if True).
-        :param values_arent: Iterable[Callable[[Any], bool]] of \
-            Callables to run on the VALUE of every attribute of this object, \
-            to check whether the returned generator function should include \
-            that attribute (if False) or skip it (if True).
-        """
-        self.names = {True: tuplify(names_are), False: tuplify(names_arent)}
-        self.values = {True: tuplify(values_are), False: tuplify(values_arent)}
-
-    def __add__(self, other: Self) -> Self:
-        """ 
-        :param other: Self, `Filter` to combine with this one
-        :return: Self, new `Filter` including every filter function in this \
-            `Filter` (`self`) and in the other `Filter` (`other`)
-        """
-        return type(self)(*((self[which][are] + other[which][are])
-                          for which in ("names", "values")
-                          for are in (True, False)))
-
-    def __call__(self, name: str, value: Any) -> bool:
-        """ 
-        :param name: str, attribute name to check whether it passes all \
-            conditions defined by this `Filter`
-        :param value: Any, attribute value to check whether it passes all \
-            conditions defined by this `Filter`
-        :return: bool, True if the input name/value pair passes all \
-            conditions defined by this `Filter`; else False
-        """
-        for selectors, to_check in ((self.names, name),
-                                    (self.values, value)):
-            for correct in (True, False):
-                for is_valid in selectors[correct]:
-                    if is_valid(to_check) is not correct:
-                        return False
-        return True
-
-    def __getitem__(self, key: _WHICH) -> _FILTERDICT:
-        """ Access `names` and `values` attributes as elements/items.
-
-        Defined mostly for convenient use by `Filter.__call__` method.
-
-        :param key: _WHICH, either "names" or "values"
-        :return: _FILTERDICT, `getattr(self, key)`; \
-            either `self.names` or `self.values`
-        """
-        return getattr(self, key)
-
-    def invert(self) -> Self:
-        """ 
-        :return: Self, inverted version of this `Filter` which will always \
-            return the opposite boolean value as the original `Filter`; for \
-            any `Filter` `f`, string `s`, and value `v`, \
-            `not f.invert()(s, v) is f(s, v)`
-        """
-        return type(self)(names_are=self.names[False],
-                          values_are=self.values[False],
-                          names_arent=self.names[True],
-                          values_arent=self.values[True])
 
 
 class AttrsOf(IterableMap):

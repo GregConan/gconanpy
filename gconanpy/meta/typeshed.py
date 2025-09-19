@@ -4,7 +4,7 @@
 Classes for use in type hints/checks. No behavior, except in MultiTypeMeta.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-12
-Updated: 2025-09-11
+Updated: 2025-09-18
 """
 # Import standard libraries
 import abc

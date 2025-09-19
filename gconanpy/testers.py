@@ -4,7 +4,7 @@
 Base classes for unit tests in ../tests/ dir
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-09-03
+Updated: 2025-09-18
 """
 # Import standard libraries
 from abc import ABC
@@ -19,19 +19,21 @@ from bs4 import BeautifulSoup
 
 # Import local custom libraries
 try:
-    from attributes import AttrsOf
-    from extend import classes_in_module
-    from iters import MapSubset, powers_of_ten
-    from iters.find import ErrIterChecker
-    from . import mapping, ROOT_DIR
-    from meta import has_method, name_of
-except (ImportError, ModuleNotFoundError):
-    from gconanpy.attributes import AttrsOf
-    from gconanpy.extend import classes_in_module
-    from gconanpy.iters.find import ErrIterChecker
-    from gconanpy.iters import MapSubset, powers_of_ten
     from gconanpy import mapping, ROOT_DIR
+    from gconanpy.access.attributes import AttrsOf
+    from gconanpy.access.find import ErrIterChecker
+    from gconanpy.extend import classes_in_module
+    from gconanpy.iters import powers_of_ten
+    from gconanpy.iters.filters import MapSubset
     from gconanpy.meta import has_method, name_of
+except (ImportError, ModuleNotFoundError):
+    from . import mapping, ROOT_DIR
+    from access.attributes import AttrsOf
+    from access.find import ErrIterChecker
+    from extend import classes_in_module
+    from iters import powers_of_ten
+    from iters.filters import MapSubset
+    from meta import has_method, name_of
 
 LIPSUM = (  # Constant: Paragraph about Lorem ipsum to test Regextract &c
     "Lorem ipsum (/ˌlɔ:.rəm 'ip.səm/ LOR-əm IP-səm) is a dummy or "
@@ -75,8 +77,7 @@ class Tester(ABC):
                            "a list": [*self.alist, _class],
                            "to remove": True, "bytes_nums": self.bytes_nums})
         cli_args["creds"] = MapSubset(
-            keys={"address", "debugging", "password"},
-            values={None}, include_keys=True, include_values=False
+            keys_are={"address", "debugging", "password"}, values_arent={None}
         ).of(cli_args, as_type=_creds_type)
         del cli_args["to remove"]  # test Cryptionary.__del__
         return cli_args
@@ -155,7 +156,6 @@ class TimeTester:
         min_avg = min(which_avg)
         faster = which_avg[min_avg]
         ratios = list()
-        for slower, slow_time in MapSubset(keys={faster}, include_keys=False
-                                           ).of(avg_of).items():
+        for slower, slow_time in MapSubset(keys_arent=faster).of(avg_of).items():
             ratios.append(f"{slow_time/min_avg} times faster than {slower}")
         return f"{faster} is {' and '.join(ratios)}."

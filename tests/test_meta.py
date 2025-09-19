@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-07
-Updated: 2025-09-11
+Updated: 2025-09-18
 """
 # Import standard libraries
 import builtins
@@ -18,7 +18,7 @@ from typing import Any, TypeVar
 import pandas as pd
 
 # Import local custom libraries
-from gconanpy import attributes
+from gconanpy.access import attributes
 from gconanpy.debug import StrictlyTime
 from gconanpy.iters import Combinations
 from gconanpy.mapping.dicts import Cryptionary, CustomDict, DotDict, \

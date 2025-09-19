@@ -4,13 +4,12 @@
 Classes that parse strings and text data, especially using Regex.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
-Updated: 2025-08-11
+Updated: 2025-09-18
 """
 # Import standard libraries
 from collections.abc import Container, Generator
 import re
 from typing import Any
-from typing_extensions import Self
 
 # Import third-party PyPI libraries
 import inflection
@@ -18,9 +17,9 @@ import regex
 
 # Import local custom libraries
 try:
-    from iters import MapSubset
+    from gconanpy.iters.filters import MapSubset
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.iters import MapSubset
+    from iters.filters import MapSubset
 
 
 class Abbreviator:
@@ -143,8 +142,7 @@ class Regextract:
         """
         parsed = pattern.search(txt)
         parsed = parsed.groupdict(default=default) if parsed else dict()
-        return MapSubset(keys=parsed.keys(), include_keys=True,
-                         values=exclude, include_values=False
+        return MapSubset(keys_are=parsed.keys(), values_arent=exclude
                          ).of(parsed) if exclude else parsed
 
 

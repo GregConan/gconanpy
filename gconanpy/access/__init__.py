@@ -6,7 +6,7 @@ Expanding Python's built-in accessor (getter/setter/deleter/etc) functions \
     for use on more kinds of objects.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-09-11
-Updated: 2025-09-14
+Updated: 2025-09-18
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Hashable, \
@@ -16,10 +16,10 @@ import operator
 from typing import Any, cast, Literal, NamedTuple, overload, TypeVar
 
 try:
-    from typeshed import DATA_ERRORS, SupportsGetItem, SupportsItemAccess
-except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.meta.typeshed import \
         DATA_ERRORS, SupportsGetItem, SupportsItemAccess
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from meta.typeshed import DATA_ERRORS, SupportsGetItem, SupportsItemAccess
 
 # TypeVars for (g/s)etdefault and Accessor class methods' input parameters
 _D = TypeVar("_D")  # "default"
@@ -34,11 +34,11 @@ CALL_3ARG = Callable[[Any, Any, Any], Any]
 
 
 @overload
-def getdefault(o: Mapping[_KT, _VT], key: _KT) -> _VT: ...
+def getdefault(o: Mapping[_KT, _VT], key: _KT) -> _VT | None: ...
 @overload
 def getdefault(o: Mapping[_KT, _VT], key: _KT, default: _D) -> _VT | _D: ...
 @overload
-def getdefault(o: Sequence[_VT], key: int) -> _VT: ...
+def getdefault(o: Sequence[_VT], key: int) -> _VT | None: ...
 @overload
 def getdefault(o: Sequence[_VT], key: int, default: _D) -> _VT | _D: ...
 
@@ -174,17 +174,15 @@ class Accessor[KT, VT](NamedTuple):
             is mapped to something in `exclude`
         """
         try:  # If obj has key, return True iff its value doesn't count
-            result = self.get(obj, key) not in exclude
+            return self.get(obj, key) not in exclude
 
         except self.MissingError:  # If obj lacks key return False
-            result = False
+            return False
 
         # `self.<name> in exclude` raises TypeError if self.<name> isn't Hashable.
         # In that case, self.<name> can't be in exclude, so obj has name.
         except TypeError:
-            result = True
-
-        return result
+            return True
 
     def has_all(self, obj: Mapping[KT, VT] | Any,
                 keys: Iterable[KT], exclude: Container[VT] = set()
@@ -309,9 +307,11 @@ class Accessor[KT, VT](NamedTuple):
         :param key: KT: Hashable to use as a key to map to value
         :param default: _type_, _description_
         """
-        if not self.contains(obj, key):
+        try:
+            return self.get(obj, key)
+        except self.MissingError:
             self.set_to(obj, key, default)
-        return self.get(obj, key)
+            return default
 
     def setdefaults(self, obj: MutableMapping[KT, VT] | _T,
                     exclude: Container[VT] = set(),

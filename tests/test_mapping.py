@@ -3,29 +3,29 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-09-12
+Updated: 2025-09-18
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
                              Mapping, MutableMapping)
 from math import prod
 import pdb
-from pprint import pprint
 import random
 import string
 from types import SimpleNamespace
 from typing import Any, TypeVar
 
 # Import local custom libraries
-from gconanpy import attributes, mapping
+from gconanpy import mapping
+from gconanpy.access import attributes
+from gconanpy.access import ACCESS, Access, Accessor
 from gconanpy.debug import StrictlyTime
 from gconanpy.iters import Combinations, MapWalker, powers_of_ten, Randoms
 from gconanpy.mapping.dicts import *
 from gconanpy.mapping.grids import HashGrid, Locktionary  # GridCryptionary,
 from gconanpy.meta import full_name_of, TimeSpec
-from gconanpy.meta.access import ACCESS, Access, Accessor
 # from tests import test_mapping
-from gconanpy.testers import Tester  # , TimeTester
+from gconanpy.testers import Tester, TimeTester
 from gconanpy.trivial import (always_false, always_none,
                               always_true, return_self)
 
@@ -831,13 +831,13 @@ class TestHashGrid(DictTester):
 """
 class TestOOPvsFunctions(TimeTester):
 
-    def test_all(self, n_tests_orders_of_magnitude: int = 3):
+    def test_all_times(self, n_tests_orders_of_magnitude: int = 3):
         func_tester = TestDictFunctions()
         results = set()
         for OOPClass in (TestExclutionary, TestDotDicts, TestInvertionary,
                          TestUpdationary, TestWalktionary):
             oop_tester = OOPClass()
-            for method_name in attributes.Of(OOPClass).method_names():
+            for method_name in attributes.AttrsOf(OOPClass).method_names():
                 if method_name.startswith("test_") and \
                         hasattr(TestDictFunctions, method_name):
                     results.add(self.time_method(
@@ -847,4 +847,4 @@ class TestOOPvsFunctions(TimeTester):
         # Print results (which requires raising an error)
         print(results)
         assert False
-"""
+"""  # Unquote to time-test; prefixing underscore to method name doesn't work

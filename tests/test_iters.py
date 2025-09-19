@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-06
-Updated: 2025-08-10
+Updated: 2025-09-18
 """
 # Import standard libraries
 from collections.abc import Generator, Hashable
@@ -14,7 +14,17 @@ from typing import Any, TypeVar
 # Import local custom libraries
 from gconanpy.iters import Combinations, combine_lists, merge, Randoms
 from gconanpy.iters.duck import DuckCollection
+from gconanpy.iters.filters import MapSubset
 from gconanpy.testers import Tester
+
+
+class TestMapSubset(Tester):
+    def test_keys_are(self) -> None:
+        self.add_basics()
+        subsetter = MapSubset(keys_are=("a", "b"))
+        print(f"filter: {vars(subsetter)}")
+        self.check_result(subsetter.of(self.adict),
+                          dict(a=1, b=2))
 
 
 class TestDuckCollection(Tester):

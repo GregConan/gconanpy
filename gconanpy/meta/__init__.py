@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-09-14
+Updated: 2025-09-18
 """
 # Import standard libraries
 import abc
@@ -19,10 +19,10 @@ from typing import Any, Concatenate, get_args, Literal, \
 from typing_extensions import Self
 
 try:
-    from typeshed import DATA_ERRORS, HasClass, Unhashable, \
+    from gconanpy.meta.typeshed import DATA_ERRORS, HasClass, Unhashable, \
         SkipException, SupportsItemAccess
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.meta.typeshed import DATA_ERRORS, HasClass, Unhashable, \
+    from typeshed import DATA_ERRORS, HasClass, Unhashable, \
         SkipException, SupportsItemAccess
 
 # TypeVars for Lazily class methods' input parameters

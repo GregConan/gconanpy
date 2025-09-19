@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-08-11
+Updated: 2025-09-18
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
@@ -14,13 +14,13 @@ from typing import Any, cast, NamedTuple
 
 # Import local custom libraries
 try:
-    from . import (bool_pair_to_cases, has_method,
-                   name_of, names_of, tuplify)
-    from ..reg import DunderParser
-except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.meta import (bool_pair_to_cases, has_method,
                                name_of, names_of, tuplify)
     from gconanpy.reg import DunderParser
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from meta import (bool_pair_to_cases, has_method,
+                      name_of, names_of, tuplify)
+    from reg import DunderParser
 
 
 # Constant: Conditions Combination (2+ boolean conditions); MatcherBase keys

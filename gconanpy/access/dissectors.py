@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-08-11
+Updated: 2025-09-18
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable
@@ -14,23 +14,25 @@ from typing import Any, TypeVar
 
 # Import local custom libraries
 try:
-    from debug import Debuggable
-    from iters import are_all_equal, MapSubset, SimpleShredder
-    from iters.seq import uniqs_in
-    from meta import (Comparer, has_method,
-                      IgnoreExceptions, IteratorFactory, name_of)
-    from meta.typeshed import DATA_ERRORS
-    from trivial import always_true, get_key_set
-    from wrappers import Sets, stringify_iter
-except ModuleNotFoundError:  # TODO DRY?
     from gconanpy.debug import Debuggable
-    from gconanpy.iters import are_all_equal, MapSubset, SimpleShredder
+    from gconanpy.iters import are_all_equal, SimpleShredder
+    from gconanpy.iters.filters import MapSubset
     from gconanpy.iters.seq import uniqs_in
     from gconanpy.meta import (Comparer, has_method,
                                IgnoreExceptions, IteratorFactory, name_of)
     from gconanpy.meta.typeshed import DATA_ERRORS
     from gconanpy.trivial import always_true, get_key_set
     from gconanpy.wrappers import Sets, stringify_iter
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from debug import Debuggable
+    from iters import are_all_equal, SimpleShredder
+    from iters.filters import MapSubset
+    from iters.seq import uniqs_in
+    from meta import (Comparer, has_method,
+                      IgnoreExceptions, IteratorFactory, name_of)
+    from meta.typeshed import DATA_ERRORS
+    from trivial import always_true, get_key_set
+    from wrappers import Sets, stringify_iter
 
 
 class DifferenceBetween:
@@ -225,7 +227,7 @@ class Shredder(SimpleShredder, Debuggable):
     _T = TypeVar("_T")
 
     def __init__(self, max_shreds: int = 500, debugging: bool = False,
-                 map_filter: MapSubset.Filter = always_true) -> None:
+                 map_filter: MapSubset.FilterFunction = always_true) -> None:
         """ 
         :param max_shreds: int, the maximum number of times to "shred" a \
             data container to collect the data inside; defaults to 500

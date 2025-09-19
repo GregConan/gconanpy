@@ -4,7 +4,7 @@
 Classes that wrap other classes, especially builtins, to add functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-09-05
+Updated: 2025-09-18
 """
 # Import standard libraries
 import argparse
@@ -26,15 +26,17 @@ import pathvalidate
 
 # Import local custom libraries
 try:
-    from iters import MapSubset, seq_truncate, seq_rtruncate
-    from meta import (bool_pair_to_cases, ClassWrapper,
-                      name_of, TimeSpec, tuplify)
-    from meta.typeshed import NonTxtCollection
-except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.iters import MapSubset, seq_truncate, seq_rtruncate
+    from gconanpy.iters import seq_truncate, seq_rtruncate
+    from gconanpy.iters.filters import MapSubset
     from gconanpy.meta import (bool_pair_to_cases, ClassWrapper,
                                name_of, TimeSpec, tuplify)
     from gconanpy.meta.typeshed import NonTxtCollection
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from iters import seq_truncate, seq_rtruncate
+    from iters.filters import MapSubset
+    from meta import (bool_pair_to_cases, ClassWrapper,
+                      name_of, TimeSpec, tuplify)
+    from meta.typeshed import NonTxtCollection
 
 
 # @ClassWrapper(tuple).class_decorator  # TODO?
@@ -104,7 +106,7 @@ class ToString(str):
     # Filter to call fromIterable in quotate method using the recursive
     # iter_kwargs input parameter without adding a parameter exclusive to
     # fromMapping method (and not fromIterable)
-    _ITER_SUBSET = MapSubset(keys="join_on", include_keys=False)
+    _ITER_SUBSET = MapSubset(keys_arent="join_on")
 
     # Type hint for passing own methods to others as input parameters
     Stringifier = Callable[[Any], Self]

@@ -4,10 +4,10 @@
 Utility functions and classes to manipulate Sequences and numpy/pandas data.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-08-09
+Updated: 2025-09-18
 """
 # Import standard libraries
-from collections.abc import Hashable, Iterable, Sequence
+from collections.abc import Hashable, Iterable
 from pprint import pprint
 from typing import Any
 
@@ -17,11 +17,11 @@ import pandas as pd
 
 # Import local custom libraries
 try:
-    from iters import seq_startswith
-    from wrappers import stringify
-except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.iters import seq_startswith
     from gconanpy.wrappers import stringify
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from iters import seq_startswith
+    from wrappers import stringify
 
 # NOTE All functions/classes below are in alphabetical order.
 

@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-01
-Updated: 2025-08-12
+Updated: 2025-09-18
 """
 # Import standard libraries
 from collections.abc import Collection, Hashable, Iterable, \
@@ -14,14 +14,14 @@ from typing import Any, Mapping, cast, overload, Self, TypeVar
 
 # Import local custom libraries
 try:
-    from mapping import keys_mapped_to
-    from meta import name_of
-    from meta.typeshed import AddableSequence, BytesOrStr, \
-        DATA_ERRORS, SupportsGetItem, SupportsItemAccess
-except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.mapping import keys_mapped_to
     from gconanpy.meta import DATA_ERRORS, name_of
     from gconanpy.meta.typeshed import AddableSequence, BytesOrStr, \
+        DATA_ERRORS, SupportsGetItem, SupportsItemAccess
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from mapping import keys_mapped_to
+    from meta import name_of
+    from meta.typeshed import AddableSequence, BytesOrStr, \
         DATA_ERRORS, SupportsGetItem, SupportsItemAccess
 
 

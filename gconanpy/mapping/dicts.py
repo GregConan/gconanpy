@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-09-06
+Updated: 2025-09-18
 """
 # Import standard libraries
 from collections import defaultdict
@@ -20,21 +20,23 @@ from cryptography.fernet import Fernet
 
 # Import local custom libraries
 try:
-    from attributes import get_names as get_attr_names
-    from bytesify import Bytesifier
-    from debug import Debuggable
-    from iters import MapSubset, MapWalker, SimpleShredder
-    from meta import name_of, Traversible
-    from meta.typeshed import DATA_ERRORS, SupportsRichComparison
-    from trivial import always_none
-except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from gconanpy.attributes import get_names as get_attr_names
+    from gconanpy.access.attributes import get_names as get_attr_names
     from gconanpy.bytesify import Bytesifier
     from gconanpy.debug import Debuggable
-    from gconanpy.iters import MapSubset, MapWalker, SimpleShredder
+    from gconanpy.iters import MapWalker, SimpleShredder
+    from gconanpy.iters.filters import MapSubset
     from gconanpy.meta import name_of, Traversible
     from gconanpy.meta.typeshed import DATA_ERRORS, SupportsRichComparison
     from gconanpy.trivial import always_none
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from access.attributes import get_names as get_attr_names
+    from bytesify import Bytesifier
+    from debug import Debuggable
+    from iters import MapWalker, SimpleShredder
+    from iters.filters import MapSubset
+    from meta import name_of, Traversible
+    from meta.typeshed import DATA_ERRORS, SupportsRichComparison
+    from trivial import always_none
 
 # Type variables for .__init__(...) and .update(...) method input parameters
 MapParts = Iterable[tuple[Hashable, Any]]
@@ -49,12 +51,15 @@ class CustomDict[KT, VT](dict[KT, VT]):
         """
         :return: str, string representation of custom dict class including \
                  its class name: "CustomDict({...})"
-        """
+        """  # Not super() because that messes up distant subclasses' __repr__
         return f"{name_of(self)}({dict.__repr__(self)})"
 
     def copy(self) -> Self:
-        """ `D.copy()` -> a shallow copy of `D`. Return another instance \
-            of this same type of custom dictionary. """
+        """ `D.copy()` -> a shallow copy of `D`. 
+
+        :return: Self, another instance of this same type of custom \
+            dictionary with the same contents.
+        """
         return self.__class__(self)
 
 
@@ -225,7 +230,7 @@ class Invertionary(CustomDict):
                 for key, value in self.items():
                     inverted[value].append(key)
         if copy:
-            return self.__class__(inverted)
+            return type(self)(inverted)
         else:
             self.clear()
             self.update(inverted)
@@ -260,9 +265,11 @@ class Sortionary[KT: SupportsRichComparison, VT: SupportsRichComparison
 class Subsetionary[KT, VT](CustomDict[KT, VT]):
 
     @classmethod
-    def from_subset_of(cls, from_map: Mapping, keys: Container[KT] = set(),
-                       values: Container[VT] = set(), include_keys:
-                       bool = False, include_values: bool = False) -> Self:
+    def from_subset_of(cls, from_map: Mapping,
+                       keys_are: KT | Container[KT] = set(),
+                       values_are: VT | Container[VT] = set(),
+                       keys_arent: KT | Container[KT] = set(),
+                       values_arent: VT | Container[VT] = set()) -> Self:
         """ Convert a subset of `from_map` into a new `Subsetionary`.
 
         :param from_map: Mapping to create a new Subsetionary from a subset of.
@@ -276,12 +283,13 @@ class Subsetionary[KT, VT](CustomDict[KT, VT]):
             NONE OF the provided `values`.
         :return: Subsetionary including only the specified keys and values.       
         """
-        return MapSubset(keys, values, include_keys, include_values
+        return MapSubset(keys_are, values_are, keys_arent, values_arent
                          ).of(from_map, cls)
 
-    def subset(self, keys: Container[KT] = set(),
-               values: Container[VT] = set(), include_keys: bool = False,
-               include_values: bool = False) -> Self:
+    def subset(self, keys_are: KT | Container[KT] = set(),
+               values_are: VT | Container[VT] = set(),
+               keys_arent: KT | Container[KT] = set(),
+               values_arent: VT | Container[VT] = set()) -> Self:
         """ Create a new `Subsetionary` including only a subset of this one.
 
         :param keys: Container[Hashable] of keys to (in/ex)clude.
@@ -294,7 +302,7 @@ class Subsetionary[KT, VT](CustomDict[KT, VT]):
             NONE OF the provided `values`.
         :return: Subsetionary including only the specified keys and values.       
         """
-        return MapSubset(keys, values, include_keys, include_values
+        return MapSubset(keys_are, values_are, keys_arent, values_arent
                          ).of(self)
 
 
@@ -526,8 +534,8 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
         :return: Self mapping every key in `to_look_up` to the value \
             at its mapped path in `self`
         """
-        return self.__class__({key: self.lookup(path, sep, default)
-                               for key, path in to_look_up.items()})
+        return type(self)({key: self.lookup(path, sep, default)
+                           for key, path in to_look_up.items()})
 
     def homogenize(self, replace: type[dict] = dict) -> None:
         """ Recursively transform every dict contained inside this DotDict \
@@ -536,7 +544,7 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
 
         :param replace: type of element/child/attribute to change to DotDict.
         """
-        cls = self.__class__
+        cls = type(self)
         for k, v in self.items():
             if self._will_now_traverse(v) and isinstance(v, replace):
                 if not isinstance(v, cls):
