@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 
 """
-Utility functions and classes to manipulate Sequences and numpy/pandas data.
+Utility functions and classes to manipulate numpy/pandas data.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-09-18
+Updated: 2025-09-21
 """
 # Import standard libraries
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, Mapping
 from pprint import pprint
-from typing import Any
+from typing import Any, cast
 
 # Import third-party PyPI libraries
 import numpy as np
@@ -17,11 +17,9 @@ import pandas as pd
 
 # Import local custom libraries
 try:
-    from gconanpy.iters import seq_startswith
-    from gconanpy.wrappers import stringify
+    from gconanpy.meta import tuplify
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from iters import seq_startswith
-    from wrappers import stringify
+    from meta import tuplify
 
 # NOTE All functions/classes below are in alphabetical order.
 
@@ -78,32 +76,42 @@ def search_sequence_numpy(arr: np.ndarray, subseq: np.ndarray) -> list[int]:
     return start_indices
 
 
-def startswith(an_obj: Any, prefix: Any) -> bool:
-    """ Check if the beginning of an_obj is prefix.
-    Type-agnostic extension of str.startswith and bytes.startswith.
-
-    :param an_obj: Any, _description_
-    :param prefix: Any, _description_
-    :return: bool, True if an_obj starts with the specified prefix, else False
+def try_filter_df(df: pd.DataFrame, filters: Mapping[Hashable, Iterable[Hashable]]
+                  ) -> pd.DataFrame:
     """
-    try:
-        try:
-            result = an_obj.startswith(prefix)
-        except AttributeError:  # then an_obj isn't a str, bytes or BytesArray
-            result = seq_startswith(an_obj, prefix)
-    except TypeError:  # then an_obj isn't a Sequence or prefix isn't
-        result = seq_startswith(stringify(an_obj), stringify(prefix))
-    return result
-
-
-def uniqs_in(listlike: Iterable[Hashable]) -> list[Hashable]:
-    """Alphabetize and list the unique elements of an iterable.
-    To list non-private local variables' names, call uniqs_in(locals()).
-
-    :param listlike: Iterable[Hashable] to get the unique elements of
-    :return: List[Hashable] (sorted) of all unique strings in listlike \
-             that don't start with an underscore
+    :param df: pd.DataFrame to filter
+    :param col_name: Hashable, name of the column to filter by
+    :param acceptable_values: Iterable[Any], values that must appear in \
+        the `col_name` column of every row of the returned `DataFrame`, \
+        if any such rows exist in this `DataFrame`.
+    :return: DataFrame, filtered to only include row(s) with a `col_name` \
+        value in `acceptable_values`, if any; else `df` unchanged.
     """
-    uniqs = [*set([v for v in listlike if not startswith(v, "_")])]
-    uniqs.sort()  # type: ignore
-    return uniqs
+    new_df = prev_df = df
+    for col_name, acceptable_values in filters.items():
+        # not `match len(new_df.index)` because that'd need a double `break`?
+        n_rows = len(new_df.index)
+        if n_rows == 1:
+            return new_df
+        elif n_rows == 0:
+            '''
+            raise ValueError("Value not found in DataFrame")
+            if len(prev_df.index) == 0:
+                pdb.set_trace()
+                pass
+            '''
+            new_df = prev_df
+        else:
+            prev_df = new_df
+            new_df = cast(pd.DataFrame, new_df.loc[new_df[col_name].isin(
+                tuplify(acceptable_values))
+            ])
+    if len(new_df.index) > 1:
+        for col_name, acceptable_values in filters.items():
+            for val in acceptable_values:
+                new_df = cast(pd.DataFrame, new_df.loc[
+                    new_df[col_name].str.contains(val)])
+                if len(new_df.index) == 1:
+                    return new_df
+
+    return new_df if len(new_df.index) > 0 else df

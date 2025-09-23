@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-09-18
+Updated: 2025-09-21
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable
@@ -15,24 +15,22 @@ from typing import Any, TypeVar
 # Import local custom libraries
 try:
     from gconanpy.debug import Debuggable
-    from gconanpy.iters import are_all_equal, SimpleShredder
+    from gconanpy.iters import are_all_equal, SimpleShredder, uniqs_in
     from gconanpy.iters.filters import MapSubset
-    from gconanpy.iters.seq import uniqs_in
     from gconanpy.meta import (Comparer, has_method,
                                IgnoreExceptions, IteratorFactory, name_of)
     from gconanpy.meta.typeshed import DATA_ERRORS
     from gconanpy.trivial import always_true, get_key_set
-    from gconanpy.wrappers import Sets, stringify_iter
+    from gconanpy.wrappers import Sets, stringify, stringify_iter
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from debug import Debuggable
-    from iters import are_all_equal, SimpleShredder
+    from iters import are_all_equal, SimpleShredder, uniqs_in
     from iters.filters import MapSubset
-    from iters.seq import uniqs_in
     from meta import (Comparer, has_method,
                       IgnoreExceptions, IteratorFactory, name_of)
     from meta.typeshed import DATA_ERRORS
     from trivial import always_true, get_key_set
-    from wrappers import Sets, stringify_iter
+    from wrappers import Sets, stringify, stringify_iter
 
 
 class DifferenceBetween:
@@ -398,7 +396,7 @@ class Xray(list):
             f" {list_its if list_its else what_elements_are}"
 
         with IgnoreExceptions(TypeError):
-            gotten = uniqs_in(gotten)
+            gotten = uniqs_in(gotten, stringify)
         super().__init__(gotten)
 
     def __repr__(self):

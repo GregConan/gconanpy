@@ -5,11 +5,11 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-09-18
+Updated: 2025-09-22
 """
 # Import standard libraries
 import abc
-from collections.abc import (Collection, Generator, Hashable,
+from collections.abc import (Callable, Collection, Generator, Hashable,
                              Iterable, Mapping, Sequence)
 from functools import reduce
 import itertools
@@ -30,8 +30,9 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from meta.typeshed import Poppable, Updatable
 
 # Constant: TypeVars for...
-H = TypeVar("H", bound=Hashable)  # ...invert
+H = TypeVar("H", bound=Hashable)  # ...invert & uniqs_in
 I = TypeVar("I", bound=Iterable)  # ...combine
+T = TypeVar("T")  # ...duplicates_in
 U = TypeVar("U", bound=Updatable)  # ...merge & update_return
 
 # NOTE Functions are in alphabetical order. Classes are in dependency order.
@@ -91,6 +92,10 @@ def default_pop(poppable: Poppable, key: Any = None,
     return to_return
 
 
+def duplicates_in(a_seq: Sequence[T]) -> list[T]:
+    return [x for x in a_seq if a_seq.count(x) > 1]
+
+
 def has_any(iterable: Iterable, *items: Any) -> bool:
     for item in items:
         if item in iterable:
@@ -130,6 +135,41 @@ def seq_truncate(a_seq: Sequence, max_len: int) -> Sequence:
 
 def seq_rtruncate(a_seq: Sequence, max_len: int) -> Sequence:
     return a_seq[-max_len:] if len(a_seq) > max_len else a_seq
+
+
+def startswith(an_obj: Any, prefix: Any,  # TODO Move to duck.py ?
+               stringify: Callable[[Any], str] = str) -> bool:
+    """ Check if the beginning of an_obj is prefix.
+        Type-agnostic extension of str.startswith and bytes.startswith.
+
+    :param an_obj: Any, _description_
+    :param prefix: Any, _description_
+    :param stringify: Callable[[Any], str], function to convert any objecct \
+        into a string for sequence comparison; defaults to `str`
+    :return: bool, True if an_obj starts with the specified prefix, else False
+    """
+    try:
+        try:
+            result = an_obj.startswith(prefix)
+        except AttributeError:  # then an_obj isn't a str, bytes or BytesArray
+            result = seq_startswith(an_obj, prefix)
+    except TypeError:  # then an_obj isn't a Sequence or prefix isn't
+        result = seq_startswith(stringify(an_obj), stringify(prefix))
+    return result
+
+
+def uniqs_in(listlike: Iterable[H], stringify: Callable[[Any], str] = str
+             ) -> list[H]:
+    """Alphabetize and list the unique elements of an iterable.
+        To list non-private local variables' names, call `uniqs_in(locals())`.
+
+    :param listlike: Iterable[Hashable] to get the unique elements of
+    :return: list[Hashable] (sorted) of all unique strings in listlike \
+             that don't start with an underscore
+    """
+    uniqs = [*set([v for v in listlike if not startswith(v, "_", stringify)])]
+    uniqs.sort()  # pyright: ignore[reportCallIssue]  # TODO?
+    return uniqs
 
 
 def update_return(self: U, other: U) -> U:
@@ -191,13 +231,13 @@ class Randoms:
                    same_len: bool = False, unique: bool = False
                    ) -> list[tuple[_VT, ...]]:
         tuples = list()  # to return
-        tuplen = random.randint(min_len, max_len) if same_len else None
+        tup_len = random.randint(min_len, max_len) if same_len else None
         for _ in cls.randrange(min_n, max_n):
-            if tuplen is None:
-                tuplen = random.randint(min_len, max_len)
-            a_tup = cls.randtuple(tuplen, values)
+            if tup_len is None:
+                tup_len = random.randint(min_len, max_len)
+            a_tup = cls.randtuple(tup_len, values)
             while unique and (a_tup in tuples):
-                a_tup = cls.randtuple(tuplen, values)
+                a_tup = cls.randtuple(tup_len, values)
             tuples.append(a_tup)
         return tuples
 

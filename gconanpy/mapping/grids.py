@@ -4,7 +4,7 @@
 Custom multidimensional dictionaries extending dicts.py classes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-23
-Updated: 2025-09-18
+Updated: 2025-09-22
 """
 # Import standard libraries
 import abc
@@ -57,7 +57,7 @@ class BaseHashGrid[KT: Hashable, VT](abc.ABC, CustomDict[int, VT]):
     @abc.abstractmethod
     def _sort_keys(self, keys) -> tuple[KT, ...]: ...
 
-    def __contains__(self, keys: Iterable[KT], /) -> bool:
+    def __contains__(self, keys: Iterable[KT] | Mapping[str, KT], /) -> bool:
         """ Return `bool(keys in self)`.
 
         :param keys: Iterable[KT] | Mapping[str, KT], keys/coordinates
@@ -66,7 +66,7 @@ class BaseHashGrid[KT: Hashable, VT](abc.ABC, CustomDict[int, VT]):
         """
         return super().__contains__(self._hash_keys(keys))
 
-    def __getitem__(self, keys: Iterable[KT], /) -> VT:
+    def __getitem__(self, keys: Iterable[KT] | Mapping[str, KT], /) -> VT:
         """ Return `self[keys]`.
 
         :param keys: Iterable[KT] | Mapping[str, KT], keys/coordinates
@@ -244,6 +244,7 @@ class HashGrid[KT: Hashable, VT](BaseHashGrid[KT, VT]):
         """
         if self.strict:
             self._validate_n_keys(keys)
+
         return super().__setitem__(keys, value)
 
     def _fill(self, *pairs, values=tuple(), **dimensions):

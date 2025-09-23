@@ -6,7 +6,7 @@ Overlaps significantly with audit-ABCC/src/utilities.py and \
     abcd-bids-tfmri-pipeline/src/pipeline_utilities.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-09-18
+Updated: 2025-09-21
 """
 # Import standard libraries
 from abc import ABC
@@ -35,15 +35,15 @@ try:
     from gconanpy.bytesify import HumanBytes
     from gconanpy.IO.local import walk_dir
     from gconanpy.meta import name_of, TimeSpec
-    from gconanpy.iters.seq import uniqs_in
-    from gconanpy.wrappers import stringify_dt, stringify_iter
+    from gconanpy.iters import uniqs_in
+    from gconanpy.wrappers import stringify, stringify_dt, stringify_iter
 except ModuleNotFoundError:  # TODO DRY?
     from . import ROOT_DIR
     from bytesify import HumanBytes
     from IO.local import walk_dir
     from meta import name_of, TimeSpec
-    from iters.seq import uniqs_in
-    from wrappers import stringify_dt, stringify_iter
+    from iters import uniqs_in
+    from wrappers import stringify, stringify_dt, stringify_iter
 
 # Constants
 LOGGER_NAME = __package__ if __package__ else __file__
@@ -188,8 +188,8 @@ def show_keys_in(a_map: Mapping[str, Any],  # show: Callable = print,
     :param level: int, the severity level to log the message at (10 to 50)
     :param logger_name: str naming the logger to use for logging the message
     """
-    log(f"{what_keys_are}: {stringify_iter(uniqs_in(a_map))}", level=level,
-        logger_name=logger_name)
+    log(f"{what_keys_are}: {stringify_iter(uniqs_in(a_map, stringify))}",
+        level=level, logger_name=logger_name)
 
 
 class ShowTimeTaken(ABC):

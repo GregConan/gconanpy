@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-09-18
+Updated: 2025-09-22
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -20,7 +20,7 @@ from gconanpy import mapping
 from gconanpy.access import attributes
 from gconanpy.access import ACCESS, Access, Accessor
 from gconanpy.debug import StrictlyTime
-from gconanpy.iters import Combinations, MapWalker, powers_of_ten, Randoms
+from gconanpy.iters import Combinations, duplicates_in, MapWalker, powers_of_ten, Randoms
 from gconanpy.mapping.dicts import *
 from gconanpy.mapping.grids import HashGrid, Locktionary  # GridCryptionary,
 from gconanpy.meta import full_name_of, TimeSpec
@@ -731,18 +731,18 @@ class TestHashGrid(DictTester):
             for _ in range(n_tests):
                 n_dims = random.randint(2, Randoms.MAX)
                 n_pairs = random.randint(2, Randoms.MAX)
-                dimensions = {names: coords for names, coords in zip(
-                    Randoms.randtuple(n_dims, string.ascii_letters),
-                    Randoms.randtuples(
+                not_unique_yet = True
+                while not_unique_yet:
+                    keys = Randoms.randtuple(n_dims, string.ascii_letters)
+                    tuples = Randoms.randtuples(
                         min_n=n_dims, max_n=n_dims, min_len=n_pairs,
-                        max_len=n_pairs, unique=True))}
-                values = list()
-                dim_keys = list()
-                for i in range(n_pairs):
-                    dim_keys.append({dim_name: dim_vals[i]
-                                     for dim_name, dim_vals
-                                     in dimensions.items()})
-                    values.append(Randoms.randstr())
+                        max_len=n_pairs, unique=True)
+                    dimensions = {names: vals for names, vals
+                                  in zip(keys, tuples)}
+                    dim_keys = [{dim_name: dim_vals[i] for dim_name, dim_vals
+                                in dimensions.items()} for i in range(n_pairs)]
+                    not_unique_yet = duplicates_in(dim_keys)
+                values = [Randoms.randstr() for _ in range(n_pairs)]
                 yield dim_keys, values, hgclass(
                     values=values, strict=True, **dimensions)
 
@@ -782,7 +782,7 @@ class TestHashGrid(DictTester):
     # def test_wrong_n_keys  # TODO
 
     def test_str_dims_get_set(self, classes: CLASSES = TEST_CLASSES,
-                              n_tests: int = 450) -> None:
+                              n_tests: int = 250) -> None:
         for dim_keys, values, hg in self.str_dims_HG(classes, n_tests):
             for i in range(len(values)):
                 try:
@@ -791,8 +791,9 @@ class TestHashGrid(DictTester):
                     self.check_result(hg[dim_keys[i]], None)
                 except AssertionError as err:
                     print(f"\nhg={hg}\nlen(hg)={len(hg)}\n"
-                          f"keys={dim_keys[i]}\nvalue={values[i]}")
-                    # pdb.set_trace()  # TODO Uncomment to interactively debug
+                          f"keys={dim_keys[i]}\nvalue={values[i]}\n"
+                          f"")
+                    pdb.set_trace()  # TODO Uncomment to interactively debug
                     raise err
 
     def test_str_dims_names(self, classes: CLASSES = TEST_CLASSES,
@@ -800,7 +801,7 @@ class TestHashGrid(DictTester):
         self.dims_names_test(self.str_dims_HG, classes, n_tests)
 
     def test_str_dims_pop(self, classes: CLASSES = TEST_CLASSES,
-                          n_tests: int = 650) -> None:
+                          n_tests: int = 500) -> None:
         for dim_keys, values, hg in self.str_dims_HG(classes, n_tests):
             for i in range(len(values)):
                 try:

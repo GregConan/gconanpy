@@ -3,16 +3,17 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-06
-Updated: 2025-09-18
+Updated: 2025-09-22
 """
 # Import standard libraries
 from collections.abc import Generator, Hashable
 import random
+import string
 from timeit import timeit
 from typing import Any, TypeVar
 
 # Import local custom libraries
-from gconanpy.iters import Combinations, combine_lists, merge, Randoms
+from gconanpy.iters import Combinations, combine_lists, duplicates_in, merge, Randoms
 from gconanpy.iters.duck import DuckCollection
 from gconanpy.iters.filters import MapSubset
 from gconanpy.testers import Tester
@@ -207,3 +208,14 @@ class TestMerge(Tester):
                 time_taken[which] += timeit(STMT.format(merge_fn),
                                             setup=setup, number=n_reps)
         assert merges["update"] < merges["union"]
+
+
+class TestRandoms(Tester):
+    def test_randtuples_unique(self, n_tests: int = 1000) -> None:
+        for _ in range(n_tests):
+            width = 2  # random.randint(2, Randoms.MAX)
+            length = random.randint(2, Randoms.MAX)
+            tuples = Randoms.randtuples(min_n=width, max_n=width,
+                                        min_len=length,
+                                        max_len=length, unique=True)
+            self.check_result(len(set(tuples)), len(tuples))
