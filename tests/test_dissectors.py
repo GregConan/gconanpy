@@ -3,10 +3,10 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-09-18
+Updated: 2025-09-24
 """
 # Import standard libraries
-from typing import Any
+from typing import Any, cast
 
 # Import local custom libraries
 from gconanpy.access.dissectors import \
@@ -86,12 +86,12 @@ class TestCorers(Tester):
             corer = corer_type()
             for cored in (corer.core(soup), corer.safe_core(soup, as_type=str)):
                 print(cored)
-                assert cored.strip().startswith("Thank you")  # type: ignore
+                assert cast(str, cored).strip().startswith("Thank you")
 
     def test_5(self):
         cli_args = self.build_cli_args(DotDict, Cryptionary)
         print(f"cli_args: {cli_args}")
-        excluder = MapSubset(keys_are={"b"})
+        excluder = MapSubset(keys_are="b")
         self.core_tests(cli_args, 2, map_filter=excluder)
 
     def test_6(self):

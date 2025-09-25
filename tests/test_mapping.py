@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-09-22
+Updated: 2025-09-24
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -486,7 +486,7 @@ class TestDotDicts(DictTester):
                                world=DotDict(foo=dict(bar="baz")))
             print(type(dd.testdict["world"]))
             for a_dict in (dd["testdict"], dd["testdict"]["hello"],
-                           dd.testdict["world"].foo):  # type: ignore
+                           dd.testdict["world"].foo):
                 assert not isinstance(a_dict, type(dd))
             dd.homogenize()
             for a_map in MapWalker(dd, only_yield_maps=True).values():
