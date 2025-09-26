@@ -3,10 +3,10 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-08-11
+Updated: 2025-09-25
 """
 # Import standard libraries
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Generator, Iterable
 import datetime as dt
 import pdb
 import random
@@ -18,7 +18,7 @@ import bs4
 
 # Import local custom libraries
 from gconanpy.IO.web import URL
-from gconanpy.iters import Randoms
+from gconanpy.iters import copy_range, invert_range, Randoms
 from gconanpy.meta import name_of
 from gconanpy.testers import Tester
 from gconanpy.trivial import always_true
@@ -31,9 +31,24 @@ class TestSets(Tester):
     randintsets = WrapFunction(Randoms.randintsets, min_n=10, max_n=20,
                                min_len=N_TESTS, max_len=N_TESTS)
 
+    def asc_desc_Sets(self, n_tests: int = 20, max_int: int = 20,
+                      ) -> Generator[tuple[Sets, Sets, Sets], None, None]:
+        for each_int in Randoms.randints(min_n=n_tests, max_n=n_tests,
+                                         min_int=2, max_int=max_int):
+            asc_range = range(each_int)
+            dsc_range = invert_range(asc_range)
+            ascending = Sets({a} for a in asc_range)
+            assert ascending
+            descending = Sets({d} for d in dsc_range)
+            assert descending
+            both = Sets({i, j} for i, j in zip(copy_range(asc_range),
+                                               copy_range(dsc_range)))
+            assert both
+            yield ascending, descending, both
+
     def test_differentiate_and_merge(self) -> None:
         sets = Sets(({1, 2, 3, 4, 5}, {4, 5, 6, 7, 8}, {6, 7, 8, 9, 10}))
-        self.check_result(sets.differentiate(),
+        self.check_result(Sets(sets.differentiate()),
                           Sets(({1, 2, 3}, set(), {9, 10})))
         self.check_result(sets.merge(), set(range(1, 11)))
 
@@ -50,7 +65,7 @@ class TestSets(Tester):
 
     def test_filter(self) -> None:
         sets = Sets(((1, 2, 3), (3, 4, 5, 6), (1, 9, 10)))
-        self.check_result(sets.filter(lambda x: x > 5),
+        self.check_result(Sets(sets.filter(lambda x: x > 5)),
                           Sets((tuple(), (6, ), (9, 10))))
 
     def test_intersection(self) -> None:
@@ -66,6 +81,26 @@ class TestSets(Tester):
                 intersected.intersection_update(eachset)
             self.check_result(Sets((set1, *others)).intersection(),
                               intersected)
+
+    def test_union_each(self) -> None:
+        for ascending, descending, both in self.asc_desc_Sets():
+            unioned = Sets(cast(tuple[set[int]],  # TODO This shouldn't need a cast
+                           tuple(ascending.union_each(descending))))
+            self.check_result(unioned, both)
+
+    def test_unique(self) -> None:
+        self.check_result(Sets(({1, 2}, {1, 3}, {1, 2, 4}, {1})
+                               ).unique(), {3, 4})
+
+        # Test that for Sets with no shared items, unique() == union()
+        ints = set(Randoms.randints())  # get random unique integers
+        intsets = Sets({i} for i in ints)  # split them, each in its own set
+        self.check_result(intsets.union(), intsets.unique())
+
+    def test_update_each(self) -> None:
+        for ascending, descending, both in self.asc_desc_Sets():
+            ascending.update_each(descending)
+            self.check_result(ascending, both)
 
 
 class TestSoupTree(Tester):

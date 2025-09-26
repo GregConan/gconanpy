@@ -5,19 +5,19 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-09-22
+Updated: 2025-09-25
 """
 # Import standard libraries
 import abc
 from collections.abc import (Callable, Collection, Generator, Hashable,
                              Iterable, Mapping, Sequence)
-from functools import reduce
+from functools import reduce, wraps
 import itertools
 from more_itertools import all_equal
 import random
 import string
 import sys
-from typing import Any, TypeVar
+from typing import Any, ParamSpec, TypeVar
 
 # Import local custom libraries
 try:
@@ -29,10 +29,11 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from meta import method, Traversible
     from meta.typeshed import Poppable, Updatable
 
-# Constant: TypeVars for...
-H = TypeVar("H", bound=Hashable)  # ...invert & uniqs_in
-I = TypeVar("I", bound=Iterable)  # ...combine
-T = TypeVar("T")  # ...duplicates_in
+# Constants: TypeVars for...
+H = TypeVar("H", bound=Hashable)   # ...invert & uniqs_in
+I = TypeVar("I", bound=Iterable)   # ...combine
+P = ParamSpec("P")                 # ...exhaust_wrapper
+T = TypeVar("T")                   # ...duplicates_in
 U = TypeVar("U", bound=Updatable)  # ...merge & update_return
 
 # NOTE Functions are in alphabetical order. Classes are in dependency order.
@@ -56,17 +57,15 @@ def are_all_equal(comparables: Iterable, eq_meth: str | None = None,
         otherwise False.
     """
     if not eq_meth:
-        result = all_equal(comparables)
+        return all_equal(comparables)
     else:
         are_both_equal = method(eq_meth)
         pair_up = itertools.permutations if reflexive \
             else itertools.combinations
-        result = True
         for pair in pair_up(comparables, 2):
             if not are_both_equal(*pair):
-                result = False
-                break
-    return result
+                return False
+        return True
 
 
 def combine_lists(lists: Iterable[list]) -> list:
@@ -75,6 +74,14 @@ def combine_lists(lists: Iterable[list]) -> list:
     :return: list combining all of the `lists` into one
     """
     return list(itertools.chain.from_iterable(lists))
+
+
+def copy_range(a_range: range) -> range:
+    """ 
+    :param a_range: range
+    :return: range, a new copy of `a_range` that has not been iterated yet
+    """
+    return range(a_range.start, a_range.stop, a_range.step)
 
 
 def default_pop(poppable: Poppable, key: Any = None,
@@ -93,14 +100,63 @@ def default_pop(poppable: Poppable, key: Any = None,
 
 
 def duplicates_in(a_seq: Sequence[T]) -> list[T]:
+    """ 
+    :param a_seq: Sequence[T: Any] to check for duplicate elements
+    :return: list[T], everything that appears more than once in `a_seq`
+    """
     return [x for x in a_seq if a_seq.count(x) > 1]
 
 
+def exhaust(gen: Generator[Any, Any, Any], max_loops: int = sys.maxsize
+            ) -> None:
+    """ Given a generator function, exhaust it by iterating it until it has \
+        no values left to yield. Ignores values yielded.
+
+    :param gen: Generator[Any, Any, Any], generator function to exhaust
+    :param max_loops: int, maximum number of times to try getting the next \
+        value from `gen`
+    """
+    try:
+        for _ in range(max_loops):
+            next(gen)
+    except StopIteration:
+        pass
+
+
+def exhaust_wrapper(gen_func: Callable[P, Generator[Any, Any, Any]],
+                    max_loops: int = sys.maxsize) -> Callable[P, None]:
+    """ Given a generator function, wrap it in an redundant inner function \
+        that will exhaust it by iterating it until it has no values left to \
+        yield and ignores values yielded.
+
+    :param gen_func: Callable[P, Generator[Any, Any, Any]], generator function
+    :param max_loops: int, maximum number of times to try getting the next \
+        value from the `gen_func(...)` when the returned function is called
+    """
+    @wraps(gen_func)
+    def inner(*args: P.args, **kwargs: P.kwargs) -> None:
+        exhaust(gen_func(*args, **kwargs), max_loops)
+    return inner
+
+
 def has_any(iterable: Iterable, *items: Any) -> bool:
+    """
+    :param iterable: Iterable to check whether it contains any of the `items`
+    :return: bool, True if any item in `items` is in `iterable`; else False
+    """
     for item in items:
         if item in iterable:
             return True
     return False
+
+
+def invert_range(a_range: range) -> range:
+    """ Same as `reversed(a_range)`, but returns a freshly copied `range`.
+
+    :param a_range: range, _description_
+    :return: range, _description_
+    """
+    return range(a_range.stop - 1, a_range.start - 1, -a_range.step)
 
 
 def merge(updatables: Iterable[U]) -> U:
@@ -183,6 +239,9 @@ def update_return(self: U, other: U) -> U:
 
 
 class Randoms:
+    """ Various methods using the `random` library to randomly select or \
+        generate values. Useful for generating arbitrary test data. """
+
     # Type hint class variables
     _KT = TypeVar("_KT", bound=Hashable)  # for randict method
     _VT = TypeVar("_VT")  # for randict method

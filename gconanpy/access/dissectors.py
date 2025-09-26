@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-09-21
+Updated: 2025-09-25
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable
@@ -143,8 +143,7 @@ class DifferenceBetween:
                                    [x for x in range(end_ix)])
 
     def compare_sets(self, by: str, get_comparisons: GetPartNames,
-                     get_subcomparator: GetSubcomparator
-                     ) -> list:
+                     get_subcomparator: GetSubcomparator) -> list:
         """ _summary_ 
 
         :param by: str, name of the possible difference to find
@@ -187,10 +186,7 @@ class DifferenceBetween:
                     return ix_diffs
 
         diff_attrs = self.compare_sets("unique attribute(s)", dir, getattr)
-        if self.difference:
-            return diff_attrs
-        else:
-            return list()
+        return diff_attrs if self.difference else list()
 
 
 class Peeler(IteratorFactory):

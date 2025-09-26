@@ -4,20 +4,21 @@
 Classes that wrap other classes, especially builtins, to add functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-09-18
+Updated: 2025-09-25
 """
 # Import standard libraries
 import argparse
 # from collections import UserString  # TODO?
-from collections.abc import (Callable, Collection, Generator,
-                             Hashable, Iterable, Mapping)
+from collections.abc import Callable, Collection, Generator, \
+    Hashable, Iterable, Mapping, Sequence
 import datetime as dt
-from functools import reduce
+from functools import reduce, wraps
 from more_itertools import all_equal
 import os
 import re
 import sys
-from typing import Any, Literal, NamedTuple, overload, SupportsIndex, TypeVar
+from typing import Any, Concatenate, Literal, NamedTuple, overload, \
+    ParamSpec, SupportsIndex, TypeVar
 from typing_extensions import Self
 
 # Import third-party PyPI libraries
@@ -26,75 +27,17 @@ import pathvalidate
 
 # Import local custom libraries
 try:
-    from gconanpy.iters import seq_truncate, seq_rtruncate
+    from gconanpy.iters import exhaust_wrapper
     from gconanpy.iters.filters import MapSubset
     from gconanpy.meta import (bool_pair_to_cases, ClassWrapper,
                                name_of, TimeSpec, tuplify)
     from gconanpy.meta.typeshed import NonTxtCollection
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from iters import seq_truncate, seq_rtruncate
+    from iters import exhaust_wrapper
     from iters.filters import MapSubset
     from meta import (bool_pair_to_cases, ClassWrapper,
                       name_of, TimeSpec, tuplify)
     from meta.typeshed import NonTxtCollection
-
-
-# @ClassWrapper(tuple).class_decorator  # TODO?
-class Sets[T: Hashable](tuple[set[T], ...]):
-    """ Wrapper class to centralize methods comparing/using multiple sets. """
-    are_same = all_equal  # Check whether sets have the same elements
-
-    def __add__(self, value: tuple[set[T], ...]) -> Self:
-        """ Returns `self + value`. Defined to return a `Sets` instance.
-
-        :param value: tuple[set[T], ...], sets to append to this tuple of Sets
-        :return: Self, a `Sets` instance with `value` concatenated to the end
-        """
-        return type(self)(super().__add__(value))
-
-    @overload
-    def __getitem__(self, key: SupportsIndex, /) -> set[T]: ...
-    @overload
-    def __getitem__(self, key: slice, /) -> Self: ...
-
-    def __getitem__(self, key):
-        """ Returns `self[key]`. Defined so slicing returns a `Sets` instance.
-
-        :return: slice | set[T], `self[key]`
-        """
-        gotten = super().__getitem__(key)
-        if isinstance(key, slice):  # if isinstance(gotten, tuple):
-            gotten = type(self)(gotten)
-        return gotten
-
-    def __new__(cls, iterables: Iterable[Iterable[T]] = tuple()) -> Self:
-        """ 
-        :param iterables: Iterable[Iterable[T]] to convert into `Sets`
-        :return: Self, a tuple of all input `iterables` as `Sets`
-        """
-        return super().__new__(cls, (set(x) for x in iterables))
-
-    def differentiate(self) -> Self:
-        """ Return a copy of the sets without any shared elements. Each will \
-            only have its unique items, so they do no overlap/intersect.
-
-        :return: Self, these `Sets`, but each only has its unique items
-        """
-        return type(self)(self[i].difference((self[:i] + self[i+1:]).merge()
-                                             ) for i in range(len(self)))
-
-    def filter(self, func: Callable) -> Self:
-        return type(self)(filter(func, s) for s in self)
-
-    def intersection(self) -> set[T]:
-        """ :return: set[T] with only the items in all input sets/`Sets`. """
-        return reduce(set.intersection, self) if self else set()
-
-    def merge(self) -> set[T]:
-        """ :return: set[T] with all elements from all input sets/`Sets`. """
-        return reduce(set.union, self) if self else set()
-
-    union = merge  # Method alias
 
 
 # Wrap every str method that returns str to return a ToString instance instead
@@ -683,8 +626,10 @@ class WrapFunction:  # WrapFunction(partial):
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         """ Call/execute/unwrap/"thaw" the wrapped/"frozen" function.
 
+        :param args: Iterable[Any], positional input arguments
+        :param kwargs: Mapping[str, Any], keyword input arguments
         :return: Any, the output of calling the wrapped/"frozen" function \
-            with the specified input parameters
+            with the specified input arguments
         """
         return self.func(*self.pre, *args, *self.post,
                          **self.keywords, **kwargs)
@@ -693,6 +638,10 @@ class WrapFunction:  # WrapFunction(partial):
                  post: Any = tuple(), **keywords: Any) -> None:
         """ Wrap/"freeze" a function with some parameters already defined \
             to call that function with those parameters later.
+
+        Same as `functools.partial`, but `WrapFunction` lets you define \
+        positional arguments to pass to the wrapped function before *and* \
+        after the positional arguments passed at execution.
 
         :param func: Callable[[*pre, ..., *post], Any], the function to \
             wrap/"freeze" and then call/execute/"thaw" later.
@@ -742,16 +691,132 @@ class WrapFunction:  # WrapFunction(partial):
             return self.func(*args, **kwargs) == output
         return type(self)(is_as_expected)
 
-    def foreach(self, *objects: Any) -> Generator[Any, None, None]:
+    def foreach(self, *objects: Any, **kwargs: Any
+                ) -> Generator[Any, None, None]:
         """ Call the wrapped/"frozen" function with its specified parameters \
             on every object in `objects`. Iterate lazily; only call/execute \
             the wrapped function on each object at the moment of retrieval.
 
+        :param objects: Iterable[Any], each positional input argument to \
+            call this `WrapFunction` on once
+        :param kwargs: Mapping[str, Any], keyword arguments to call this \
+            `WrapFunction` with on every object in `objects`
         :yield: Generator[Any, None, None], what the wrapped/"frozen" \
             function returns when given each object in `objects` as an input.
         """
         for an_obj in objects:
-            yield self.func(an_obj)
+            yield self.func(an_obj, **kwargs)
+
+
+# @ClassWrapper(tuple).class_decorator  # TODO?
+class Sets[T: Hashable](tuple[set[T], ...]):
+    """ Wrapper class to centralize methods comparing/using multiple sets. """
+    _P = ParamSpec("_P")  # for apply method
+    _R = TypeVar("_R")  # for apply method
+
+    are_same = all_equal  # Check whether sets have the same elements
+
+    def __add__(self, others: Iterable[set[T]]) -> Self:
+        """ Concatenates `others` to these `Sets`.
+
+        Returns `self + value`. Defined to return a `Sets` instance. 
+
+        :param others: Iterable[set[T], ...], other sets to append to this \
+            `Sets` tuple
+        :return: Self, a `Sets` instance with `others` concatenated to the end
+        """
+        return type(self)(super().__add__(tuple(others)))
+
+    @overload
+    def __getitem__(self, key: SupportsIndex, /) -> set[T]: ...
+    @overload
+    def __getitem__(self, key: slice, /) -> Self: ...
+
+    def __getitem__(self, key):
+        """ Returns `self[key]`. Defined so slicing returns a `Sets` instance.
+
+        :return: slice | set[T], `self[key]`
+        """
+        gotten = super().__getitem__(key)
+        if isinstance(key, slice):  # if isinstance(gotten, tuple):
+            gotten = type(self)(gotten)
+        return gotten
+
+    def __new__(cls, iterables: Iterable[Iterable[T]] = tuple()) -> Self:
+        """ 
+        :param iterables: Iterable[Iterable[T]] to convert into `Sets`
+        :return: Self, a tuple of all input `iterables` as `Sets`
+        """
+        return super().__new__(cls, (set(x) for x in iterables))
+
+    @staticmethod
+    def _zip_sets(func: Callable[Concatenate[set[T], Iterable[T], _P], _R]
+                  ):  # -> Callable[[Self, Sequence[set[T]]], Generator[_R,
+
+        def inner(self: Self, others: Sequence[set[T]], *args,  # : _P.args,
+                  **kwargs):  # : _P.kwargs) -> Generator[_R, None, None]:
+            """ Element-wise `set` operation.
+
+            :param others: Sequence[set[T]], _description_
+            """
+            for i in range(min(len(self), len(others))):
+                yield func(self[i], others[i], *args, **kwargs)
+        return inner
+
+    @staticmethod
+    def _reduce_set_method(func: Callable[[set[T], Iterable[T]], set[T]]
+                           ) -> Callable[..., set[T]]:
+        @wraps(func)
+        def inner(self) -> set[T]:
+            return reduce(func, self) if self else set()
+
+        # Copy the original method's docstring, but update it for Sets class
+        doc = getattr(func, "__doc__", None)
+        if doc is not None:
+            inner.__doc__ = ToString.fromAny(doc).replace_all({
+                "two sets": "all `Sets`", "both sets": "all `Sets`"})
+        return inner
+
+    # Aliases for methods reducing all contained Sets to one output set
+    combine = merge = union = _reduce_set_method(set.union)
+    intersection = overlap = _reduce_set_method(set.intersection)
+    unique = uniques = _reduce_set_method(set.symmetric_difference)
+
+    concat = extend = __add__  # More synonymous method aliases
+
+    # Operations to perform on each set in these Sets and the corresponding
+    # set in a different Sequence of sets
+    union_each = _zip_sets(set.union)
+    update_each = exhaust_wrapper(_zip_sets(set.update))
+
+    def append(self, *others: set[T]) -> Self:
+        """ Appends `others` to these `Sets`. Same as `concat`, but accepts \
+            an individual `set` instance as an argument.
+
+        :param others: Iterable[set[T], ...], other sets to append to this \
+            `Sets` tuple
+        :return: Self, a `Sets` instance with `others` concatenated to the end
+        """
+        return self.concat(others)
+
+    def apply(self, func: Callable[Concatenate[set[T], _P], _R],
+              *args: _P.args, **kwargs: _P.kwargs
+              ) -> Generator[_R, None, None]:
+        return (func(s, *args, **kwargs) for s in self)
+
+    def differentiate(self) -> Generator[set[T], None, None]:
+        """ Return a copy of the sets without any shared elements. Each will \
+            only have its unique items, so they do no overlap/intersect.
+
+        :return: Generator[set[T], None, None], each set with only its \
+            unique items
+        """
+        return (self[i].difference((self[:i] + self[i+1:]).union()
+                                   ) for i in range(len(self)))
+
+    def filter(self, func: Callable[[T], Any]
+               ) -> Generator[filter, None, None]:
+        return (filter(func, s) for s in self)
 
 
 class Valid:
