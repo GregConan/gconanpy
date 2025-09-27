@@ -4,7 +4,7 @@
 Useful/convenient functions for dicts (taken from dicts.py class methods).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-09-18
+Updated: 2025-09-26
 """
 # Import standard libraries
 from collections import defaultdict
@@ -13,7 +13,7 @@ from collections.abc import Callable, Collection, Container, Generator, \
 from configparser import ConfigParser
 from operator import itemgetter
 from pprint import pprint
-from typing import Any, cast, Literal, overload, TypeVar
+from typing import Any, cast, Literal, overload, ParamSpec, TypeVar
 
 # Import local custom libraries
 try:
@@ -32,10 +32,10 @@ _VT = TypeVar("_VT")
 
 _MM = TypeVar("_MM", bound=MutableMapping)  # For update and setdefaults
 _MM_str = TypeVar("_MM_str", bound=MutableMapping[str, Any])
-_ValueGetter = Callable[..., _VT]
 _Prompter = Callable[[str], _VT]  # Prompt function to use as lazy getter
+_P = ParamSpec("_P")
 _T = TypeVar("_T")  # For invert
-CollisionHandler = None | Callable[[list[_T]], Iterable[_T]]  # For invert
+# CollisionHandler = None | Callable[[list[_T]], Iterable[_T]]  # For invert
 FromMap = TypeVar("FromMap", Mapping, Iterable[tuple[Hashable, Any]], None
                   )  # For update function input parameters
 Sortable = TypeVar("Sortable", bound=SupportsRichComparison)  # For sorted_by
@@ -99,7 +99,7 @@ def get_or_prompt_for(a_map: Mapping[_KT, _VT], key: _KT, prompt: str,
     :return: Any, the value mapped to key if one exists, else the value \
                 that the user interactively provided
     """
-    return lazyget(a_map, key, prompt_fn, [prompt], exclude=exclude)
+    return lazyget(a_map, key, prompt_fn, exclude, prompt)
 
 
 def get_subset_from_lookups(a_map: Mapping[str, _VT],
@@ -247,33 +247,31 @@ def keys_mapped_to(a_map: Mapping[_KT, _VT], value: _VT,
 
 
 def lazyget(a_map: Mapping[_KT, _VT], key: _KT,
-            get_if_absent: _ValueGetter = always_none,
-            getter_args: Iterable = list(),
-            getter_kwargs: Mapping = dict(),
-            exclude: Container[_VT] = set()) -> _VT:
+            get_if_absent: Callable[_P, _VT] = always_none,
+            exclude: Container[_VT] = set(),
+            *args: _P.args, **kwargs: _P.kwargs) -> _VT:
     """ Adapted from `LazyButHonestDict.lazyget` from \
         https://stackoverflow.com/q/17532929
 
     :param a_map: Mapping[_KT: Hashable, _VT: Any] to try to get a value from
     :param key: _KT, a key that `a_map` might map to the value to return
     :param get_if_absent: Callable that returns the default value
-    :param getter_args: Iterable[Any] of `get_if_absent` arguments
-    :param getter_kwargs: Mapping of `get_if_absent` keyword arguments
+    :param args: Iterable[Any] of `get_if_absent` arguments
+    :param kwargs: Mapping of `get_if_absent` keyword arguments
     :param exclude: Container[_VT] of possible values which (if they are \
         mapped to `key` in `a_map`) will not be returned; instead returning \
-        `get_if_absent(*getter_args, **getter_kwargs)`
+        `get_if_absent(*args, **kwargs)`
     :return: _VT, the value that `a_map` maps to `key`, if that value isn't \
             in `exclude`; else `return get_if_absent(*args, **kwargs)`
     """
     return a_map[key] if has(a_map, key, exclude) else \
-        get_if_absent(*getter_args, **getter_kwargs)
+        get_if_absent(*args, **kwargs)
 
 
 def lazysetdefault(a_map: MutableMapping[_KT, _VT], key: _KT,
-                   get_if_absent: _ValueGetter = always_none,
-                   getter_args: Iterable = list(),
-                   getter_kwargs: Mapping = dict(),
-                   exclude: Container[_VT] = set()) -> _VT:
+                   get_if_absent: Callable[_P, _VT] = always_none,
+                   exclude: Container[_VT] = set(),
+                   *args: _P.args, **kwargs: _P.kwargs) -> _VT:
     """ Return the value for key if key is in `a_map` and not in \
         `exclude`; else add that key to `a_map`, set its value to \
         `get_if_absent(*args, **kwargs)`, and then return that.
@@ -284,14 +282,14 @@ def lazysetdefault(a_map: MutableMapping[_KT, _VT], key: _KT,
     :param a_map: MutableMapping[_KT: Hashable, _VT: Any], _description_
     :param key: _KT to use as a dict key to map to value
     :param get_if_absent: Callable, function to set & return default value
-    :param getter_args: Iterable[Any] of get_if_absent arguments
-    :param getter_kwargs: Mapping[Any] of get_if_absent keyword arguments
+    :param args: Iterable[Any] of get_if_absent arguments
+    :param kwargs: Mapping[Any] of get_if_absent keyword arguments
     :param exclude: Container[_VT] of possible values to replace with \
-        `get_if_absent(*getter_args, **getter_kwargs)` and return if \
+        `get_if_absent(*args, **kwargs)` and return if \
         they are mapped to `key` in `a_map` but not in `exclude`
     """
     if not has(a_map, key, exclude):
-        a_map[key] = get_if_absent(*getter_args, **getter_kwargs)
+        a_map[key] = get_if_absent(*args, **kwargs)
     return a_map[key]
 
 
@@ -392,7 +390,7 @@ def setdefault_or_prompt_for(a_map: MutableMapping[_KT, _VT], key: _KT,
     :return: _VT | str, the value mapped to key if one exists, else the \
             string value that the user interactively provided
     """
-    return lazysetdefault(a_map, key, prompt_fn, [prompt], exclude=exclude)
+    return lazysetdefault(a_map, key, prompt_fn, exclude, prompt)
 
 
 def setdefaults(a_map: _MM, exclude: Container = set(),

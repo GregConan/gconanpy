@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-09-18
+Updated: 2025-09-26
 """
 # Import standard libraries
 import abc
@@ -58,11 +58,15 @@ def full_name_of(an_obj: Any) -> str:
                      getattr(an_obj, "__name__")))
 
 
-def geteverything() -> dict[str, Any]:
-    """ 
-    :return: dict[str, Any], every global and built-in variable
+def geteverything(**local_vars: Any) -> dict[str, Any]:
+    """ Call `geteverything(**locals())` to get every defined name/variable.
+
+    :param local_vars: Mapping[str, Any], local variables to add to the \
+        returned `dict`
+    :return: dict[str, Any], every global and built-in variable plus all of \
+        the local variables given in `local_vars`
     """
-    return {**globals(), **vars(builtins)}
+    return {**globals(), **vars(builtins), **local_vars}
 
 
 def has_method(an_obj: Any, method_name: str) -> bool:
@@ -76,16 +80,20 @@ def has_method(an_obj: Any, method_name: str) -> bool:
 
 
 @overload
-def hashable(an_obj: Hashable) -> Literal[True]: ...
+def hashable(obj: Hashable) -> Literal[True]: ...
 @overload
-def hashable(an_obj: Unhashable) -> Literal[False]: ...
+def hashable(obj: Unhashable) -> Literal[False]: ...
 @overload
-def hashable(an_obj: Any) -> bool: ...
+def hashable(obj: Any) -> bool: ...
 
 
-def hashable(an_obj):
+def hashable(obj):
+    """ 
+    :param obj: Any
+    :return: bool, True if `obj` is `Hashable`; else False
+    """
     try:
-        hash(an_obj)
+        hash(obj)
         return True
     except TypeError:
         return False
@@ -147,19 +155,6 @@ def names_of(objects: Collection, max_n: int | None = None,
         [get_name(x) for i, x in enumerate(objects) if i < max_n]
 
 
-def slots(an_obj: Any) -> tuple[str, ...]:
-    """ Get an object's `__slots__` or its `__dict__` keys.
-
-    Defined to access object attributes without caring which meta-attribute \
-    it defines (`__slots__` or `__dict__`).
-
-    :param an_obj: Any
-    :return: tuple[str, ...], the `__slots__` attribute of `an_obj` if one \
-        exists; else the keys of `an_obj.__dict__` (of `vars(an_obj)`).
-    """
-    return getattr(an_obj, "__slots__", tuple(an_obj.__dict__))
-
-
 def tuplify(an_obj: Any, split_string: bool = False) -> tuple:
     """
     :param an_obj: Any, object to convert into a tuple.
@@ -174,22 +169,6 @@ def tuplify(an_obj: Any, split_string: bool = False) -> tuple:
         return tuple(an_obj)
     except (AssertionError, TypeError):
         return (an_obj, )
-
-
-def varsof(an_obj) -> dict[str, Any]:
-    """ Get an object's `vars`, or its `__slots__` and their values.
-
-    Defined to access object attributes without caring which meta-attribute \
-    it defines (`__slots__` or `__dict__`).
-
-    :param an_obj: Any
-    :return: dict[str, Any], `vars(an_obj)` if that works; else the names \
-        and values of everything in `an_obj.__slots__`
-    """
-    try:
-        return vars(an_obj)
-    except TypeError:
-        return {x: getattr(an_obj, x) for x in an_obj.__slots__}
 
 
 def which_of(*conditions: Any) -> set[int]:  # TODO conditions: Boolable

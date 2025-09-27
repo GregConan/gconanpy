@@ -5,7 +5,7 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-09-25
+Updated: 2025-09-26
 """
 # Import standard libraries
 import abc
@@ -17,22 +17,24 @@ from more_itertools import all_equal
 import random
 import string
 import sys
-from typing import Any, ParamSpec, TypeVar
+from typing import Any, cast, overload, ParamSpec, TypeVar
 
 # Import local custom libraries
 try:
     from gconanpy.iters.filters import MapSubset
-    from gconanpy.meta import method, Traversible
+    from gconanpy.meta import method, Traversible, tuplify
     from gconanpy.meta.typeshed import Poppable, Updatable
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from iters.filters import MapSubset
-    from meta import method, Traversible
+    from meta import method, Traversible, tuplify
     from meta.typeshed import Poppable, Updatable
 
 # Constants: TypeVars for...
 H = TypeVar("H", bound=Hashable)   # ...invert & uniqs_in
 I = TypeVar("I", bound=Iterable)   # ...combine
 P = ParamSpec("P")                 # ...exhaust_wrapper
+RANDATUM = TypeVar("RANDATUM", str, int, float, bytes, bool, None
+                   )  # for Randoms.randata & Randoms.randatum methods
 T = TypeVar("T")                   # ...duplicates_in
 U = TypeVar("U", bound=Updatable)  # ...merge & update_return
 
@@ -254,12 +256,107 @@ class Randoms:
     MAX = 100  # Default maximum number of items/tests
 
     @classmethod
-    def randict(cls, keys: Sequence[_KT] = CHARS,
-                values: Sequence[_VT] = CHARS,
-                min_len: int = MIN, max_len: int = MAX) -> dict[_KT, _VT]:
-        return {random.choice(keys): random.choice(values)
-                for _ in cls.randrange(min_len, max_len)
-                } if keys and values else dict()
+    def randbool(cls, *_) -> bool:
+        """ Taken from https://stackoverflow.com/a/6824868 
+
+        :return: bool, a 50% random chance of either True or False.
+        """
+        return bool(random.getrandbits(1))
+
+    @classmethod
+    def randata(cls, min_val: int = MIN, max_val: int = 10 * MAX,
+                min_n: int = MIN, max_n: int = MAX,
+                all_types: type[RANDATUM] | None | Sequence[type[RANDATUM] | None]
+                = RANDATUM.__constraints__, weights: Sequence[float] | None
+                = None) -> Generator[Any, None, None]:
+        """ Generate a random number of random values of random types.
+
+        :param min_val: int, the lowest `int` or `float` to return, or the \
+            length of the shortest `bytes` or `str` to return; defaults to 1
+        :param max_val: int, the highest `int` or `float` to return, or the \
+            length of the longest `bytes` or `str` to return; defaults to 1000
+        :param min_n: int, lowest number of values to return; defaults to 1
+        :param max_n: int, highest number of values to return; defaults to 100
+        :param types: type[RANDATUM] | None | Sequence[type[RANDATUM] | \
+            None], type(s) of object(s)/value(s) to return; defaults to \
+            `(bool, bytes, float, int, None, str)`
+        :param weights: Sequence[float] | None, relative probabilities of \
+            returning each type in `types`.
+        :raises ValueError: if `types` and `weights` are different lengths.
+        :yield: Generator[Any, None, None], a random number (between `min_n` \
+            and `max_n`) of randomly generated instances of types randomly \
+            chosen from the provided `types`
+        """
+        types_tup: tuple[type[RANDATUM] | None, ...] = tuplify(all_types) \
+            if all_types != (None, ) else RANDATUM.__constraints__
+        if weights is None:
+            match len(types_tup):
+                case 0:
+                    weights = []
+                case 1:
+                    weights = [1.0]
+                case _:
+                    num_range = float(abs(min_val - max_val))
+                    default_weights = {bool: 2.0, None: 1.0}
+                    weights = [default_weights.get(each_type, num_range)
+                               for each_type in types_tup]
+        elif len(weights) != len(types_tup):
+            raise ValueError(f"weights length ({len(weights)}) must match "
+                             f"types length ({len(types_tup)})")
+        n = random.randint(min_n, max_n)
+        for each_type in random.choices(types_tup, weights=weights, k=n):
+            yield cls.randatum(each_type, min_val, max_val)
+
+    @overload
+    @classmethod
+    def randatum(cls, of_type: None, min_val, max_val) -> None: ...
+
+    @overload
+    @classmethod
+    def randatum(cls, of_type: type[RANDATUM], min_val: int, max_val: int
+                 ) -> RANDATUM: ...
+
+    @classmethod
+    def randatum(cls, of_type: type[RANDATUM] | None,
+                 min_val=MIN, max_val=10 * MAX):
+        """
+        :param of_type: type[RANDATUM] | None, type of object to return.
+        :param min_val: int, the lowest `int` or `float` to return, or the \
+            length of the shortest `bytes` or `str` to return; defaults to 1
+        :param max_val: int, the highest `int` or `float` to return, or the \
+            length of the longest `bytes` or `str` to return; defaults to 1000
+        :return: RANDATUM, an instance `of_type` with random contents.
+        """
+        if of_type is not None:
+            try:
+                ret = {bool: cls.randbool, float: random.uniform,
+                       int: random.randint, str: cls.randstr
+                       }[of_type](min_val, max_val)
+            except KeyError:
+                if of_type is bytes:
+                    ret = random.randbytes(random.randint(min_val, max_val))
+            return cast(RANDATUM, ret)
+
+    @classmethod
+    def randict(cls, keys: Sequence[_KT] | None = None,
+                values: Sequence[_VT] | None = None,
+                min_len: int = MIN, max_len: int = MAX,
+                key_types: type | Sequence[type] | None = None,
+                value_types: type | Sequence[type] | None = None
+                ) -> dict[_KT, _VT]:
+        n = random.randint(min_len, max_len)
+
+        if keys:
+            keys = random.choices(keys, k=n)
+        else:
+            keys = tuple(cls.randata(
+                min_n=min_len, max_n=max_len, all_types=key_types))
+        if values:
+            values = random.choices(values, k=n)
+        else:
+            values = tuple(cls.randata(
+                min_n=min_len, max_n=max_len, all_types=value_types))
+        return {k: v for k, v in zip(keys, values)}
 
     @classmethod
     def randints(cls, min_n: int = MIN, max_n: int = MAX,
@@ -281,11 +378,14 @@ class Randoms:
         return range(random.randint(min_len, max_len))
 
     @classmethod
-    def randtuple(cls, length: int, values: Sequence[_VT] = CHARS):
-        return tuple(random.choice(values) for _ in range(length))
+    def randtuple(cls, length: int, values: Sequence[_VT] | None = None):
+        gen = (random.choice(values) for _ in range(length)
+               ) if values else (
+            x for x in Randoms.randata(min_n=length, max_n=length))
+        return tuple(gen)
 
     @classmethod
-    def randtuples(cls, values: Sequence[_VT] = CHARS, min_n: int = MIN,
+    def randtuples(cls, values: Sequence[_VT] | None = None, min_n: int = MIN,
                    max_n: int = MAX, min_len: int = MIN, max_len: int = MAX,
                    same_len: bool = False, unique: bool = False
                    ) -> list[tuple[_VT, ...]]:
@@ -301,8 +401,8 @@ class Randoms:
         return tuples
 
     @classmethod
-    def randstr(cls, values: Sequence[str] = CHARS,
-                min_len: int = MIN, max_len: int = MAX) -> str:
+    def randstr(cls, min_len: int = MIN, max_len: int = MAX,
+                values: Sequence[str] = CHARS) -> str:
         return "".join(cls.randsublist(values, min_len, max_len))
 
     @staticmethod

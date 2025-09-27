@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-09-18
+Updated: 2025-09-26
 """
 # Import standard libraries
 from collections import defaultdict
@@ -12,7 +12,7 @@ from collections.abc import (Callable, Collection, Container, Generator,
                              Hashable, Iterable, Mapping, Sequence)
 from configparser import ConfigParser
 from operator import itemgetter
-from typing import Any, cast, Literal, overload, TypeVar
+from typing import Any, cast, Literal, overload, ParamSpec, TypeVar
 from typing_extensions import Self
 
 # Import third-party PyPI libraries
@@ -586,31 +586,30 @@ class LazyDict[KT, VT](Updationary[KT, VT], Exclutionary[KT, VT]):
 
     Keeps most core functionality of the Python `dict` type.
     Extended `LazyButHonestDict` from https://stackoverflow.com/q/17532929 """
+    _P = ParamSpec("_P")
 
-    def lazyget(self, key: KT, get_if_absent: Callable[..., VT] = always_none,
-                getter_args: Iterable = list(),
-                getter_kwargs: Mapping = dict(),
-                exclude: Container[VT] = set()) -> VT:
+    def lazyget(self, key: KT, get_if_absent: Callable[_P, VT] = always_none,
+                exclude: Container[VT] = set(),
+                *args: _P.args, **kwargs: _P.kwargs) -> VT:
         """ Adapted from `LazyButHonestDict.lazyget` from \
             https://stackoverflow.com/q/17532929
 
         :param key: KT, a key this LazyDict might map to the value to return
         :param get_if_absent: Callable that returns the default value
-        :param getter_args: Iterable[Any], `get_if_absent` arguments
-        :param getter_kwargs: Mapping, `get_if_absent` keyword arguments
+        :param args: Iterable[Any], `get_if_absent` arguments
+        :param kwargs: Mapping, `get_if_absent` keyword arguments
         :param exclude: Container[VT] of possible values which (if they are \
             mapped to `key` in `self`) won't be returned; instead returning \
-            `get_if_absent(*getter_args, **getter_kwargs)`
+            `get_if_absent(*args, **kwargs)`
         :return: VT, the value that this dict maps to `key`, if that value \
             isn't in `exclude`; else `return get_if_absent(*args, **kwargs)`
         """
         return self[key] if self.has(key, exclude) else \
-            get_if_absent(*getter_args, **getter_kwargs)
+            get_if_absent(*args, **kwargs)
 
-    def lazysetdefault(self, key: KT, get_if_absent: Callable[..., VT]
-                       = always_none, getter_args: Iterable = list(),
-                       getter_kwargs: Mapping = dict(),
-                       exclude: Container[VT] = set()) -> VT:
+    def lazysetdefault(self, key: KT, get_if_absent: Callable[_P, VT]
+                       = always_none, exclude: Container[VT] = set(),
+                       *args: _P.args, **kwargs: _P.kwargs) -> VT:
         """ Return the value for key if key is in this `LazyDict` and not \
             in `exclude`; else add that key to this `LazyDict`, set its \
             value to `get_if_absent(*args, **kwargs)`, and then return that.
@@ -620,16 +619,16 @@ class LazyDict[KT, VT](Updationary[KT, VT], Exclutionary[KT, VT]):
 
         :param key: KT, a key this LazyDict might map to the value to return
         :param get_if_absent: Callable, function to set & return default value
-        :param getter_args: Iterable[Any], `get_if_absent` arguments
-        :param getter_kwargs: Mapping, `get_if_absent` keyword arguments
+        :param args: Iterable[Any], `get_if_absent` arguments
+        :param kwargs: Mapping, `get_if_absent` keyword arguments
         :param exclude: Container[VT] of possible values to replace with \
-            `get_if_absent(*getter_args, **getter_kwargs)` and return if \
+            `get_if_absent(*args, **kwargs)` and return if \
             they are mapped to `key` in `self` but not in `exclude`
         :return: VT, the value that this dict maps to `key`, if that value \
             isn't in `exclude`; else `return get_if_absent(*args, **kwargs)`
         """
         if not self.has(key, exclude):
-            self[key] = get_if_absent(*getter_args, **getter_kwargs)
+            self[key] = get_if_absent(*args, **kwargs)
         return self[key]
 
 
@@ -654,7 +653,7 @@ class Promptionary[KT, VT](LazyDict[KT, VT]):
         :return: Any, the value mapped to `key` if one exists, else the \
                  value that the user interactively provided
         """
-        return self.lazyget(key, prompt_fn, [prompt], exclude=exclude)
+        return self.lazyget(key, prompt_fn, exclude, prompt)
 
     def setdefault_or_prompt_for(self, key: KT, prompt: str,
                                  prompt_fn: Callable[[str], VT] = input,
@@ -672,7 +671,7 @@ class Promptionary[KT, VT](LazyDict[KT, VT]):
         :return: Any, the value mapped to key if one exists, else the value \
                  that the user interactively provided
         """
-        return self.lazysetdefault(key, prompt_fn, [prompt], exclude=exclude)
+        return self.lazysetdefault(key, prompt_fn, exclude, prompt)
 
 
 class Cryptionary(Promptionary, Bytesifier, Debuggable):

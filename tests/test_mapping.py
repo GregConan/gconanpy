@@ -234,12 +234,13 @@ class TestDictFunctions(DictTester):
                         # Return the value to get if we do not exclude it
                         for exclude in Combinations.excluding(
                                 a_dict.values(), {v}):
-                            self.check_result(lazyget(a_dict, k, triv_fn,
-                                              args, kwargs, exclude), v)
+                            self.check_result(lazyget(
+                                a_dict, k, triv_fn, exclude,
+                                *args, **kwargs), v)
 
                         # If we exclude the value to get, return the default
-                        self.check_result(lazyget(a_dict, k, triv_fn, args,
-                                                  kwargs, {v}), triv_out)
+                        self.check_result(lazyget(a_dict, k, triv_fn, {v}, *args,
+                                                  **kwargs), triv_out)
 
     def test_lazyget_nonkey(self, lazyget: Callable = mapping.lazyget,
                             dict_class: type[dict] = dict) -> None:
@@ -248,11 +249,11 @@ class TestDictFunctions(DictTester):
         for nonkey in (None, 50, "hello", dict, dict_class, 3.14, lazyget):
             for args in Randoms.randintsets(min_n=20, max_n=20):
                 kwargs = Randoms.randict(values=tuple(
-                    Randoms.randints(min_n=0, max_n=5)))
+                    Randoms.randints(min_n=0, max_n=5)), value_types=int, key_types=str)
 
                 # Verify that lazyget correctly runs the function it's given
                 self.check_result(lazyget(
-                    a_dict, nonkey, self.multiply_subtract, args, kwargs
+                    a_dict, nonkey, self.multiply_subtract, {}, *args, **kwargs
                 ), self.multiply_subtract(*args, **kwargs))
 
     def unhashable_lazytest(self, lazy_getter: Callable,
@@ -261,7 +262,7 @@ class TestDictFunctions(DictTester):
         KEY = "a"
         a_dict = dict_class({KEY: VALUE})
         self.check_result(VALUE, lazy_getter(
-            a_dict, KEY, return_self, [VALUE], exclude={None}))
+            a_dict, KEY, return_self, {None}, VALUE))
 
     def test_has(self, dict_has: Callable = mapping.has,
                  dict_class: type[dict] = dict) -> None:
@@ -358,18 +359,25 @@ class TestAccessor(DictTester):
         self.test_Ns = powers_of_ten(n_tests_orders_of_magnitude)
 
     def time_lazy(self, lazy_meth: Callable, lazy_result: Any,
-                  input_obj: Any, asattrs: bool = False, **kwargs: Any) -> float:
+                  input_obj: Any, asattrs: bool = False,
+                  getter: Callable = always_none,
+                  exclude: Container = set(), *args,
+                  **kwargs: Any) -> float:
         # randicts = SimpleNamespace(**self.randicts) if attrs else self.randicts
         duration = 0.0
         with StrictlyTime(f"running {kwargs.pop('lazyname')} "
                           f"{sum(self.test_Ns)} times",
                           time_unit=self.UNIT) as strictimer:
-            self.lazytest(lazy_meth, lazy_result, input_obj, asattrs, **kwargs)
+            self.lazytest(lazy_meth, lazy_result, input_obj, asattrs, getter,
+                          exclude, *args, **kwargs)
         duration += strictimer.elapsed
         return duration
 
     def lazytest(self, lazy_meth: Callable, lazy_result: Any,
-                 input_obj: Any, asattrs: bool = False, **kwargs: Any) -> None:
+                 input_obj: Any, asattrs: bool = False,
+                 getter: Callable = always_none,
+                 exclude: Container = set(), *args,
+                 **kwargs: Any) -> None:
         if "lazyname" in kwargs:
             kwargs.pop("lazyname")
         rands = self.randobjs if asattrs else self.randicts
@@ -379,11 +387,12 @@ class TestAccessor(DictTester):
             for _ in range(eachN):
                 for d in rands:
                     for k, v in items(input_obj):
-                        assert lazy_meth(d, k, **kwargs) == v
+                        assert lazy_meth(d, k, getter, exclude,
+                                         *args, **kwargs) == v
                     for wrong in ("this isn't a key", "neither is this",
                                   "nor this", "nor that"):
-                        assert lazy_meth(d, wrong, **kwargs
-                                         ) == lazy_result
+                        assert lazy_meth(d, wrong, getter, exclude,
+                                         *args, **kwargs) == lazy_result
 
     # TODO?
     # def test_lazyget_nonkey(self):
@@ -394,8 +403,7 @@ class TestAccessor(DictTester):
     def test_lazy(self, n_tests_orders_of_magnitude: int = 3,
                   timing: bool = False):
         self.prep(n_tests_orders_of_magnitude)
-        kwargs = dict(get_if_absent=set.union,  # sum, getter_args=[self.alist]
-                      getter_args=({1, 2}, set(), {5}, {"foo", "bar"}))
+        getter_args = ({1, 2}, set(), {5}, {"foo", "bar"})
         result = {1, 2, 5, "foo", "bar"}
         # TRIPLETTERS = SimpleNamespace(**self.adict)
 
@@ -414,8 +422,8 @@ class TestAccessor(DictTester):
 
         print("Testing item access")
         for itemfunc in item_funcs:
-            lazytest(itemfunc, result, self.adict, asattrs=False,
-                     lazyname=full_name_of(itemfunc), **kwargs)
+            lazytest(itemfunc, result, self.adict, False, set.union, set(),
+                     *getter_args, lazyname=full_name_of(itemfunc))
 
         print("Testing attribute access")
         for attrfunc in [attributes.lazyget,
@@ -423,8 +431,8 @@ class TestAccessor(DictTester):
                          ACCESS["attribute"].lazyget,
                          ACCESS["attribute"].lazysetdefault]:
             # Access.attribute.lazyget, Access.attribute.lazysetdefault]:  # TODO ?
-            lazytest(attrfunc, result, self.TRIPLETTERS, asattrs=True,
-                     lazyname=full_name_of(attrfunc), **kwargs)
+            lazytest(attrfunc, result, self.TRIPLETTERS, True, set.union, set(),
+                     *getter_args, lazyname=full_name_of(itemfunc))
         assert not timing  # If we're timing, raise err to print results
 
 

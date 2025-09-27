@@ -13,7 +13,7 @@ from collections.abc import Callable, Container, Generator, Hashable, \
     Iterable, Mapping, MutableMapping, MutableSequence, Sequence
 import operator
 # from operator import attrgetter, methodcaller  # TODO?
-from typing import Any, cast, Literal, NamedTuple, overload, TypeVar
+from typing import Any, cast, Literal, NamedTuple, overload, ParamSpec, TypeVar
 
 try:
     from gconanpy.meta.typeshed import \
@@ -25,6 +25,8 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
 _D = TypeVar("_D")  # "default"
 _T = TypeVar("_T")  # "obj" (when returning the same input object)
 _KT = TypeVar("_KT", bound=Hashable)  # keys
+_P = ParamSpec("_P")  # for Accessor lazy methods
+_S = TypeVar("_S", bound=SupportsItemAccess)
 _VT = TypeVar("_VT")  # values
 WHICH = Literal["names", "values"]  # TODO: Remove if unneeded
 
@@ -59,6 +61,34 @@ def getdefault(o: SupportsGetItem, key: Hashable, default: Any = None):
         return o[key]
     except KeyError:
         return default
+
+
+@overload
+def fill_replace(o: MutableMapping[_KT, _VT], fill_with: Any,
+                 replace: Container[_VT]) -> None: ...
+
+
+@overload
+def fill_replace(o: MutableSequence[_VT], fill_with: Any,
+                 replace: Container[_VT]) -> None: ...
+
+
+def fill_replace(o, fill_with, replace) -> None:
+    # First, get a generator to yield key-value pairs for a Mapping OR
+    # index-value pairs for a Sequence
+    try:
+        pair_generator = cast(Mapping, o).items()
+    except AttributeError:
+        pair_generator = enumerate(cast(Sequence, o))
+
+    # Then, iterate the entire object to collect keys/indices to replace.
+    # Must iterate BEFORE replacing because items() can't do both at once.
+    keys_to_replace = tuple(k for k, v in pair_generator if v in replace)
+
+    # Finally, make all of the replacements.
+    for key in keys_to_replace:
+        o[key] = fill_with
+    return o
 
 
 @overload
@@ -139,7 +169,7 @@ class Accessor[KT, VT](NamedTuple):
         :return: Any, the value mapped to key if one exists, else the value \
             that the user interactively provided
         """
-        return self.lazyget(obj, key, prompt_fn, [prompt], exclude=exclude)
+        return self.lazyget(obj, key, prompt_fn, exclude, prompt)
 
     def get_subset_from_lookups(self, obj: Mapping[str, VT] | Any,
                                 to_look_up: Mapping[str, str],
@@ -203,10 +233,9 @@ class Accessor[KT, VT](NamedTuple):
             return True
 
     def lazyget(self, obj: Mapping[KT, VT] | Any, key: KT,
-                get_if_absent: Callable[..., _D],
-                getter_args: Iterable = tuple(),
-                getter_kwargs: Mapping = dict(),
-                exclude: Container[VT] = set()) -> VT | _D:
+                get_if_absent: Callable[_P, _D],
+                exclude: Container[VT] = set(),
+                *args: _P.args, **kwargs: _P.kwargs) -> VT | _D:
         """ Return the value for key if key is in the dictionary, else \
         return the result of calling the `get_if_absent` parameter with args \
         & kwargs. Adapted from `LazyButHonestDict.lazyget` from \
@@ -214,20 +243,19 @@ class Accessor[KT, VT](NamedTuple):
 
         :param key: Hashable to use as a dict key to map to value
         :param get_if_absent: function that returns the default value
-        :param getter_args: Iterable[Any] of get_if_absent arguments
-        :param getter_kwargs: Mapping of get_if_absent keyword arguments
+        :param args: Iterable[Any] of get_if_absent arguments
+        :param kwargs: Mapping of get_if_absent keyword arguments
         :param exclude: set of possible values which (if they are mapped to \
             `key` in `a_dict`) will not be returned; instead returning \
-            `get_if_absent(*getter_args, **getter_kwargs)`
+            `get_if_absent(*args, **kwargs)`
         """
-        return get_if_absent(*getter_args, **getter_kwargs) if not \
+        return get_if_absent(*args, **kwargs) if not \
             self.has(obj, key, exclude) else self.get(obj, key)
 
     def lazysetdefault(self, obj: Mapping[KT, VT] | Any, key: KT,
-                       get_if_absent: Callable[..., _D],
-                       getter_args: Iterable = tuple(),
-                       getter_kwargs: Mapping = dict(),
-                       exclude: Container[VT] = set()) -> VT | _D:
+                       get_if_absent: Callable[_P, _D],
+                       exclude: Container[VT] = set(),
+                       *args: _P.args, **kwargs: _P.kwargs) -> VT | _D:
         """ Return the value for key if key is in the dictionary; else add \
         that key to the dictionary, set its value to the result of calling \
         the `get_if_absent` parameter with args & kwargs, then return that \
@@ -236,14 +264,14 @@ class Accessor[KT, VT](NamedTuple):
 
         :param key: Hashable to use as a dict key to map to value
         :param get_if_absent: Callable, function to set & return default value
-        :param getter_args: Iterable[Any] of get_if_absent arguments
-        :param getter_kwargs: Mapping[Any] of get_if_absent keyword arguments
+        :param args: Iterable[Any] of get_if_absent arguments
+        :param kwargs: Mapping[Any] of get_if_absent keyword arguments
         :param exclude: Container of possible values to replace with \
-            `get_if_absent(*getter_args, **getter_kwargs)` and return if \
+            `get_if_absent(*args, **kwargs)` and return if \
             they are mapped to `key` in `a_dict`
         """
         if not self.has(obj, key, exclude):
-            new_value = get_if_absent(*getter_args, **getter_kwargs)
+            new_value = get_if_absent(*args, **kwargs)
             self.set_to(obj, key, new_value)
             return new_value
         else:
@@ -312,6 +340,25 @@ class Accessor[KT, VT](NamedTuple):
         except self.MissingError:
             self.set_to(obj, key, default)
             return default
+
+    def setdefault_or_prompt_for(
+        self, obj: Mapping[KT, VT] | Any, key: KT, prompt: str,
+        prompt_fn: Callable[[str], VT] = input, exclude: Container[VT] = set()
+    ) -> VT | str:
+        """ Return the value mapped to key in `obj` if one already exists; \
+            otherwise prompt the user to interactively provide it, store the \
+            provided value by mapping it to key, and return that value.
+
+        :param key: str possibly mapped to the value to retrieve
+        :param prompt: str to display when prompting the user.
+        :param prompt_fn: Callable that interactively prompts the user to \
+                          get a string, like `input` or `getpass.getpass`.
+        :param exclude: Container, values to ignore or overwrite. If `obj` \
+            maps `key` to one, prompt the user as if `key is not in obj`.
+        :return: Any, the value mapped to key if one exists, else the value \
+                 that the user interactively provided
+        """
+        return self.lazysetdefault(obj, key, prompt_fn, exclude, prompt)
 
     def setdefaults(self, obj: MutableMapping[KT, VT] | _T,
                     exclude: Container[VT] = set(),

@@ -5,7 +5,7 @@ Classes that can filter objects to only get the elements (or attributes) \
     that match certain specified conditions.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-09-18
-Updated: 2025-09-18
+Updated: 2025-09-26
 """
 # Import standard libraries
 import abc
@@ -27,8 +27,8 @@ class BaseFilter(abc.ABC):
     def __init__(self, **kwargs) -> None:
         for selector_name in self.on:
             setattr(self, selector_name, {
-                True: kwargs[selector_name + "_are"],
-                False: kwargs[selector_name + "_arent"]
+                True: tuplify(kwargs[selector_name + "_are"]),
+                False: tuplify(kwargs[selector_name + "_arent"])
             })
 
     def __add__(self, other: Self) -> Self:
@@ -37,19 +37,9 @@ class BaseFilter(abc.ABC):
         :return: Self, new `Filter` including every filter function in this \
             `Filter` (`self`) and in the other `Filter` (`other`)
         """
-        return type(self)(*((self[which][are] + other[which][are])
+        return type(self)(*((getattr(self, which)[are] +
+                             getattr(other, which)[are])
                           for which in self.on for are in (True, False)))
-
-    def __getitem__(self, key: str) -> _FILTERDICT:
-        """ Access `keys` and `values` attributes as elements/items.
-
-        Defined mostly for convenient use by `Filter.__call__` method.
-
-        :param key: _WHICH, either "keys" or "values"
-        :return: _FILTERDICT, `getattr(self, key)`; \
-            either `self.keys` or `self.values`
-        """
-        return getattr(self, key)
 
     def invert(self) -> Self:
         """ 
@@ -58,7 +48,8 @@ class BaseFilter(abc.ABC):
             any `Filter` `f`, string `s`, and value `v`, \
             `not f.invert()(s, v) is f(s, v)`
         """
-        kwargs = {f"{which}_are{'nt' if cond else ''}": self[which][cond]
+        kwargs = {f"{which}_are{'nt' if cond else ''}":
+                  getattr(self, which)[cond]
                   for which in self.on for cond in (True, False)}
         return type(self)(**kwargs)
 
@@ -76,7 +67,7 @@ class Filter(BaseFilter):
     FilterFunction = Callable[[str, Any], bool]  # type(Filter(...))
 
     # Public instance variables: name filters and value filters
-    on = tuple(get_args(_WHICH))
+    on = get_args(_WHICH)
     names: _FILTERDICT
     values: _FILTERDICT
 
@@ -103,10 +94,10 @@ class Filter(BaseFilter):
             to check whether the returned generator function should include \
             that attribute (if False) or skip it (if True).
         """
-        super().__init__(names_are=tuplify(names_are),
-                         values_are=tuplify(values_are),
-                         names_arent=tuplify(names_arent),
-                         values_arent=tuplify(values_arent))
+        super().__init__(names_are=names_are,
+                         values_are=values_are,
+                         names_arent=names_arent,
+                         values_arent=values_arent)
 
     def __call__(self, name: str, value: Any) -> bool:
         """ 
@@ -138,7 +129,7 @@ class MapSubset[KT, VT](BaseFilter):
     FilterFunction = Callable[[Hashable, Any], bool]  # type(Filter(...))
 
     # Public instance variables: name filters and value filters
-    on = tuple(get_args(_WHICH))
+    on = get_args(_WHICH)
     keys: _FILTERDICT
     values: _FILTERDICT
 
@@ -156,10 +147,10 @@ class MapSubset[KT, VT](BaseFilter):
             with ONLY the provided `values`; else False to return a subset \
             with NONE OF the provided `values`.
         """
-        super().__init__(keys_are=tuplify(keys_are),
-                         values_are=tuplify(values_are),
-                         keys_arent=tuplify(keys_arent),
-                         values_arent=tuplify(values_arent))
+        super().__init__(keys_are=keys_are,
+                         values_are=values_are,
+                         keys_arent=keys_arent,
+                         values_arent=values_arent)
 
     def __call__(self, key: KT, value: VT) -> bool:
         for selectors, to_check in ((self.keys, key),

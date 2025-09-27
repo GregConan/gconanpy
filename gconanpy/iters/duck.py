@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-01
-Updated: 2025-09-18
+Updated: 2025-09-26
 """
 # Import standard libraries
 from collections.abc import Collection, Hashable, Iterable, \
@@ -32,6 +32,7 @@ class DuckCollection[T]:
     """ Interface to access and modify a `Collection` without \
         knowing exactly what type of `Collection` it is. """
     ducks: Collection[T]  # Collection wrapped to access/modify it
+    UNIQUE = object()  # Unique value to use as default parameter
 
     def __init__(self, ducks: Collection[T]) -> None:
         """ Wrap a `Collection` using an interface including as many \
@@ -320,11 +321,15 @@ class DuckCollection[T]:
         return set(self.ducks) & set(other)
 
     @overload
-    def pop(self, key: int | None = None) -> T: ...
+    def pop(self, key: int | None) -> T: ...
     @overload
-    def pop(self, key: T | None = None) -> Any: ...
+    def pop(self, key: T | None) -> Any: ...
+    @overload
+    def pop(self, key: object) -> Any: ...
+    @overload
+    def pop(self) -> Any: ...
 
-    def pop(self, key=None):
+    def pop(self, key=UNIQUE):
         """ Remove and return item mapped to `key` (i.e., at index).
 
         :param key: T | int, key or index of item to pop; default last if \
@@ -335,13 +340,13 @@ class DuckCollection[T]:
         :return: T, item that was mapped to `key` (or at that index), now \
             removed from this `DuckCollection`.
         """
-        if key is None:
+        if key is self.UNIQUE:
             key = -1
         match self.ducks:
             case MutableSet():
                 popped = self.ducks.pop()
             case MutableSequence():
-                popped = self.ducks.pop(key)
+                popped = self.ducks.pop(cast(int, key))
             case AddableSequence():
                 popped = self.ducks[key]
                 all_ducks = self.ducks
