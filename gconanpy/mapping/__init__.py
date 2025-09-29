@@ -4,7 +4,7 @@
 Useful/convenient functions for dicts (taken from dicts.py class methods).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-09-26
+Updated: 2025-09-28
 """
 # Import standard libraries
 from collections import defaultdict
@@ -151,17 +151,15 @@ def has(a_map: Mapping[_KT, _VT], key: _KT,
         is not mapped to anything in `exclude`.
     """
     try:  # If a_map has the key, return True unless its value doesn't count
-        result = a_map[key] not in exclude
+        return a_map[key] not in exclude
 
     except KeyError:  # If a_map lacks the key, return False
-        result = False
+        return False
 
     # `self[key] in exclude` raises TypeError if self[key] isn't Hashable.
     # In that case, self[key] can't be in exclude, so self has key.
     except TypeError:
-        result = True
-
-    return result
+        return True
 
 
 def has_all(a_map: Mapping[_KT, _VT], keys: Iterable[_KT],

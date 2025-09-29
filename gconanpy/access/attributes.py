@@ -4,12 +4,11 @@
 Functions/classes to access and/or modify the attributes of any object(s).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-02
-Updated: 2025-09-26
+Updated: 2025-09-28
 """
 # Import standard libraries
-from collections.abc import Callable, Container, Collection, Generator, \
-    Iterable, Mapping
-from typing import Any, Literal, ParamSpec, TypeVar
+from collections.abc import Callable, Container, Generator, Iterable
+from typing import Any, ParamSpec, TypeVar
 
 # Import local custom libraries
 try:
@@ -77,6 +76,34 @@ def get_names(an_obj: Any) -> set[str]:
     return names
 
 
+def getdefault(obj: Any, name: str, value: Any,
+               exclude: Container = set()) -> Any:
+    """ Return the `name` attribute of `obj` if it exists and isn't in \
+        `exclude`. Otherwise, return `value`.
+
+    :param an_obj: Any, object to ensure has an attribute with that `name`
+    :param name: str naming the attribute to ensure that `an_obj` has
+    :param value: Any, new value of the `name` attribute of `an_obj` if that \
+        attribute doesn't exist or if its value is in `exclude`
+    :param exclude: Container, values of `an_obj.<name>` to overwrite
+    :return: Any, either `getattr(obj, name)` or `value`
+    """
+    try:  # If obj has the attribute, return it unless its value is excluded
+        gotten = getattr(obj, name)
+        assert gotten not in exclude
+
+    # If obj lacks the attribute, return the default value
+    except (AssertionError, AttributeError):
+        gotten = value
+
+    # `obj.<name> in exclude` raises TypeError if obj.<name> isn't Hashable.
+    # In that case, obj.<name> can't be in exclude, so obj has name.
+    except TypeError:
+        pass
+
+    return gotten
+
+
 def has(an_obj: Any, name: str, exclude: Container = set()) -> bool:
     """
     :param name: str
@@ -86,17 +113,15 @@ def has(an_obj: Any, name: str, exclude: Container = set()) -> bool:
         is mapped to something in `exclude`
     """
     try:  # If an_obj has the attribute, return True unless it doesn't count
-        result = getattr(an_obj, name) not in exclude
+        return getattr(an_obj, name) not in exclude
 
     except AttributeError:  # If an_obj lacks the attribute, return False
-        result = False
+        return False
 
     # `self.<name> in exclude` raises TypeError if self.<name> isn't Hashable.
     # In that case, self.<name> can't be in exclude, so self has name.
     except TypeError:
-        result = True
-
-    return result
+        return True
 
 
 def is_private(name: str, *_: Any) -> bool:
@@ -174,7 +199,7 @@ def lazysetdefault(an_obj: Any, name: str,
 
 
 def setdefault(an_obj: Any, name: str, value: Any,
-               exclude: Collection = set()) -> None:
+               exclude: Container = set()) -> None:
     """ If `an_obj` does not have an attribute called `name`, or if it does \
         but that attribute's value is a member of `exclude`, then set that \
         `name` attribute of `an_obj` to the specified `value`.
@@ -183,11 +208,12 @@ def setdefault(an_obj: Any, name: str, value: Any,
     :param name: str naming the attribute to ensure that `an_obj` has
     :param value: Any, new value of the `name` attribute of `an_obj` if that \
         attribute doesn't exist or if its value is in `exclude`
-    :param exclude: Collection, values of `an_obj.<name>` to overwrite
+    :param exclude: Container, values of `an_obj.<name>` to overwrite
     """
-    if (getattr(an_obj, name, next(iter(exclude))) in exclude) \
-            if exclude else hasattr(an_obj, name):
+    gotten = getdefault(an_obj, name, value, exclude)
+    if gotten is value:
         setattr(an_obj, name, value)
+    return gotten
 
 
 def slotsof(obj: Any) -> tuple[str, ...]:

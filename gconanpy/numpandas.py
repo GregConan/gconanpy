@@ -4,12 +4,12 @@
 Utility functions and classes to manipulate numpy/pandas data.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-09-21
+Updated: 2025-09-28
 """
 # Import standard libraries
 from collections.abc import Hashable, Iterable, Mapping
 from pprint import pprint
-from typing import Any, cast
+from typing import cast
 
 # Import third-party PyPI libraries
 import numpy as np
@@ -24,7 +24,6 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
 # NOTE All functions/classes below are in alphabetical order.
 
 
-# TODO Move to numpandas.py?
 def count_uniqs_in_cols(a_df: pd.DataFrame) -> dict[str, int]:
     cols_uniqs = {colname: a_df[colname].value_counts().shape[0]
                   for colname in a_df.columns}
@@ -33,7 +32,6 @@ def count_uniqs_in_cols(a_df: pd.DataFrame) -> dict[str, int]:
     return cols_uniqs
 
 
-# TODO Move to numpandas.py?
 def nan_rows_in(a_df: pd.DataFrame) -> pd.DataFrame:
     """
     :param a_df: pd.DataFrame
@@ -43,7 +41,6 @@ def nan_rows_in(a_df: pd.DataFrame) -> pd.DataFrame:
     return a_df[a_df.isna().any(axis=1)]  # type: ignore
 
 
-# TODO Move to numpandas.py?
 def search_sequence_numpy(arr: np.ndarray, subseq: np.ndarray) -> list[int]:
     """ Find sequence in an array using NumPy only. "Approach #1" of the \
         code at https://stackoverflow.com/a/36535397 with an extra line to \

@@ -586,11 +586,12 @@ class LazyDict[KT, VT](Updationary[KT, VT], Exclutionary[KT, VT]):
 
     Keeps most core functionality of the Python `dict` type.
     Extended `LazyButHonestDict` from https://stackoverflow.com/q/17532929 """
-    _P = ParamSpec("_P")
+    _D = TypeVar("_D")  # Default output returned by lazy getter function
+    _P = ParamSpec("_P")  # Input arguments for lazy getter functions
 
-    def lazyget(self, key: KT, get_if_absent: Callable[_P, VT] = always_none,
-                exclude: Container[VT] = set(),
-                *args: _P.args, **kwargs: _P.kwargs) -> VT:
+    def lazyget(self, key: KT, get_if_absent: Callable[_P, _D] = always_none,
+                exclude: Container[VT] = set(), *args: _P.args,
+                **kwargs: _P.kwargs) -> VT | _D:
         """ Adapted from `LazyButHonestDict.lazyget` from \
             https://stackoverflow.com/q/17532929
 
@@ -637,8 +638,8 @@ class Promptionary[KT, VT](LazyDict[KT, VT]):
     """
 
     def get_or_prompt_for(self, key: KT, prompt: str,
-                          prompt_fn: Callable[[str], VT] = input,
-                          exclude: Container[VT] = set()) -> VT:
+                          prompt_fn: Callable[[str], str] = input,
+                          exclude: Container[VT] = set()) -> VT | str:
         """ Return the value mapped to key in self if one already exists and \
             is not in `exclude`; else prompt the user to interactively \
             provide it and return that.

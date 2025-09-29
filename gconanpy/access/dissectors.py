@@ -5,29 +5,30 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-09-25
+Updated: 2025-09-27
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable
+from more_itertools import all_equal
 from operator import getitem
 from typing import Any, TypeVar
 
 # Import local custom libraries
 try:
     from gconanpy.debug import Debuggable
-    from gconanpy.iters import are_all_equal, SimpleShredder, uniqs_in
+    from gconanpy.iters import SimpleShredder, uniqs_in
     from gconanpy.iters.filters import MapSubset
-    from gconanpy.meta import (Comparer, has_method,
-                               IgnoreExceptions, IteratorFactory, name_of)
+    from gconanpy.meta import Comparer, has_method, \
+        IgnoreExceptions, IteratorFactory, name_of
     from gconanpy.meta.typeshed import DATA_ERRORS
     from gconanpy.trivial import always_true, get_key_set
     from gconanpy.wrappers import Sets, stringify, stringify_iter
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from debug import Debuggable
-    from iters import are_all_equal, SimpleShredder, uniqs_in
+    from iters import SimpleShredder, uniqs_in
     from iters.filters import MapSubset
-    from meta import (Comparer, has_method,
-                      IgnoreExceptions, IteratorFactory, name_of)
+    from meta import Comparer, has_method, \
+        IgnoreExceptions, IteratorFactory, name_of
     from meta.typeshed import DATA_ERRORS
     from trivial import always_true, get_key_set
     from wrappers import Sets, stringify, stringify_iter
@@ -75,7 +76,7 @@ class DifferenceBetween:
             self.names.append(arg_name)
 
         # If objects differ, then discover how; else there's no need
-        self.is_different = not are_all_equal(self.comparables)
+        self.is_different = not all_equal(self.comparables)
         self.diffs = self.find() if self.is_different else list()
 
     def __repr__(self) -> str:
@@ -129,7 +130,7 @@ class DifferenceBetween:
         :return: list, _description_
         """
         comparables = [get_comparator(c) for c in self.comparables]
-        if not are_all_equal(comparables):
+        if not all_equal(comparables):
             self.difference = by
         return comparables
 

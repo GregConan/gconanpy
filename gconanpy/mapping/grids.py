@@ -4,11 +4,12 @@
 Custom multidimensional dictionaries extending dicts.py classes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-23
-Updated: 2025-09-22
+Updated: 2025-09-28
 """
 # Import standard libraries
 import abc
-from collections.abc import Collection, Hashable, Iterable, Mapping, Sequence
+from collections.abc import Collection, Generator, Hashable, \
+    Iterable, Mapping, Sequence
 import random
 import string
 from typing import Any, cast, overload, TypeVar
@@ -229,7 +230,8 @@ class HashGrid[KT: Hashable, VT](BaseHashGrid[KT, VT]):
 
         # Save the dimension names in the correct order
         self.dim_names = tuple(dim_names if dim_names else
-                               self._name_dims(pairs, dimensions, strict))
+                               dimensions if dimensions else
+                               self._name_dims(pairs, strict))
 
         self._fill(*pairs, values=values, **dimensions)
 
@@ -266,43 +268,35 @@ class HashGrid[KT: Hashable, VT](BaseHashGrid[KT, VT]):
             self[keys] = value
 
     @classmethod
-    def _name_dims(cls, pairs: Iterable[tuple[Collection[KT], Any]] =
-                   tuple(), dim_names: Iterable[str] = tuple(),
-                   strict: bool = True) -> Iterable[str]:
+    def _name_dims(cls, pairs: Iterable[tuple[Collection[KT], Any]] = tuple(),
+                   strict: bool = True) -> Generator[str, None, None]:
         """ 
-
         :param pairs: tuple[Collection[KT], VT], a tuple of 2 items where \
             the first item is the keys (dimensional coordinates).
-        :param dim_names: Iterable[str] naming each dimension/coordinate in \
-            this HashGrid. By default, the the dimensions are named in this \
-            order: "x", "y", "z", the rest of the lowercase letters in \
-            alphabetical order, & then random lowercase letter \
-            combinations of increasing length.
         :param strict: bool, True to raise a ValueError if the number of \
             dimensions is not specified during initialization or if someone \
             provides the wrong number of keys; else False to try to use the \
             keys anyway; defaults to True
         :raises ValueError: _description_
-        :return: Iterable[str], the dimension names in the correct order.
+        :return: Generator[str, None, None], the dimension names in the \
+            correct order.
         """
-        if not dim_names:
-            err_msg = f"Cannot initialize {name_of(cls)} if strict=True "
-            if pairs:  # Count how many keys are in each pair
-                lens = {len(p[0]) for p in pairs}
-                if strict and len(lens) != 1:
-                    raise ValueError(err_msg + "and the number of keys "
-                                     f"given is inconsistent: {lens}")
-                n_items = max(lens)
-            elif strict:
-                raise ValueError(err_msg + "without specifying the "
-                                 "names or number of dimensions.")
-            else:
-                n_items = 0
+        err_msg = f"Cannot initialize {name_of(cls)} if strict=True "
+        if pairs:  # Count how many keys are in each pair
+            lens = {len(p[0]) for p in pairs}
+            if strict and len(lens) != 1:
+                raise ValueError(err_msg + "and the number of keys "
+                                 f"given is inconsistent: {lens}")
+            n_items = max(lens)
+        elif strict:
+            raise ValueError(err_msg + "without specifying the "
+                             "names or number of dimensions.")
+        else:
+            n_items = 0
 
-            # Dynamically assign default dimension names if none are given
-            namer = NameDimension()
-            dim_names = (next(namer) for _ in range(n_items))
-        return dim_names
+        # Dynamically assign default dimension names if none are given
+        namer = NameDimension()
+        return (next(namer) for _ in range(n_items))
 
     def _sort_keys(self, keys: Mapping[str, KT] | Iterable[KT]
                    ) -> tuple[KT, ...]:
@@ -435,7 +429,8 @@ class Locktionary[KT: str, VT: Bytesifiable
 
             # Save the dimension names in the correct order
             self.dim_names = tuple(dim_names if dim_names else
-                                   self._name_dims(pairs, dimensions, strict))
+                                   dimensions if dimensions else
+                                   self._name_dims(pairs, strict))
 
             # Create encryption mechanism
             Encryptor.__init__(self, len(dim_names), iterations)

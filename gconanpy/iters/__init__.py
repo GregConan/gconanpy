@@ -5,13 +5,13 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-09-26
+Updated: 2025-09-28
 """
 # Import standard libraries
 import abc
-from collections.abc import (Callable, Collection, Generator, Hashable,
-                             Iterable, Mapping, Sequence)
-from functools import reduce, wraps
+from collections.abc import Callable, Collection, Generator, \
+    Hashable, Iterable, Mapping, Sequence
+import functools
 import itertools
 from more_itertools import all_equal
 import random
@@ -30,13 +30,15 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from meta.typeshed import Poppable, Updatable
 
 # Constants: TypeVars for...
-H = TypeVar("H", bound=Hashable)   # ...invert & uniqs_in
-I = TypeVar("I", bound=Iterable)   # ...combine
-P = ParamSpec("P")                 # ...exhaust_wrapper
-RANDATUM = TypeVar("RANDATUM", str, int, float, bytes, bool, None
-                   )  # for Randoms.randata & Randoms.randatum methods
-T = TypeVar("T")                   # ...duplicates_in
-U = TypeVar("U", bound=Updatable)  # ...merge & update_return
+_H = TypeVar("_H", bound=Hashable)      # ...invert & uniqs_in
+_I = TypeVar("_I", bound=Iterable)      # ...combine
+_Map = TypeVar("_Map", bound=Mapping)   # ...Combinations.of_map
+_P = ParamSpec("_P")                    # ...exhaust_wrapper
+RANDATUM = TypeVar("RANDATUM", bool, bytes, float, int, None, str
+                   )  # ...Randoms.randata & Randoms.randatum
+_Seq = TypeVar("_Seq", bound=Sequence)  # ...seq_*
+_T = TypeVar("_T")    # ...duplicates_in & Combinations.randsublist
+_U = TypeVar("_U", bound=Updatable)     # ...merge & update_return
 
 # NOTE Functions are in alphabetical order. Classes are in dependency order.
 
@@ -101,7 +103,7 @@ def default_pop(poppable: Poppable, key: Any = None,
     return to_return
 
 
-def duplicates_in(a_seq: Sequence[T]) -> list[T]:
+def duplicates_in(a_seq: Sequence[_T]) -> list[_T]:
     """ 
     :param a_seq: Sequence[T: Any] to check for duplicate elements
     :return: list[T], everything that appears more than once in `a_seq`
@@ -109,12 +111,11 @@ def duplicates_in(a_seq: Sequence[T]) -> list[T]:
     return [x for x in a_seq if a_seq.count(x) > 1]
 
 
-def exhaust(gen: Generator[Any, Any, Any], max_loops: int = sys.maxsize
-            ) -> None:
+def exhaust(gen: Generator, max_loops: int = sys.maxsize) -> None:
     """ Given a generator function, exhaust it by iterating it until it has \
         no values left to yield. Ignores values yielded.
 
-    :param gen: Generator[Any, Any, Any], generator function to exhaust
+    :param gen: Generator, generator function to exhaust
     :param max_loops: int, maximum number of times to try getting the next \
         value from `gen`
     """
@@ -125,18 +126,18 @@ def exhaust(gen: Generator[Any, Any, Any], max_loops: int = sys.maxsize
         pass
 
 
-def exhaust_wrapper(gen_func: Callable[P, Generator[Any, Any, Any]],
-                    max_loops: int = sys.maxsize) -> Callable[P, None]:
+def exhaust_wrapper(gen_func: Callable[_P, Generator],
+                    max_loops: int = sys.maxsize) -> Callable[_P, None]:
     """ Given a generator function, wrap it in an redundant inner function \
         that will exhaust it by iterating it until it has no values left to \
         yield and ignores values yielded.
 
-    :param gen_func: Callable[P, Generator[Any, Any, Any]], generator function
+    :param gen_func: Callable[P, Generator], generator function
     :param max_loops: int, maximum number of times to try getting the next \
         value from the `gen_func(...)` when the returned function is called
     """
-    @wraps(gen_func)
-    def inner(*args: P.args, **kwargs: P.kwargs) -> None:
+    @functools.wraps(gen_func)
+    def inner(*args: _P.args, **kwargs: _P.kwargs) -> None:
         exhaust(gen_func(*args, **kwargs), max_loops)
     return inner
 
@@ -161,7 +162,7 @@ def invert_range(a_range: range) -> range:
     return range(a_range.stop - 1, a_range.start - 1, -a_range.step)
 
 
-def merge(updatables: Iterable[U]) -> U:
+def merge(updatables: Iterable[_U]) -> _U:
     """ Merge dicts, sets, or things of any type with an `update` method.
 
     Warning: this function modifies the original objects.
@@ -170,14 +171,14 @@ def merge(updatables: Iterable[U]) -> U:
     :return: Updatable combining all of the `updatables` into one
     """
     # return reduce(lambda x, y: x.update(y) or x, updatables)
-    return reduce(update_return, updatables)
+    return functools.reduce(update_return, updatables)
 
 
 def powers_of_ten(orders_of_magnitude: int = 4) -> list[int]:
     return [10 ** i for i in range(orders_of_magnitude + 1)]
 
 
-def seq_startswith(seq: Sequence, prefix: Sequence) -> bool:
+def seq_startswith(seq: _Seq, prefix: _Seq) -> bool:
     """ Check if prefix is the beginning of seq.
 
     :param seq: Sequence, _description_
@@ -187,12 +188,12 @@ def seq_startswith(seq: Sequence, prefix: Sequence) -> bool:
     return len(seq) >= len(prefix) and seq[:len(prefix)] == prefix
 
 
-def seq_truncate(a_seq: Sequence, max_len: int) -> Sequence:
-    return a_seq[:max_len] if len(a_seq) > max_len else a_seq
+def seq_truncate(a_seq: _Seq, max_len: int) -> _Seq:
+    return cast(_Seq, a_seq[:max_len]) if len(a_seq) > max_len else a_seq
 
 
-def seq_rtruncate(a_seq: Sequence, max_len: int) -> Sequence:
-    return a_seq[-max_len:] if len(a_seq) > max_len else a_seq
+def seq_rtruncate(a_seq: _Seq, max_len: int) -> _Seq:
+    return cast(_Seq, a_seq[-max_len:]) if len(a_seq) > max_len else a_seq
 
 
 def startswith(an_obj: Any, prefix: Any,  # TODO Move to duck.py ?
@@ -216,8 +217,8 @@ def startswith(an_obj: Any, prefix: Any,  # TODO Move to duck.py ?
     return result
 
 
-def uniqs_in(listlike: Iterable[H], stringify: Callable[[Any], str] = str
-             ) -> list[H]:
+def uniqs_in(listlike: Iterable[_H], stringify: Callable[[Any], str] = str
+             ) -> list[_H]:
     """Alphabetize and list the unique elements of an iterable.
         To list non-private local variables' names, call `uniqs_in(locals())`.
 
@@ -230,7 +231,7 @@ def uniqs_in(listlike: Iterable[H], stringify: Callable[[Any], str] = str
     return uniqs
 
 
-def update_return(self: U, other: U) -> U:
+def update_return(self: _U, other: _U) -> _U:
     """ Update `self` with values/items from `other`. Used by `merge` function
 
     :param self: Updatable, object to update with new values
@@ -247,13 +248,15 @@ class Randoms:
     # Type hint class variables
     _KT = TypeVar("_KT", bound=Hashable)  # for randict method
     _VT = TypeVar("_VT")  # for randict method
-    _T = TypeVar("_T")  # for randsublist method
 
     # Default parameter value class variables
     BIGINT = sys.maxunicode  # Default arbitrary huge integer
     CHARS = tuple(string.printable)  # String characters to randomly pick
     MIN = 1    # Default minimum number of items/tests
     MAX = 100  # Default maximum number of items/tests
+    RANDTYPES: tuple[type, ...] = RANDATUM.__constraints__
+
+    _TYPES = type | Sequence[type | None]
 
     @classmethod
     def randbool(cls, *_) -> bool:
@@ -266,9 +269,9 @@ class Randoms:
     @classmethod
     def randata(cls, min_val: int = MIN, max_val: int = 10 * MAX,
                 min_n: int = MIN, max_n: int = MAX,
-                all_types: type[RANDATUM] | None | Sequence[type[RANDATUM] | None]
-                = RANDATUM.__constraints__, weights: Sequence[float] | None
-                = None) -> Generator[Any, None, None]:
+                dtypes: type[RANDATUM] | Sequence[type[RANDATUM] | None]
+                = RANDTYPES, weights: Sequence[float] | bool | None = True
+                ) -> Generator[RANDATUM, None, None]:
         """ Generate a random number of random values of random types.
 
         :param min_val: int, the lowest `int` or `float` to return, or the \
@@ -277,19 +280,23 @@ class Randoms:
             length of the longest `bytes` or `str` to return; defaults to 1000
         :param min_n: int, lowest number of values to return; defaults to 1
         :param max_n: int, highest number of values to return; defaults to 100
-        :param types: type[RANDATUM] | None | Sequence[type[RANDATUM] | \
+        :param dtypes: type[RANDATUM] | Sequence[type[RANDATUM | None] | \
             None], type(s) of object(s)/value(s) to return; defaults to \
             `(bool, bytes, float, int, None, str)`
-        :param weights: Sequence[float] | None, relative probabilities of \
-            returning each type in `types`.
+        :param weights: Sequence[float] | bool | None, Sequence of relative \
+            probability weights of returning each type in `types`; or True \
+            to weigh `None` as 1, `bool` as 2, and each other type as the \
+            `max_val - min_val` range; or False or None to assign \
+            equal (no) weight to all types; defaults to True.
         :raises ValueError: if `types` and `weights` are different lengths.
         :yield: Generator[Any, None, None], a random number (between `min_n` \
             and `max_n`) of randomly generated instances of types randomly \
             chosen from the provided `types`
         """
-        types_tup: tuple[type[RANDATUM] | None, ...] = tuplify(all_types) \
-            if all_types != (None, ) else RANDATUM.__constraints__
-        if weights is None:
+        types_tup: tuple[type[RANDATUM] | None, ...] = tuplify(dtypes)
+        if not weights:
+            weights = None  # [1.0] * len(types_tup)
+        elif weights is True:
             match len(types_tup):
                 case 0:
                     weights = []
@@ -305,7 +312,7 @@ class Randoms:
                              f"types length ({len(types_tup)})")
         n = random.randint(min_n, max_n)
         for each_type in random.choices(types_tup, weights=weights, k=n):
-            yield cls.randatum(each_type, min_val, max_val)
+            yield cast(RANDATUM, cls.randatum(each_type, min_val, max_val))
 
     @overload
     @classmethod
@@ -317,8 +324,8 @@ class Randoms:
                  ) -> RANDATUM: ...
 
     @classmethod
-    def randatum(cls, of_type: type[RANDATUM] | None,
-                 min_val=MIN, max_val=10 * MAX):
+    def randatum(cls, of_type: type[RANDATUM] | None, min_val=MIN,
+                 max_val=10 * MAX):  # x10 for more int/float variation (?)
         """
         :param of_type: type[RANDATUM] | None, type of object to return.
         :param min_val: int, the lowest `int` or `float` to return, or the \
@@ -327,8 +334,9 @@ class Randoms:
             length of the longest `bytes` or `str` to return; defaults to 1000
         :return: RANDATUM, an instance `of_type` with random contents.
         """
-        if of_type is not None:
-            try:
+        if of_type is not None:  # "else return None" is implicit
+
+            try:  # Define dict here bc "cls.xyz" has 1 fewer arg than "xyz"
                 ret = {bool: cls.randbool, float: random.uniform,
                        int: random.randint, str: cls.randstr
                        }[of_type](min_val, max_val)
@@ -341,21 +349,11 @@ class Randoms:
     def randict(cls, keys: Sequence[_KT] | None = None,
                 values: Sequence[_VT] | None = None,
                 min_len: int = MIN, max_len: int = MAX,
-                key_types: type | Sequence[type] | None = None,
-                value_types: type | Sequence[type] | None = None
-                ) -> dict[_KT, _VT]:
+                key_types: _TYPES = RANDTYPES,
+                value_types: _TYPES = RANDTYPES) -> dict[_KT, _VT]:
         n = random.randint(min_len, max_len)
-
-        if keys:
-            keys = random.choices(keys, k=n)
-        else:
-            keys = tuple(cls.randata(
-                min_n=min_len, max_n=max_len, all_types=key_types))
-        if values:
-            values = random.choices(values, k=n)
-        else:
-            values = tuple(cls.randata(
-                min_n=min_len, max_n=max_len, all_types=value_types))
+        keys = cls.randtuple(n, keys, key_types)
+        values = cls.randtuple(n, values, value_types)
         return {k: v for k, v in zip(keys, values)}
 
     @classmethod
@@ -378,11 +376,25 @@ class Randoms:
         return range(random.randint(min_len, max_len))
 
     @classmethod
-    def randtuple(cls, length: int, values: Sequence[_VT] | None = None):
-        gen = (random.choice(values) for _ in range(length)
-               ) if values else (
-            x for x in Randoms.randata(min_n=length, max_n=length))
-        return tuple(gen)
+    def randtuple(cls, length: int, values: Sequence[_VT] | None = None,
+                  value_types: _TYPES = RANDTYPES):
+        """
+        :param length: int, number of items in the tuple to return.
+        :param values: Sequence[_VT] | None, items to randomly select from; \
+            if none are provided, randomly generate items 
+        :param value_types: type | Sequence[type | None], type of items to \
+            randomly generate if no `values` are provided; defaults to \
+            `(bool, bytes, float, int, None, str)`
+        :return: _type_, _description_
+        """
+        if values:
+            ret = random.choices(values, k=length)
+        else:
+            kwargs: dict[str, Any] = dict(min_n=length, max_n=length)
+            if value_types:
+                kwargs["dtypes"] = value_types
+            ret = cls.randata(**kwargs)
+        return tuple(ret)
 
     @classmethod
     def randtuples(cls, values: Sequence[_VT] | None = None, min_n: int = MIN,
@@ -471,9 +483,6 @@ class SimpleShredder(Traversible):
 
 
 class Combinations:
-    _H = TypeVar("_H", bound=Hashable)
-    _T = TypeVar("_T")
-    _Map = TypeVar("_Map", bound=Mapping)
 
     @classmethod
     def excluding(cls, objects: Collection[_T], exclude: Iterable[_T]

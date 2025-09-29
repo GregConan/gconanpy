@@ -6,14 +6,14 @@ Expanding Python's built-in accessor (getter/setter/deleter/etc) functions \
     for use on more kinds of objects.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-09-11
-Updated: 2025-09-18
+Updated: 2025-09-28
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Hashable, \
     Iterable, Mapping, MutableMapping, MutableSequence, Sequence
 import operator
 # from operator import attrgetter, methodcaller  # TODO?
-from typing import Any, cast, Literal, NamedTuple, overload, ParamSpec, TypeVar
+from typing import Any, cast, NamedTuple, overload, ParamSpec, TypeVar
 
 try:
     from gconanpy.meta.typeshed import \
@@ -28,7 +28,6 @@ _KT = TypeVar("_KT", bound=Hashable)  # keys
 _P = ParamSpec("_P")  # for Accessor lazy methods
 _S = TypeVar("_S", bound=SupportsItemAccess)
 _VT = TypeVar("_VT")  # values
-WHICH = Literal["names", "values"]  # TODO: Remove if unneeded
 
 # Specify how many input parameters each Accessor input arg function takes
 CALL_2ARG = Callable[[Any, Any], Any]
@@ -73,7 +72,7 @@ def fill_replace(o: MutableSequence[_VT], fill_with: Any,
                  replace: Container[_VT]) -> None: ...
 
 
-def fill_replace(o, fill_with, replace) -> None:
+def fill_replace(o: SupportsItemAccess, fill_with, replace) -> None:
     # First, get a generator to yield key-value pairs for a Mapping OR
     # index-value pairs for a Sequence
     try:
@@ -88,7 +87,6 @@ def fill_replace(o, fill_with, replace) -> None:
     # Finally, make all of the replacements.
     for key in keys_to_replace:
         o[key] = fill_with
-    return o
 
 
 @overload
@@ -125,8 +123,7 @@ def setdefault(o: SupportsItemAccess, key, default=None):
 class Accessor[KT, VT](NamedTuple):
     contains: CALL_2ARG    # hasattr or operator.contains
     delete: CALL_2ARG      # delattr or operator.delitem
-    get: CALL_2ARG         # getattr or operator.getitem (can raise err)
-    getdefault: CALL_3ARG  # getattr or getdefault / Mapping.get / dict.get
+    get: CALL_2ARG         # getattr or operator.getitem
     set_to: CALL_3ARG      # setattr or operator.setitem
     MissingError: type[BaseException]  # AttributeError or KeyError
 
@@ -152,7 +149,7 @@ class Accessor[KT, VT](NamedTuple):
         return default
 
     def get_or_prompt_for(self, obj: Mapping[KT, VT] | Any, key: KT,
-                          prompt: str, prompt_fn: Callable[[str], VT] = input,
+                          prompt: str, prompt_fn: Callable[[str], str] = input,
                           exclude: Container[VT] = set()) -> VT | str:
         """ Return the value mapped to `key` in `obj` if one already exists \
             and is not in `exclude`; else prompt the user to interactively \
@@ -190,6 +187,23 @@ class Accessor[KT, VT](NamedTuple):
         """
         return {key: self.lookup(obj, path, sep, default)
                 for key, path in to_look_up.items()}
+
+    def getdefault(self, obj: Any, key: KT, value: _D,
+                   exclude: Container = set()) -> Any | _D:
+        try:  # If obj has the attribute, return it unless its value is excluded
+            gotten = self.get(obj, key)
+            assert gotten not in exclude
+
+        # If obj lacks the attribute, return the default value
+        except (AssertionError, self.MissingError):
+            gotten = value
+
+        # `obj.<name> in exclude` raises TypeError if obj.<name> isn't Hashable.
+        # In that case, obj.<name> can't be in exclude, so obj has name.
+        except TypeError:
+            pass
+
+        return gotten
 
     def has(self, obj: Mapping[KT, VT] | Any, key: KT,
             exclude: Container[VT] = set()) -> bool:
@@ -324,27 +338,23 @@ class Accessor[KT, VT](NamedTuple):
                 if not self.contains(obj, key):
                     yield key
 
-    def setdefault(self, obj: MutableMapping[KT, VT] | Any,
-                   key: KT, default: _D) -> VT | _D:
+    def setdefault(self, obj: MutableMapping[KT, VT] | Any, key: KT,
+                   value: _D, exclude: Container = set()) -> VT | _D:
         """ Return the value for key if key is in `obj`; else add \
-        that key to `obj`, set its value to the result of calling \
-        the `get_if_absent` parameter with `args` & `kwargs`, then return \
-        result. Adapted from `LazyButHonestDict.lazysetdefault` from \
-        https://stackoverflow.com/q/17532929
+            that key to `obj`, set it to value, and return it
 
         :param key: KT: Hashable to use as a key to map to value
-        :param default: _type_, _description_
+        :param value: _type_, _description_
         """
-        try:
-            return self.get(obj, key)
-        except self.MissingError:
-            self.set_to(obj, key, default)
-            return default
+        gotten = self.getdefault(obj, key, value, exclude)
+        if gotten is value:
+            self.set_to(obj, key, value)
+        return gotten
 
-    def setdefault_or_prompt_for(
-        self, obj: Mapping[KT, VT] | Any, key: KT, prompt: str,
-        prompt_fn: Callable[[str], VT] = input, exclude: Container[VT] = set()
-    ) -> VT | str:
+    def setdefault_or_prompt_for(self, obj: Mapping[KT, VT] | Any, key: KT,
+                                 prompt: str, prompt_fn: Callable[[str], str]
+                                 = input, exclude: Container[VT] = set()
+                                 ) -> VT | str:
         """ Return the value mapped to key in `obj` if one already exists; \
             otherwise prompt the user to interactively provide it, store the \
             provided value by mapping it to key, and return that value.
@@ -383,9 +393,9 @@ class Accessor[KT, VT](NamedTuple):
 
 class Access:
     item = Accessor(contains=operator.contains, get=operator.getitem,
-                    getdefault=getdefault, set_to=operator.setitem,
-                    delete=operator.delitem, MissingError=KeyError)
-    attribute = Accessor(contains=hasattr, get=getattr, getdefault=getattr,
+                    set_to=operator.setitem, delete=operator.delitem,
+                    MissingError=KeyError)
+    attribute = Accessor(contains=hasattr, get=getattr,
                          set_to=setattr, delete=delattr,
                          MissingError=AttributeError)
 
@@ -394,8 +404,8 @@ class Access:
 # Change to frozendict so it's a global constant (& maybe faster?)
 # https://github.com/Marco-Sulla/python-frozendict/issues/18
 ACCESS = {"item": Accessor(contains=operator.contains, get=operator.getitem,
-                           getdefault=getdefault, set_to=operator.setitem,
-                           delete=operator.delitem, MissingError=KeyError),
+                           set_to=operator.setitem, delete=operator.delitem,
+                           MissingError=KeyError),
           "attribute": Accessor(contains=hasattr, get=getattr,
-                                getdefault=getattr, set_to=setattr,
-                                delete=delattr, MissingError=AttributeError)}
+                                set_to=setattr, delete=delattr,
+                                MissingError=AttributeError)}
