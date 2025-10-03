@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-09-26
+Updated: 2025-09-30
 """
 # Import standard libraries
 from collections import defaultdict
@@ -192,9 +192,13 @@ class Invertionary(CustomDict):
     @overload
     def invert(self, keep_keys: _K = False) -> None: ...
     @overload
-    def invert(self, keep_keys: _K = False, copy: bool = True) -> Self: ...
+    def invert(self, keep_keys=False, copy: Literal[True] = True) -> Self: ...
 
-    def invert(self, keep_keys: _K = False, copy=False):
+    @overload
+    def invert(self, keep_keys=False,
+               copy: Literal[False] = False) -> None: ...
+
+    def invert(self, keep_keys: _K = False, copy: bool = False):
         """ Swap keys and values. Inverting {1: 2, 3: 4} returns {2: 1, 4: 3}.
 
         When 2+ keys are mapped to the same value, then that value will be \
@@ -381,8 +385,8 @@ class OverlapPercents[Sortable: SupportsRichComparison
 
             self[collecname] = sorty  # Add to self
 
-    def sorted(self, key: str, descending: bool = True
-               ) -> Generator[Sortable, None, None]:
+    def sorted_by(self, key: str, descending: bool = True
+                  ) -> Generator[Sortable, None, None]:
         for sortable_subkey, _ in self[key].sorted_by("values", descending):
             yield sortable_subkey
 

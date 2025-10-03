@@ -9,31 +9,34 @@ Updated: 2025-09-18
 # Import standard libraries
 import abc
 from collections.abc import Callable, Collection, Hashable, Iterable, Mapping
-from typing import Any, Protocol, overload, SupportsIndex, \
+from typing import Any, Protocol, overload, Self, SupportsIndex, \
     runtime_checkable, TYPE_CHECKING
 
 # Purely "internal" errors only involving local data; ignorable in some cases
 DATA_ERRORS = (AttributeError, IndexError, KeyError, TypeError, ValueError)
 
+
+@runtime_checkable
+class SupportsContains[T](Protocol):
+    def __contains__(self, x: T, /): ...
+
+
 if TYPE_CHECKING:
-    from _typeshed import SupportsContainsAndGetItem, SupportsGetItem, \
+    from _typeshed import SupportsGetItem, \
         SupportsItemAccess, SupportsLenAndGetItem
 else:  # Can't import _typeshed at runtime, so define its imports manually
 
     @runtime_checkable
-    class SupportsGetItem(Protocol):
-        def __getitem__(self, key, /): ...
+    class SupportsGetItem[T](Protocol):
+        def __getitem__(self, key, /) -> T: ...
 
     @runtime_checkable
-    class SupportsLenAndGetItem(SupportsGetItem, Protocol):
+    class SupportsLenAndGetItem[T](SupportsGetItem[T], Protocol):
         def __len__(self) -> int: ...
 
     @runtime_checkable
-    class SupportsContainsAndGetItem(SupportsGetItem, Protocol):
-        def __contains__(self, x, /): ...
-
-    @runtime_checkable
-    class SupportsItemAccess[KT, VT](SupportsContainsAndGetItem, Protocol):
+    class SupportsItemAccess[KT, VT](SupportsContains[KT],
+                                     SupportsGetItem[VT], Protocol):
         def __delitem__(self, key: KT, /): ...
         def __setitem__(self, key: KT, value: VT, /): ...
 
@@ -70,19 +73,33 @@ class Updatable(Protocol):
 
 
 @runtime_checkable
-class SupportsHashAndGetItem[T](Protocol):
+class SupportsGetSlice[T](Protocol):
     @overload
-    def __getitem__(self, key: SupportsIndex, /): ...
+    def __getitem__(self, key: SupportsIndex, /): ...  # -> T: ...
     @overload
-    def __getitem__(self, key: slice, /): ...
-    def __getitem__(self, key, /): ...
+    def __getitem__(self, key: slice, /): ...  # -> Self: ...
+    def __getitem__(self, key, /): ...  # -> T | Self: ...
+
+
+@runtime_checkable
+class SupportsLenAndGetSlice[T](SupportsGetSlice[T], Protocol):
+    def __len__(self) -> int: ...
+
+
+@runtime_checkable
+class SupportsHash(Protocol):
     def __hash__(self) -> int: ...
+
+
+@runtime_checkable
+class SupportsHashAndGetItem[T](SupportsGetSlice[T], SupportsHash, Protocol):
+    ...
 
 
 # Define Sequence Protocol to subclass it to hint certain Sequences
 @runtime_checkable
-class ProtoSequence(SupportsLenAndGetItem, SupportsContainsAndGetItem,
-                    Protocol):
+class ProtoSequence[T](SupportsLenAndGetSlice[T], SupportsContains[T],
+                       Protocol):
     def __iter__(self): ...
     # def __reversed__(self): ...  # NOTE: tuple lacks __reversed__
     def count(self, value, /) -> int: ...
@@ -90,13 +107,13 @@ class ProtoSequence(SupportsLenAndGetItem, SupportsContainsAndGetItem,
 
 
 @runtime_checkable
-class AddableSequence(ProtoSequence, Protocol):
+class AddableSequence[T](ProtoSequence[T], Protocol):
     def __add__(self, value): ...
 
 
 @runtime_checkable
-class HashableSequence(ProtoSequence, Protocol):
-    def __hash__(self) -> int: ...
+class HashableSequence[T](ProtoSequence[T], SupportsHash, Protocol):
+    ...
 
 
 class HasClass(abc.ABC):

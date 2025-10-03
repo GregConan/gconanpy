@@ -13,10 +13,12 @@ from timeit import timeit
 from typing import Any, TypeVar
 
 # Import local custom libraries
-from gconanpy.iters import Combinations, combine_lists, duplicates_in, merge, Randoms
+from gconanpy.iters import Combinations, combine_lists, \
+    duplicates_in, merge, Randoms
 from gconanpy.iters.duck import DuckCollection
 from gconanpy.iters.filters import MapSubset
 from gconanpy.testers import Tester
+from gconanpy.trivial import always_none
 
 
 class TestMapSubset(Tester):

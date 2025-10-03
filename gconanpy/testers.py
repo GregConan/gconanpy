@@ -4,7 +4,7 @@
 Base classes for unit tests in ../tests/ dir
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-09-24
+Updated: 2025-10-02
 """
 # Import standard libraries
 from abc import ABC
@@ -25,6 +25,7 @@ try:
     from gconanpy.iters import powers_of_ten
     from gconanpy.iters.filters import MapSubset
     from gconanpy.meta import has_method, name_of
+    from gconanpy.trivial import always_false, always_none, always_true
 except (ImportError, ModuleNotFoundError):
     from . import mapping, ROOT_DIR
     from access.attributes import AttrsOf
@@ -32,6 +33,7 @@ except (ImportError, ModuleNotFoundError):
     from iters import powers_of_ten
     from iters.filters import MapSubset
     from meta import has_method, name_of
+    from trivial import always_false, always_none, always_true
 
 # Constant: Paragraph about Lorem ipsum to test Regextract &c
 LIPSUM = """Lorem ipsum (/ˌlɔ:.rəm 'ip.səm/ LOR-əm IP-səm) is a dummy or 
@@ -61,6 +63,7 @@ class Tester(ABC):
     ERR_OF = {"__setitem__": KeyError, "__setattr__": AttributeError}
     SOUP_FPATH = os.path.join(ROOT_DIR, "tests",
                               "sample-email-body-structure.html")
+    TRIVIALS = {always_none: None, always_true: True, always_false: False}
 
     def add_basics(self):
         """ Add generic values to use in tester methods (namely `adict`, \

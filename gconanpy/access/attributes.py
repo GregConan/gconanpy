@@ -4,7 +4,7 @@
 Functions/classes to access and/or modify the attributes of any object(s).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-02
-Updated: 2025-09-28
+Updated: 2025-10-02
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Iterable
@@ -50,10 +50,8 @@ def get_names(an_obj: Any) -> set[str]:
     :param an_obj: Any, object to return the attribute names of
     :return: set[str], the name of every attribute of `an_obj`
     """
-    names = set()
-
     # Name some of its own attributes
-    names.update(dir(an_obj))
+    names = set(dir(an_obj))
 
     # Name the rest of its own attributes
     dict_attr = getattr(an_obj, "__dict__", None)
@@ -358,6 +356,20 @@ class AttrsOf(IterableMap):
         for name in self.names:
             yield name, getattr(self.what, name)
 
+    def list_names(self, filter_if: Filter.FilterFunction | None = None,
+                   exclude: bool = False) -> list[str]:
+        """
+        :param filter_if: Callable[[str, Any], bool] that returns True if \
+            the `str` argument passes all of the name filters and \
+            the `Any` argument passes all of the value filters, else False; \
+            or None to return a list of all attribute names; defaults to None.
+        :param exclude: bool, False to INclude all attributes for which all \
+            of the filter functions return True; else False to EXclude them.
+        :return: list[str], names of selected attributes of this object.
+        """
+        return [name for name, _ in self.select(filter_if, exclude)
+                ] if filter_if else list(self.names)
+
     def list_pairs(self, filter_if: Filter.FilterFunction | None = None,
                    exclude: bool = False) -> list[_AttrPair]:
         pair_generator = self.items() if filter_if is None \
@@ -371,13 +383,6 @@ class AttrsOf(IterableMap):
             and value of each method of this object.
         """
         yield from self.select(filter_if=self.IS_METHOD)
-
-    def method_names(self) -> list[str]:
-        """
-        :return: list[str], names of all methods (callable attributes) of \
-            this object.
-        """
-        return [meth_name for meth_name, _ in self.methods()]
 
     def nested(self, *attribute_names: str) -> Any:
         """ `Of(an_obj).nested("first", "second", "third")` will \
@@ -408,13 +413,7 @@ class AttrsOf(IterableMap):
         :yield: Generator[tuple[str, Any], None, None] that returns the name \
             and value of each public attribute.
         """
-        yield from self.select(filter_if=self.IS_PUBLIC)  # , exclude=True)
-
-    def public_names(self) -> list[str]:
-        """
-        :return: list[str], names of all public attributes of this object.
-        """
-        return [attr_name for attr_name, _ in self.public()]
+        yield from self.select(filter_if=self.IS_PUBLIC)
 
     def select(self, filter_if: Filter.FilterFunction,
                exclude: bool = False) -> _IterAttrPairs:
@@ -432,12 +431,33 @@ class AttrsOf(IterableMap):
             if filter_if(name, attr) is not exclude:
                 yield name, attr
 
+    def slots(self) -> Generator[str, None, None]:
+        """
+        :yield: Generator[str, None, None], the name of each slot \
+            (non-read-only attribute) of this object.
+        """
+        for name in self.names:
+            if not is_read_only(self.what, name):
+                yield name
+
     def to_dict(self) -> dict[str, Any]:
+        """ 
+        :return: dict[str, Any] mapping every attribute's name to its value
+        """
         return {name: getattr(self.what, name) for name in self.names}
 
+    def variables(self) -> _IterAttrPairs:
+        """ Iterate over this object's variables (non-read-only attributes).
 
-class MultiWrapperFactory:
-    def __init__(self, superclass: type) -> None:
-        super_attrs = AttrsOf(superclass)
-        for meth_name, meth in super_attrs.select(AttrsOf.IS_PUBLIC_METHOD):
-            ...  # TODO
+        :yield: Generator[tuple[str, Any], None, None] that returns the name \
+            and value of each variable attribute.
+        """
+        for name in self.slots():
+            yield name, getattr(self.what, name)
+
+    # _yield_first_item = filter_sequence_generator(0)
+    # keys = _yield_first_item(items)
+    # method_names = _yield_first_item(methods)   # ?
+    # private_names = _yield_first_item(private)  # ?
+    # public_names = _yield_first_item(public)    # ?
+    # slots = _yield_first_item(variables)        # ?

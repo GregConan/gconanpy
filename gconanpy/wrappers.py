@@ -750,20 +750,6 @@ class Sets[T: Hashable](tuple[set[T], ...]):
         return super().__new__(cls, (set(x) for x in iterables))
 
     @staticmethod
-    def _zip_sets(func: Callable[Concatenate[set[T], Iterable[T], _P], _R]
-                  ):  # -> Callable[[Self, Sequence[set[T]]], Generator[_R,
-
-        def inner(self: Self, others: Sequence[set[T]], *args,  # : _P.args,
-                  **kwargs):  # : _P.kwargs) -> Generator[_R, None, None]:
-            """ Element-wise `set` operation.
-
-            :param others: Sequence[set[T]], _description_
-            """
-            for i in range(min(len(self), len(others))):
-                yield func(self[i], others[i], *args, **kwargs)
-        return inner
-
-    @staticmethod
     def _reduce_set_method(func: Callable[[set[T], Iterable[T]], set[T]]
                            ) -> Callable[..., set[T]]:
         @wraps(func)
@@ -775,6 +761,20 @@ class Sets[T: Hashable](tuple[set[T], ...]):
         if doc is not None:
             inner.__doc__ = ToString.fromAny(doc).replace_all({
                 "two sets": "all `Sets`", "both sets": "all `Sets`"})
+        return inner
+
+    @staticmethod
+    def _zip_sets(func: Callable[Concatenate[set[T], Iterable[T], _P], _R]
+                  ):  # -> Callable[[Self, Sequence[set[T]]], Generator[_R,
+
+        def inner(self: Self, others: Sequence[set[T]], *args,  # : _P.args,
+                  **kwargs):  # : _P.kwargs) -> Generator[_R, None, None]:
+            """ Element-wise `set` operation.
+
+            :param others: Sequence[set[T]], _description_
+            """
+            for i in range(min(len(self), len(others))):
+                yield func(self[i], others[i], *args, **kwargs)
         return inner
 
     # Aliases for methods reducing all contained Sets to one output set
@@ -797,7 +797,7 @@ class Sets[T: Hashable](tuple[set[T], ...]):
             `Sets` tuple
         :return: Self, a `Sets` instance with `others` concatenated to the end
         """
-        return self.concat(others)
+        return self + others
 
     def apply(self, func: Callable[Concatenate[set[T], _P], _R],
               *args: _P.args, **kwargs: _P.kwargs

@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-07
-Updated: 2025-09-18
+Updated: 2025-09-29
 """
 # Import standard libraries
 import builtins
@@ -197,13 +197,12 @@ class TestMetaFunctions(Tester):
         list, tuple, dict, pd.DataFrame, attributes.AttrsOf}
 
     def test_names_of(self) -> None:
-        for classes in Combinations.of_seq(self.DISJOINT_CLASSES):
+        for classes in Combinations.of_objects(self.DISJOINT_CLASSES):
             self.check_result(names_of(classes), [name_of(x) for x in classes])
 
-    def test_name_type_class(self) -> None:
-        n_variants = 100
-        n_runs = 100
-        subsets = [*Combinations.of_seq(self.DISJOINT_CLASSES)]
+    def test_name_type_class(self, n_variants: int = 100,
+                             n_runs: int = 100) -> None:
+        subsets = [*Combinations.of_objects(self.DISJOINT_CLASSES)]
         for _ in range(n_variants):
             subclasses = random.choice(subsets)
             not_subclasses = self.DISJOINT_CLASSES - set(subclasses)

@@ -5,7 +5,7 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-09-28
+Updated: 2025-10-02
 """
 # Import standard libraries
 import abc
@@ -17,7 +17,8 @@ from more_itertools import all_equal
 import random
 import string
 import sys
-from typing import Any, cast, overload, ParamSpec, TypeVar
+from typing import Any, cast, overload, ParamSpec, \
+    Self, SupportsIndex, TypeVar
 
 # Import local custom libraries
 try:
@@ -29,16 +30,16 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from meta import method, Traversible, tuplify
     from meta.typeshed import Poppable, Updatable
 
-# Constants: TypeVars for...
+# TypeVars to define type hints for...
 _H = TypeVar("_H", bound=Hashable)      # ...invert & uniqs_in
 _I = TypeVar("_I", bound=Iterable)      # ...combine
 _Map = TypeVar("_Map", bound=Mapping)   # ...Combinations.of_map
 _P = ParamSpec("_P")                    # ...exhaust_wrapper
-RANDATUM = TypeVar("RANDATUM", bool, bytes, float, int, None, str
-                   )  # ...Randoms.randata & Randoms.randatum
 _Seq = TypeVar("_Seq", bound=Sequence)  # ...seq_*
 _T = TypeVar("_T")    # ...duplicates_in & Combinations.randsublist
 _U = TypeVar("_U", bound=Updatable)     # ...merge & update_return
+RANDATUM = TypeVar("RANDATUM", bool, bytes, float, int, None, str
+                   )  # ...Randoms.randata & Randoms.randatum
 
 # NOTE Functions are in alphabetical order. Classes are in dependency order.
 
@@ -142,6 +143,38 @@ def exhaust_wrapper(gen_func: Callable[_P, Generator],
     return inner
 
 
+def filter_sequence_generator(ix: int) -> Callable[
+    [Callable[_P, Generator[Sequence[_T], None, None]]],
+    Callable[_P, Generator[_T, None, None]]
+]:
+    """ `operator.itemgetter` for `Generator`s that yield `Sequence`s. \
+        Works on `method_descriptor`s.
+
+    Call this with an index and use the returned function as a decorator on \
+    a generator function to only yield the specified index of the Sequence \
+    yielded by that generator function.
+
+    E.g. `filter_generator(0)(dict.items)` replicates `dict.keys` iteration \
+    and `filter_generator(1)(dict.items)` replicates `dict.values` iteration.
+
+    :param ix: int, index of an input generator's yielded Sequence for the \
+        returned function to yield
+    :return: Callable[[Callable[_P, Generator[Sequence[_T], None, None]]], \
+        Callable[_P, Generator[_T, None, None]]], function that accepts a \
+        generator function yield Sequences and returns a generator function \
+        yielding only the elements at the specified index of those Sequences.
+    """
+    def outer(func: Callable[_P, Generator[Sequence[_T], None, None]]
+              ) -> Callable[_P, Generator[_T, None, None]]:
+        @functools.wraps(func)
+        def inner(*args: _P.args, **kwargs: _P.kwargs
+                  ) -> Generator[_T, None, None]:
+            for item in func(*args, **kwargs):
+                yield item[ix]
+        return inner
+    return outer
+
+
 def has_any(iterable: Iterable, *items: Any) -> bool:
     """
     :param iterable: Iterable to check whether it contains any of the `items`
@@ -156,8 +189,8 @@ def has_any(iterable: Iterable, *items: Any) -> bool:
 def invert_range(a_range: range) -> range:
     """ Same as `reversed(a_range)`, but returns a freshly copied `range`.
 
-    :param a_range: range, _description_
-    :return: range, _description_
+    :param a_range: range
+    :return: range, inverted (reversed) copy of `a_range`
     """
     return range(a_range.stop - 1, a_range.start - 1, -a_range.step)
 
@@ -175,6 +208,12 @@ def merge(updatables: Iterable[_U]) -> _U:
 
 
 def powers_of_ten(orders_of_magnitude: int = 4) -> list[int]:
+    """ 
+    :param orders_of_magnitude: int, maximum power that 10 will be raised \
+        to in the output `list`; defaults to 4
+    :return: list[int], 10 raised to the power of 1, then 2, then ..., \
+        then `orders_of_magnitude`.
+    """
     return [10 ** i for i in range(orders_of_magnitude + 1)]
 
 
@@ -189,10 +228,22 @@ def seq_startswith(seq: _Seq, prefix: _Seq) -> bool:
 
 
 def seq_truncate(a_seq: _Seq, max_len: int) -> _Seq:
+    """ Cut off the end of `a_seq` if it's longer than `max_len`.
+
+    :param a_seq: Sequence[_T: Any]
+    :param max_len: int, number of items to include in the output `Sequence`
+    :return: Sequence[_T: Any], the FIRST `max_len` items in `a_seq`
+    """
     return cast(_Seq, a_seq[:max_len]) if len(a_seq) > max_len else a_seq
 
 
 def seq_rtruncate(a_seq: _Seq, max_len: int) -> _Seq:
+    """  Cut off the beginning of `a_seq` if it's longer than `max_len`.
+
+    :param a_seq: Sequence[_T: Any]
+    :param max_len: int, number of items to include in the output `Sequence`
+    :return: Sequence[_T: Any], the LAST `max_len` items in `a_seq`
+    """
     return cast(_Seq, a_seq[-max_len:]) if len(a_seq) > max_len else a_seq
 
 
@@ -254,7 +305,7 @@ class Randoms:
     CHARS = tuple(string.printable)  # String characters to randomly pick
     MIN = 1    # Default minimum number of items/tests
     MAX = 100  # Default maximum number of items/tests
-    RANDTYPES: tuple[type, ...] = RANDATUM.__constraints__
+    RANDTYPES: tuple[type | None, ...] = RANDATUM.__constraints__
 
     _TYPES = type | Sequence[type | None]
 
@@ -372,8 +423,18 @@ class Randoms:
                 for _ in cls.randrange(min_n, max_n)]
 
     @staticmethod
-    def randrange(min_len: int = MIN, max_len: int = MAX) -> range:
-        return range(random.randint(min_len, max_len))
+    def randrange(min_len: int = MIN, max_len: int = MAX,
+                  allow_negative: bool = False) -> range:
+        if allow_negative:
+            start = random.randint(-Randoms.MAX, Randoms.MAX)
+            stop = random.randint(-Randoms.MAX, Randoms.MAX)
+            difference = stop - start
+            step = random.randint(1, difference) if difference >= 0 \
+                else random.randint(difference, -1)
+            # step = random.randint(min(start, stop), max(start, stop))
+            return range(start, stop, step)
+        else:
+            return range(random.randint(min_len, max_len))
 
     @classmethod
     def randtuple(cls, length: int, values: Sequence[_VT] | None = None,
@@ -496,7 +557,7 @@ class Combinations:
             `objects` excluding the values in `exclude`.
         """
         excluset = set(exclude)
-        for combo in cls.of_seq(objects):
+        for combo in cls.of_objects(objects):
             if set(combo).isdisjoint(excluset):
                 yield combo
 
@@ -518,11 +579,11 @@ class Combinations:
         :param a_map: _Map, _description_
         :yield: Generator[_Map, None, None], _description_
         """
-        for keys in cls.of_seq(a_map):
+        for keys in cls.of_objects(a_map):
             yield MapSubset(keys_are=keys).of(a_map)
 
     @staticmethod
-    def of_seq(objects: Collection[_T]) -> itertools.chain[tuple[_T, ...]]:
+    def of_objects(objects: Collection[_T]) -> itertools.chain[tuple[_T, ...]]:
         """ Return all possible combinations/subsequences of `objects`.
         Adapted from https://stackoverflow.com/a/31474532
 

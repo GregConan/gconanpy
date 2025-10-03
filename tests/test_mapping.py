@@ -98,7 +98,6 @@ class TestDictFunctions(DictTester):
     _KT = TypeVar("_KT")
     _VT = TypeVar("_VT")
     _M = TypeVar("_M", bound=MutableMapping)
-    TRIVIALS = {always_none: None, always_true: True, always_false: False}
 
     def check_setdefaults(self, expected: dict[str, int],
                           setdefaults: Callable = mapping.setdefaults,

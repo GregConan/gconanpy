@@ -4,7 +4,7 @@
 Custom multidimensional dictionaries extending dicts.py classes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-23
-Updated: 2025-09-28
+Updated: 2025-10-02
 """
 # Import standard libraries
 import abc
@@ -19,13 +19,13 @@ from typing_extensions import Self
 try:
     from gconanpy.bytesify import Bytesifiable, DEFAULT_ENCODING, Encryptor
     from gconanpy.debug import Debuggable
-    from gconanpy.mapping.dicts import CustomDict, Invertionary, MapParts
+    from gconanpy.mapping.dicts import CustomDict, MapParts
     from gconanpy.meta import name_of
     from gconanpy.meta.typeshed import ComparableHashable
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from bytesify import Bytesifiable, DEFAULT_ENCODING, Encryptor
     from debug import Debuggable
-    from mapping.dicts import CustomDict, Invertionary, MapParts
+    from mapping.dicts import CustomDict, MapParts
     from meta import name_of
     from meta.typeshed import ComparableHashable
 
@@ -34,16 +34,21 @@ FromMap = TypeVar("FromMap", Mapping, MapParts, None)
 
 
 class NameDimension:  # for HashGrid
+    NAMES = ("x", "y", "z", *string.ascii_lowercase[:-3])
+
+    # TODO Ensure it's (..., y, z, aa, ab, ...) ?
+    # NAMES = cycle(("x", "y", "z", *string.ascii_lowercase[:-3]))
+
     def __init__(self) -> None:
-        self.names = ("x", "y", "z", *string.ascii_lowercase[:-3])
         self.ix = 0
+        # self.prefix = ""  # TODO Ensure it's (..., y, z, aa, ab, ...) ?
 
     def __iter__(self) -> Self:
         return self
 
     def __next__(self) -> str:
         try:
-            to_return = self.names[self.ix]
+            to_return = self.NAMES[self.ix]
         except IndexError:
             nextlen = (self.ix // 26) + 1
             to_return = "".join(random.choices(
@@ -358,30 +363,34 @@ class HashGrid[KT: Hashable, VT](BaseHashGrid[KT, VT]):
                    **kwargs)
 
 
-class Grid[XT: Hashable, YT: Hashable, VT](Invertionary):  # 2D Grid
+class Grid[KT: Hashable, VT]:  # (Invertionary):  # 2D Grid
     _D = TypeVar("_D")
 
     @overload
     def __init__(self): ...
     @overload
-    def __init__(self, *tuples: tuple[XT, YT, VT]): ...
+    def __init__(self, *tuples: tuple[KT, KT, VT]): ...
 
     @overload
-    def __init__(self, *, x: Iterable[XT], y: Iterable[YT],
+    def __init__(self, *, x: Iterable[KT], y: Iterable[KT],
                  values: Iterable[VT]): ...
 
     def __init__(self, *tuples, x=tuple(), y=tuple(), values=tuple()) -> None:
-        self.X: CustomDict[XT, CustomDict[YT, VT]] = CustomDict()
-        self.Y: CustomDict[YT, CustomDict[XT, VT]] = CustomDict()
+        self.X: dict[KT, dict[KT, VT]] = dict()
+        self.Y: dict[KT, dict[KT, VT]] = dict()
         if tuples:
             triples = tuples
         elif x and y and values:  # and len(x) == len(y) == len(values):
-            triples = zip(x, y, values)
+            triples = zip(x, y, values, strict=True)
         else:
             triples = tuple()
         for xkey, ykey, val in triples:
             self.X[xkey][ykey] = val
             self.Y[ykey][xkey] = self.X[xkey][ykey]
+
+    def invert(self) -> None:
+        self.X = self.Y
+        self.Y = self.X
 
 
 class Locktionary[KT: str, VT: Bytesifiable

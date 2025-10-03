@@ -4,7 +4,7 @@
 Classes to convert objects to/from bytes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-23
-Updated: 2025-09-07
+Updated: 2025-10-01
 """
 # Import standard libraries
 import base64
@@ -31,13 +31,15 @@ class Bytesifier:
     # Type variables for bytesify function's input parameter type hints
     _T = TypeVar("_T")
     ErrOption = Literal["raise", "ignore", "print"]
+    IgnoreErr = Literal["ignore", "print"]
 
     # Default values for bytesify function's input parameters
     DEFAULT_LEN = 8
 
     # String encoding error message
     ERR_MSG = "Cannot convert {} into bytes."
-    STR_ERR = "Try calling `bytesify` again with a different `encoding`."
+    ERR_RETRY = ERR_MSG + " Try calling `bytesify` again with "
+    STR_ERR = ERR_RETRY + "`signed=True` or a higher `length`."
 
     @overload
     @classmethod
@@ -51,12 +53,12 @@ class Bytesifier:
 
     @overload
     @classmethod
-    def bytesify(cls, an_obj: str, errors: Literal["ignore", "print"], *,
+    def bytesify(cls, an_obj: str, errors: IgnoreErr, *,
                  encoding: str = DEFAULT_ENCODING) -> bytes | str: ...
 
     @overload
     @classmethod
-    def bytesify(cls, an_obj: float, errors: Literal["ignore", "print"], *,
+    def bytesify(cls, an_obj: float, errors: IgnoreErr, *,
                  encoding: str = DEFAULT_ENCODING) -> bytes | float: ...
 
     @overload
@@ -67,7 +69,7 @@ class Bytesifier:
 
     @overload
     @classmethod
-    def bytesify(cls, an_obj: int, errors: Literal["ignore", "print"], *,
+    def bytesify(cls, an_obj: int, errors: IgnoreErr, *,
                  signed: bool = True, length: int = DEFAULT_LEN
                  ) -> bytes | int: ...
 
@@ -78,8 +80,7 @@ class Bytesifier:
 
     @overload
     @classmethod
-    def bytesify(cls, an_obj: _T, errors: Literal["ignore", "print"]
-                 ) -> _T: ...
+    def bytesify(cls, an_obj: _T, errors: IgnoreErr) -> _T: ...
 
     @overload
     @classmethod
@@ -114,21 +115,18 @@ class Bytesifier:
                 try:
                     bytesified = an_obj.to_bytes(length, signed=signed)
                 except OverflowError:
-                    err_msg = (f"Cannot convert integer {an_obj} into "
-                               "bytes. Try calling `bytesify` again "
-                               "with `signed=True` or a higher `length`.")
+                    err_msg = cls.ERR_RETRY.format(f"integer {an_obj}") \
+                        + "`signed=True` or a higher `length`."
             case str():
                 try:
                     bytesified = an_obj.encode(encoding=encoding)
                 except UnicodeEncodeError:
-                    err_msg = cls.ERR_MSG.format(f"string '{an_obj}'"
-                                                 ) + cls.STR_ERR
+                    err_msg = cls.STR_ERR.format(f"string '{an_obj}'")
             case float():
                 try:  # Store float as str to avoid headache/overcomplication
                     bytesified = str(an_obj).encode(encoding=encoding)
                 except UnicodeEncodeError:
-                    err_msg = cls.ERR_MSG.format(f"float '{an_obj}'"
-                                                 ) + cls.STR_ERR
+                    err_msg = cls.STR_ERR.format(f"float '{an_obj}'")
             case _:
                 err_msg = cls.ERR_MSG.format(f"object `{an_obj}`")
         if err_msg is None:
