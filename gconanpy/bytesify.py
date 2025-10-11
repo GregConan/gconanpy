@@ -4,7 +4,7 @@
 Classes to convert objects to/from bytes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-23
-Updated: 2025-10-01
+Updated: 2025-10-10
 """
 # Import standard libraries
 import base64
@@ -30,16 +30,16 @@ Bytesifiable = SupportsBytes | int | str | float | memoryview
 class Bytesifier:
     # Type variables for bytesify function's input parameter type hints
     _T = TypeVar("_T")
-    ErrOption = Literal["raise", "ignore", "print"]
+    ErrOption = Literal["ignore", "print", "raise"]
     IgnoreErr = Literal["ignore", "print"]
 
     # Default values for bytesify function's input parameters
     DEFAULT_LEN = 8
 
     # String encoding error message
-    ERR_MSG = "Cannot convert {} into bytes."
-    ERR_RETRY = ERR_MSG + " Try calling `bytesify` again with "
-    STR_ERR = ERR_RETRY + "`signed=True` or a higher `length`."
+    ERR_MSG = "Cannot convert {} into bytes. "
+    ERR_RETRY = ERR_MSG + "Try calling `bytesify` again with "
+    STR_ERR = ERR_RETRY + "a different `encoding`."
 
     @overload
     @classmethod
@@ -157,7 +157,7 @@ class Bytesifier:
                                         )  # .strip(b"=")
 
 
-class Encryptor(Bytesifier):
+class Encryptor(Bytesifier):  # TODO REPLACE; DON'T ROLL & SHARE OWN CRYPTO
     KEY_LEN = 32
 
     def __init__(self, k: int, iterations: int = 1000, salt_len=16) -> None:

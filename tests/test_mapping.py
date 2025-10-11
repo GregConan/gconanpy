@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-09-24
+Updated: 2025-10-10
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -349,7 +349,7 @@ class TestAccessor(DictTester):
         self.add_basics()
         randicts = list()
         randobjs = list()
-        for _ in Randoms.randrange(max_len=20):
+        for _ in Randoms.randcount(max_len=20):
             randicts.append({**Randoms.randict(
                 keys=string.ascii_letters, max_len=10), **self.adict})
             randobjs.append(SimpleNamespace(**randicts[-1]))
@@ -696,7 +696,7 @@ class TestHashGrid(DictTester):
                 keylen = random.randint(min_keys, max_keys)
                 pairs = [(tuple(Randoms.randints(min_n=keylen, max_n=keylen)),
                           random.randint(Randoms.MIN, Randoms.MAX))
-                         for _ in Randoms.randrange(min_pairs, max_pairs)]
+                         for _ in Randoms.randcount(min_pairs, max_pairs)]
                 yield (pairs, hgclass(*pairs))
 
     def dims_names_test(self, get_pairs: Callable[[CLASSES, int], _StrDimsGen],

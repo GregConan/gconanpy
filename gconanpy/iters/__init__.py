@@ -5,12 +5,12 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-10-02
+Updated: 2025-10-10
 """
 # Import standard libraries
 import abc
 from collections.abc import Callable, Collection, Generator, \
-    Hashable, Iterable, Mapping, Sequence
+    Hashable, Iterable, Iterator, Mapping, Sequence
 import functools
 import itertools
 from more_itertools import all_equal
@@ -23,16 +23,15 @@ from typing import Any, cast, overload, ParamSpec, \
 # Import local custom libraries
 try:
     from gconanpy.iters.filters import MapSubset
-    from gconanpy.meta import method, Traversible, tuplify
+    from gconanpy.meta import divmod_base, method, Traversible, tuplify
     from gconanpy.meta.typeshed import Poppable, Updatable
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from iters.filters import MapSubset
-    from meta import method, Traversible, tuplify
+    from meta import divmod_base, method, Traversible, tuplify
     from meta.typeshed import Poppable, Updatable
 
 # TypeVars to define type hints for...
 _H = TypeVar("_H", bound=Hashable)      # ...invert & uniqs_in
-_I = TypeVar("_I", bound=Iterable)      # ...combine
 _Map = TypeVar("_Map", bound=Mapping)   # ...Combinations.of_map
 _P = ParamSpec("_P")                    # ...exhaust_wrapper
 _Seq = TypeVar("_Seq", bound=Sequence)  # ...seq_*
@@ -112,17 +111,17 @@ def duplicates_in(a_seq: Sequence[_T]) -> list[_T]:
     return [x for x in a_seq if a_seq.count(x) > 1]
 
 
-def exhaust(gen: Generator, max_loops: int = sys.maxsize) -> None:
-    """ Given a generator function, exhaust it by iterating it until it has \
+def exhaust(itr: Iterator, max_loops: int = sys.maxsize) -> None:
+    """ Given an iterator, exhaust it by iterating it until it has \
         no values left to yield. Ignores values yielded.
 
-    :param gen: Generator, generator function to exhaust
+    :param itr: Iterator, generator function to exhaust
     :param max_loops: int, maximum number of times to try getting the next \
-        value from `gen`
+        value from `itr`
     """
     try:
         for _ in range(max_loops):
-            next(gen)
+            next(itr)
     except StopIteration:
         pass
 
@@ -147,7 +146,7 @@ def filter_sequence_generator(ix: int) -> Callable[
     [Callable[_P, Generator[Sequence[_T], None, None]]],
     Callable[_P, Generator[_T, None, None]]
 ]:
-    """ `operator.itemgetter` for `Generator`s that yield `Sequence`s. \
+    """ `operator.itemgetter` for `Sequence`s yielded by `Generator`s. \
         Works on `method_descriptor`s.
 
     Call this with an index and use the returned function as a decorator on \
@@ -309,6 +308,14 @@ class Randoms:
 
     _TYPES = type | Sequence[type | None]
 
+    @staticmethod
+    def _int_or_randint(int_or_pair: int | tuple[int, int]) -> int:
+        try:
+            pair = cast(tuple[int, int], int_or_pair)
+            return random.randint(pair[0], pair[1])
+        except TypeError:
+            return cast(int, int_or_pair)
+
     @classmethod
     def randbool(cls, *_) -> bool:
         """ Taken from https://stackoverflow.com/a/6824868 
@@ -345,19 +352,13 @@ class Randoms:
             chosen from the provided `types`
         """
         types_tup: tuple[type[RANDATUM] | None, ...] = tuplify(dtypes)
-        if not weights:
+        if (not weights) or len(types_tup) < 2:
             weights = None  # [1.0] * len(types_tup)
         elif weights is True:
-            match len(types_tup):
-                case 0:
-                    weights = []
-                case 1:
-                    weights = [1.0]
-                case _:
-                    num_range = float(abs(min_val - max_val))
-                    default_weights = {bool: 2.0, None: 1.0}
-                    weights = [default_weights.get(each_type, num_range)
-                               for each_type in types_tup]
+            num_range = float(abs(min_val - max_val))
+            default_weights = {bool: 2.0, None: 1.0}
+            weights = [default_weights.get(each_type, num_range)
+                       for each_type in types_tup]
         elif len(weights) != len(types_tup):
             raise ValueError(f"weights length ({len(weights)}) must match "
                              f"types length ({len(types_tup)})")
@@ -411,7 +412,7 @@ class Randoms:
     def randints(cls, min_n: int = MIN, max_n: int = MAX,
                  min_int: int = -BIGINT, max_int: int = BIGINT
                  ) -> Generator[int, None, None]:
-        for _ in cls.randrange(min_n, max_n):
+        for _ in cls.randcount(min_n, max_n):
             yield random.randint(min_int, max_int)
 
     @classmethod
@@ -420,21 +421,19 @@ class Randoms:
                     min_int: int = -BIGINT, max_int: int = BIGINT
                     ) -> list[set[int]]:
         return [set(cls.randints(min_len, max_len, min_int, max_int))
-                for _ in cls.randrange(min_n, max_n)]
+                for _ in cls.randcount(min_n, max_n)]
 
     @staticmethod
-    def randrange(min_len: int = MIN, max_len: int = MAX,
-                  allow_negative: bool = False) -> range:
-        if allow_negative:
-            start = random.randint(-Randoms.MAX, Randoms.MAX)
-            stop = random.randint(-Randoms.MAX, Randoms.MAX)
-            difference = stop - start
-            step = random.randint(1, difference) if difference >= 0 \
-                else random.randint(difference, -1)
-            # step = random.randint(min(start, stop), max(start, stop))
-            return range(start, stop, step)
-        else:
-            return range(random.randint(min_len, max_len))
+    def randcount(min_len: int = MIN, max_len: int = MAX) -> range:
+        return range(random.randint(min_len, max_len))
+
+    @classmethod
+    def randrange(cls, start: int | tuple[int, int] = 0,
+                  stop: int | tuple[int, int] = BIGINT,
+                  step: int | tuple[int, int] = 1) -> range:
+        return range(cls._int_or_randint(start),
+                     cls._int_or_randint(stop),
+                     cls._int_or_randint(step))
 
     @classmethod
     def randtuple(cls, length: int, values: Sequence[_VT] | None = None,
@@ -464,7 +463,7 @@ class Randoms:
                    ) -> list[tuple[_VT, ...]]:
         tuples = list()  # to return
         tup_len = random.randint(min_len, max_len) if same_len else None
-        for _ in cls.randrange(min_n, max_n):
+        for _ in cls.randcount(min_n, max_n):
             if tup_len is None:
                 tup_len = random.randint(min_len, max_len)
             a_tup = cls.randtuple(tup_len, values)
@@ -483,6 +482,43 @@ class Randoms:
                     max_len: int = MAX) -> list[_T]:
         return random.choices(seq, k=random.randint(
             min_len, min(max_len, len(seq))))
+
+
+class ColumnNamer:
+    """ Adapted from https://stackoverflow.com/a/48984697 """
+
+    def __init__(self, letters: str = string.ascii_uppercase,
+                 start_at: int = 1) -> None:
+        radix = len(letters)
+        self.letters = letters
+        self.ix = self.offset = start_at
+        self.base = radix
+        self._divmod = staticmethod(divmod_base(radix))
+
+    def __iter__(self) -> Self:
+        return self
+
+    def __next__(self) -> str:
+        ret = self.num2name(self.ix)
+        self.ix += 1
+        return ret
+
+    def _col_num_base_10(self, col_num: int, remainder: int) -> int:
+        return col_num * self.base + remainder + self.offset
+
+    def num2name(self, col_num: int) -> str:
+        chars = list()
+        while col_num > 0:
+            col_num, remainder = self._divmod(col_num)
+            chars.append(self.letters[remainder - 1])
+        return "".join(reversed(chars))
+
+    def name2num(self, excel_col: str) -> int:
+        return functools.reduce(self._col_num_base_10, map(
+            self.letters.index, excel_col), 0)
+
+    def reset(self) -> Self:
+        return type(self)(self.letters, self.offset)
 
 
 class SimpleShredder(Traversible):

@@ -53,6 +53,35 @@ def count_digits_of(a_num: int | float):
     return int(log10(absnum)) + 1 if a_num % 1 == 0 else len(str(absnum)) - 1
 
 
+def divmod_base(n: int) -> Callable[[int], tuple[int, int]]:
+    """ Get a function that converts integers into base `n` via `divmod`, \
+        but represents a nonzero int with a full remainder.
+
+    `divmod_base(26)` returns a function useful to convert MS Excel \
+    column numbers into their letter equivalent.
+
+    Adapted from https://stackoverflow.com/a/48984697
+
+    :param n: int, base (numerical radix).
+    :return: Callable[[int], tuple[int, int]], a function that accepts an \
+        integer and converts it into base `n`, returning a \
+        `(quotient, remainder)` tuple.
+    """
+    def inner(dividend: int) -> tuple[int, int]:
+        quotient, remainder = divmod(dividend, n)
+        return (quotient - 1, remainder + n) if remainder == 0 \
+            else (quotient, remainder)
+    inner.__doc__ = \
+        f""" Convert int `dividend` into base-{n} via `divmod`, \
+            but represent a nonzero int with a full remainder.
+
+        :param dividend: int, number to convert into base-{n}
+        :return: tuple[int, int], quotient and remainder after \
+            converting `dividend` into base-{n}
+        """
+    return inner
+
+
 def full_name_of(an_obj: Any) -> str:
     return ".".join((getattr(an_obj, "__module__"),
                      getattr(an_obj, "__name__")))

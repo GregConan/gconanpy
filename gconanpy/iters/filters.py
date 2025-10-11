@@ -5,7 +5,7 @@ Classes that can filter objects to only get the elements (or attributes) \
     that match certain specified conditions.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-09-18
-Updated: 2025-09-26
+Updated: 2025-10-10
 """
 # Import standard libraries
 import abc
@@ -63,11 +63,15 @@ class Filter(BaseFilter):
     _WHICH = Literal["names", "values"]  # Names of each Filter's attributes
     _FILTERDICT = dict[bool, tuple[_SELECTOR, ...]]  # Types of Filter attrs
 
-    # Public class variable: filter type hint for other methods/functions
+    # Public class variables:
+
+    # Filter type hint for other methods/functions
     FilterFunction = Callable[[str, Any], bool]  # type(Filter(...))
 
+    # The two types of things to filter on
+    on = get_args(_WHICH)  # ("names", "values")
+
     # Public instance variables: name filters and value filters
-    on = get_args(_WHICH)
     names: _FILTERDICT
     values: _FILTERDICT
 
@@ -125,11 +129,15 @@ class MapSubset[KT, VT](BaseFilter):
     _WHICH = Literal["keys", "values"]  # Names of each Filter's attributes
     _FILTERDICT = dict[bool, tuple]  # Types of Filter attrs
 
-    # Public class variable: filter type hint for other methods/functions
-    FilterFunction = Callable[[Hashable, Any], bool]  # type(Filter(...))
+    # Public class variables:
 
-    # Public instance variables: name filters and value filters
-    on = get_args(_WHICH)
+    # MapSubset type hint for other methods/functions
+    FilterFunction = Callable[[Hashable, Any], bool]  # type(MapSubset(...))
+
+    # The two types of things to filter on
+    on = get_args(_WHICH)  # ("keys", "values")
+
+    # Public instance variables: key filters and value filters
     keys: _FILTERDICT
     values: _FILTERDICT
 

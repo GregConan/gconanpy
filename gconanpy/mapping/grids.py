@@ -4,57 +4,30 @@
 Custom multidimensional dictionaries extending dicts.py classes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-23
-Updated: 2025-10-02
+Updated: 2025-10-10
 """
 # Import standard libraries
 import abc
 from collections.abc import Collection, Generator, Hashable, \
     Iterable, Mapping, Sequence
-import random
 import string
-from typing import Any, cast, overload, TypeVar
-from typing_extensions import Self
+from typing import Any, cast, overload, Self, TypeVar
 
 # Import local custom libraries
 try:
     from gconanpy.bytesify import Bytesifiable, DEFAULT_ENCODING, Encryptor
     from gconanpy.debug import Debuggable
-    from gconanpy.mapping.dicts import CustomDict, MapParts
+    from gconanpy.iters import ColumnNamer
+    from gconanpy.mapping.dicts import CustomDict
     from gconanpy.meta import name_of
     from gconanpy.meta.typeshed import ComparableHashable
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from bytesify import Bytesifiable, DEFAULT_ENCODING, Encryptor
+    from iters import ColumnNamer
     from debug import Debuggable
-    from mapping.dicts import CustomDict, MapParts
+    from mapping.dicts import CustomDict
     from meta import name_of
     from meta.typeshed import ComparableHashable
-
-# Type variable for .__init__(...) and .update(...) method input parameters
-FromMap = TypeVar("FromMap", Mapping, MapParts, None)
-
-
-class NameDimension:  # for HashGrid
-    NAMES = ("x", "y", "z", *string.ascii_lowercase[:-3])
-
-    # TODO Ensure it's (..., y, z, aa, ab, ...) ?
-    # NAMES = cycle(("x", "y", "z", *string.ascii_lowercase[:-3]))
-
-    def __init__(self) -> None:
-        self.ix = 0
-        # self.prefix = ""  # TODO Ensure it's (..., y, z, aa, ab, ...) ?
-
-    def __iter__(self) -> Self:
-        return self
-
-    def __next__(self) -> str:
-        try:
-            to_return = self.NAMES[self.ix]
-        except IndexError:
-            nextlen = (self.ix // 26) + 1
-            to_return = "".join(random.choices(
-                string.ascii_lowercase, k=nextlen))
-        self.ix += 1
-        return to_return
 
 
 class BaseHashGrid[KT: Hashable, VT](abc.ABC, CustomDict[int, VT]):
@@ -62,6 +35,9 @@ class BaseHashGrid[KT: Hashable, VT](abc.ABC, CustomDict[int, VT]):
 
     @abc.abstractmethod
     def _sort_keys(self, keys) -> tuple[KT, ...]: ...
+
+    # TODO Use a method to wrap every dict method to insert _hash_keys(...)?
+    # def _wrap(func: Callable[...]) -> Callable[...]:
 
     def __contains__(self, keys: Iterable[KT] | Mapping[str, KT], /) -> bool:
         """ Return `bool(keys in self)`.
@@ -160,9 +136,9 @@ class HashGrid[KT: Hashable, VT](BaseHashGrid[KT, VT]):
     a certain number of keys that must be provided together in the correct \
     order to access or modify the corresponding items.
 
-    `HashGrid` does not know its own `keys`, so calling the `.keys()` \
-    method on a `HashGrid` will return hash `int`s instead of anything \
-    meaningful. This may have cryptographic use.
+    `HashGrid` does not know its own combinations of `keys`, so calling the \
+    `.keys()` method on a `HashGrid` will return hash `int`s instead of \
+    anything meaningful. This may have cryptographic use.
 
     For example, calling `creds = HashGrid.for_creds()` (equivalent to \
     `creds = HashGrid(names=("username", "password"))`) creates a \
@@ -176,6 +152,10 @@ class HashGrid[KT: Hashable, VT](BaseHashGrid[KT, VT]):
     "myvalue" by accessing `creds["myuser", "mypass"]`.
     """
     _D = TypeVar("_D")  # Type hint for "default" parameter
+
+    # By default, name the dimensions like lowercase MS Excel columns:
+    # (a, b, c, ..., x, y, z, aa, ab, ac, ..., ax, ay, az, ba, bb, bc, ...)
+    DEFAULT_DIMS = string.ascii_lowercase  # Used in _name_dims
 
     @overload
     def __init__(self, *pairs: tuple[Collection[KT], VT]) -> None: ...
@@ -300,7 +280,7 @@ class HashGrid[KT: Hashable, VT](BaseHashGrid[KT, VT]):
             n_items = 0
 
         # Dynamically assign default dimension names if none are given
-        namer = NameDimension()
+        namer = ColumnNamer(cls.DEFAULT_DIMS)
         return (next(namer) for _ in range(n_items))
 
     def _sort_keys(self, keys: Mapping[str, KT] | Iterable[KT]

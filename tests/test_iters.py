@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-06
-Updated: 2025-09-22
+Updated: 2025-10-10
 """
 # Import standard libraries
 from collections.abc import Generator, Hashable
@@ -179,7 +179,7 @@ class TestMerge(Tester):
         for _ in range(max_n):
             dicts = list()
             expected = dict()
-            for _ in Randoms.randrange(min_len, max_len):
+            for _ in Randoms.randcount(min_len, max_len):
                 adict = Randoms.randict()
                 dicts.append(adict)
                 expected.update(adict)

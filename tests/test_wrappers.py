@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-09-25
+Updated: 2025-10-10
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Iterable
@@ -54,9 +54,9 @@ class TestSets(Tester):
 
     def test_differentiate(self) -> None:
         for bigset in self.randintsets():
-            randrange = Randoms.randrange()
+            randcount = Randoms.randcount()
             sets = Sets((set(Randoms.randsublist(list(bigset)))
-                         for _ in randrange))
+                         for _ in randcount))
             differentiated = sets.differentiate()
             for postdif in differentiated:
                 for otherset in differentiated:

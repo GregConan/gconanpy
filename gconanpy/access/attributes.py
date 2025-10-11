@@ -4,7 +4,7 @@
 Functions/classes to access and/or modify the attributes of any object(s).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-02
-Updated: 2025-10-02
+Updated: 2025-10-10
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Iterable
@@ -124,7 +124,10 @@ def has(an_obj: Any, name: str, exclude: Container = set()) -> bool:
 
 def is_private(name: str, *_: Any) -> bool:
     """ If an attribute/method name starts with an underscore, then \
-        assume that it's private, and vice versa if it doesn't
+        assume that it's private, and vice versa if it doesn't.
+
+    This function accepts and ignores parameters other than `name` so it \
+    can be used as a filter by `AttrsOf`.
 
     :param name: str, _description_
     :return: bool, True if `name` starts with an underscore; else False
@@ -137,6 +140,10 @@ def is_read_only(obj: Any, attr_name: str) -> bool:
         to set the attribute to its current value.
 
     Adapted from stackoverflow.com/a/29632719 and stackoverflow.com/a/76208998
+
+    WARNING: If the attribute's value changes in the instant between getting \
+    it and re-setting it, then it will be set to the former value, which may \
+    cause issues in some cases.
 
     :param obj: Any
     :param attr_name: str, name of the attribute of `obj` to check.
@@ -214,49 +221,6 @@ def setdefault(an_obj: Any, name: str, value: Any,
     return gotten
 
 
-def slotsof(obj: Any) -> tuple[str, ...]:
-    """ Get an object's `__slots__` or its `__dict__` keys.
-
-    Defined to access object attributes without caring which meta-attribute \
-    it defines (`__slots__` or `__dict__`).
-
-    WARNING: Does not guarantee that slots are in the correct order.
-
-    :param an_obj: Any
-    :return: tuple[str, ...], the `__slots__` attribute of `an_obj` if one \
-        exists; else the keys of `an_obj.__dict__`
-    """
-    try:
-        return obj.__slots__
-    except AttributeError:
-        try:
-            attr_names = obj.__dict__
-        except AttributeError:
-            attr_names = get_names(obj)
-
-        return tuple(attr_names)
-
-
-def varsof(obj) -> dict[str, Any]:
-    """ Get an object's `vars`, or its `__slots__` and their values.
-
-    Defined to access object attributes without caring which meta-attribute \
-    it defines (`__slots__` or `__dict__`).
-
-    :param an_obj: Any
-    :return: dict[str, Any], `vars(an_obj)` if that works; else the names \
-        and values of everything in `an_obj.__slots__`
-    """
-    try:
-        return vars(obj)
-    except TypeError:
-        try:
-            slots = obj.__slots__
-        except AttributeError:
-            slots = get_names(obj)
-        return {x: getattr(obj, x) for x in slots}
-
-
 class AttrsOf(IterableMap):
     """ Select/iterate/copy the attributes of any object. """
     _T = TypeVar("_T")  # Type of object to copy attributes to
@@ -290,7 +254,7 @@ class AttrsOf(IterableMap):
         yield from self.names
 
     def __setitem__(self, name: str, value: Any) -> None:
-        return setattr(self.what, name, value)
+        setattr(self.what, name, value)
 
     def _copy_to(self, an_obj: _T, to_copy: _AttrPair | _IterAttrPairs) -> _T:
         for attr_name, attr_value in to_copy:
@@ -320,13 +284,13 @@ class AttrsOf(IterableMap):
         return self.names - get_all_names(*others)
 
     def first_of(self, attr_names: Iterable[str], default: Any = None,
-                 method_names: set[str] = set()) -> Any:
+                 method_names: Container[str] = set()) -> Any:
         """
         :param attr_names: Iterable[str], attributes to check this object for.
         :param default: Any, what to return if this object does not have any of \
             the attributes named in `attr_names`.
-        :param method_names: set[str], the methods named in `attr_names` to call \
-            before returning them.
+        :param method_names: Container[str], the methods named in \
+            `attr_names` to call before returning them.
         :return: Any, `default` if this object has no attribute named in \
             `attr_names`; else the found attribute, executed with no \
             parameters (if in `method_names`)
@@ -461,3 +425,48 @@ class AttrsOf(IterableMap):
     # private_names = _yield_first_item(private)  # ?
     # public_names = _yield_first_item(public)    # ?
     # slots = _yield_first_item(variables)        # ?
+
+
+def slotsof(obj: Any) -> tuple[str, ...]:
+    """ Get an object's `__slots__` or its `__dict__` keys.
+
+    Defined to access object attributes without caring which meta-attribute \
+    it defines (`__slots__` or `__dict__`). If an object defines neither, \
+    then return a tuple of its non-read-only attribute names.
+
+    WARNING: Does not guarantee that slots are in the correct order.
+
+    :param an_obj: Any
+    :return: tuple[str, ...], the `__slots__` attribute of `an_obj` if one \
+        exists; else the keys of `an_obj.__dict__`
+    """
+    try:
+        return obj.__slots__
+    except AttributeError:
+        try:
+            attr_names = vars(obj)
+        except TypeError:
+            attr_names = AttrsOf(obj).slots()
+
+        return tuple(attr_names)
+
+
+def varsof(obj: Any) -> dict[str, Any]:
+    """ Get an object's `vars`, or its `__slots__` and their values.
+
+    Defined to access object attributes without caring which meta-attribute \
+    it defines (`__slots__` or `__dict__`). If an object defines neither, \
+    then return a dict of its non-read-only attribute names and values.
+
+    :param an_obj: Any
+    :return: dict[str, Any], `vars(an_obj)` if that works; else the names \
+        and values of everything in `an_obj.__slots__`
+    """
+    try:
+        return vars(obj)
+    except TypeError:
+        try:
+            slots = obj.__slots__
+        except AttributeError:
+            slots = AttrsOf(obj).slots()
+        return {x: getattr(obj, x) for x in slots}

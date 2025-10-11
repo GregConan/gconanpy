@@ -4,12 +4,12 @@
 Classes for use in type hints/checks. No behavior, except in MultiTypeMeta.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-12
-Updated: 2025-09-18
+Updated: 2025-10-10
 """
 # Import standard libraries
 import abc
 from collections.abc import Callable, Collection, Hashable, Iterable, Mapping
-from typing import Any, Protocol, overload, Self, SupportsIndex, \
+from typing import Any, Protocol, overload, SupportsIndex, \
     runtime_checkable, TYPE_CHECKING
 
 # Purely "internal" errors only involving local data; ignorable in some cases
@@ -52,8 +52,8 @@ class SupportsRichComparison(Protocol):
 
 
 @runtime_checkable
-class ComparableHashable(SupportsRichComparison, Protocol):
-    def __hash__(self) -> int: ...
+class ComparableHashable(SupportsRichComparison, Hashable, Protocol):
+    ...
 
 
 @runtime_checkable
@@ -87,12 +87,7 @@ class SupportsLenAndGetSlice[T](SupportsGetSlice[T], Protocol):
 
 
 @runtime_checkable
-class SupportsHash(Protocol):
-    def __hash__(self) -> int: ...
-
-
-@runtime_checkable
-class SupportsHashAndGetItem[T](SupportsGetSlice[T], SupportsHash, Protocol):
+class SupportsHashAndGetItem[T](SupportsGetSlice[T], Hashable, Protocol):
     ...
 
 
@@ -112,7 +107,7 @@ class AddableSequence[T](ProtoSequence[T], Protocol):
 
 
 @runtime_checkable
-class HashableSequence[T](ProtoSequence[T], SupportsHash, Protocol):
+class HashableSequence[T](ProtoSequence[T], Hashable, Protocol):
     ...
 
 
