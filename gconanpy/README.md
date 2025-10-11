@@ -6,12 +6,18 @@
 
 ## Dependencies
 
-This package requires the following dependencies:
+This package uses the following Python libraries:
+
 - `bs4` (BeautifulSoup)
 - `cryptography`
+- `inflection`
 - `more_itertools`
+- `numpy`
+- `pandas`
 - `pathvalidate`
-- `requests`
+- `regex`
+
+See `pyproject.toml` in the top-level directory for full list of dependencies and version requirements.
 
 ## Modules
 
@@ -58,6 +64,7 @@ Advanced dictionary utilities and custom dictionary classes.
 
 - **`__init__.py`**: Standalone utility functions for dictionary operations including safe access, lazy loading, inversion, and nested lookups.
 - **`dicts.py`**: Custom dictionary classes with specialized functionality including encryption, dot notation, lazy loading, prompting, and multidimensional mapping.
+- **`grids.py`**: Multidimensional custom dictionary classes mapping *combinations* of specific numbers of keys to specific values. 
 
 ### `meta/`
 
@@ -72,17 +79,8 @@ Low-level utilities, custom types, and metaclass functionality.
 
 Input/Output utilities for web requests and local file operations.
 
-#### Files
-
-- **`__init__.py`**: Module initialization for IO utilities.
-- **`web.py`**: Web-based I/O operations including HTTP requests, URL parsing, and web content handling with enhanced URL and link manipulation.
 - **`local.py`**: Local file system operations including JSON handling, template loading, file copying, and directory traversal with validation.
-
-#### Key Classes
-
-- **`URL`**: Enhanced URL parser with additional utility methods
-- **`Link`**: Markdown link representation and manipulation
-- **`LoadedTemplate`**: Enhanced string template loaded from files
+- **`web.py`**: Web-based I/O operations including HTTP requests, URL parsing, and web content handling with enhanced URL and link manipulation.
 
 ### `bytesify.py`
 
@@ -91,6 +89,7 @@ Classes to convert objects to/from bytes. Byte conversion utilities with error h
 #### Key Classes
 
 - **`Bytesifier`**: Convert various data types to bytes with error handling
+- **`Encryptor`**: Encrypts data. Incomplete; may be removed.
 
 ### `debug.py`
 
@@ -113,12 +112,7 @@ Extension utilities for subclassing existing classes and dynamic class creation.
 
 ### `testers.py`
 
-Base classes for unit tests and testing utilities. Testing utilities and base classes for unit tests including test data generation, mock object creation, and common testing patterns for pytest integration.
-
-#### Key Classes
-
-- **`Tester`**: Base class for test utilities with common testing patterns
-- **`TestData`**: Provides test data and sample objects for testing
+Base classes for unit tests with common testing patterns, including some basic arbitrary test data. Also includes timing utilities. 
 
 ### `trivial.py`
 
@@ -141,13 +135,13 @@ Utility functions and classes to manipulate NumPy and Pandas data. NumPy and Pan
 
 ### String Conversion
 ```python
+from datetime import datetime
 from gconanpy.wrappers import ToString
 
 # Convert any object to string
 string_repr = ToString.fromAny(my_complex_object)
 
 # Convert datetime with custom formatting
-from datetime import datetime
 dt_string = ToString.fromDateTime(datetime.now(), sep="_")
 ```
 

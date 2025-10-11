@@ -4,7 +4,7 @@ Advanced iteration utilities and `Collection` manipulation tools.
 
 ## Overview
 
-The `iters` module provides comprehensive utilities for manipulating `Iterable` objects, especially nested ones. It includes specialized classes for duck typing, operations to find elements in `Iterables`, sequence manipulation, and advanced iteration patterns. This module serves as the foundation for many higher-level operations in the `gconanpy` library.
+Utilities for manipulating `Iterable` objects, especially nested ones. The `iters` module includes container-type-agnostic classes specialized classes for duck typing, operations to find elements in `Iterables`, sequence manipulation, and advanced iteration patterns. This module serves as the foundation for many higher-level operations in the `gconanpy` library.
 
 ## Dependencies
 
@@ -17,7 +17,7 @@ The `iters` module provides comprehensive utilities for manipulating `Iterable` 
 
 ### `__init__.py`
 
-Core iteration utilities and collection manipulation functions.
+Core iteration and manipulation utilities. Includes functions to combine, compare, copy, inspect, iterate, and transform `Iterable` and `Collection` data containers. Also includes highly useful classes extending builtin functionality for data generation (e.g. `Randoms`) and filtering (e.g. `Combinations`).
 
 #### Key Classes
 
@@ -39,27 +39,23 @@ The intended use case is for functions/methods that do not need to know what typ
 
 #### Key Features
 
-- Unified interface for lists, sets, dictionaries, and other collections
-- Automatic method selection based on collection type
-- Support for immutable collections (tuples, strings)
+- Unified interface for lists, sets, dictionaries, and other `Collections`
+- Automatic method selection based on `Collection` type
+- Support for immutable `Collection`s like tuples and strings
 
 ### `find.py`
 
 Classes and functions for finding items in iterables with early termination.
 
-I initially wrote these to answer the question, "Is it reasonably possible to never `break` (or `return`) out of a `for` loop in Python?" Because the widely accepted answer is "no" or "why," some of these classes may be superfluous.
+I initially wrote these to answer the question, "Is it reasonably possible to never `break` (or `return`) out of a `for` loop in Python?" Because the widely accepted answer is "no," some of these classes may be superfluous.
 
 **Key Classes**:
 
 - `BasicRange` is a base class for custom range-like iterators to add functionality.
 - `ErrIterChecker` is like `ReadyChecker`, but its satisfaction condition is no exceptions being raised.
-- `ReadyChecker` is a context manager to replicate functionality interrupting `for` loops upon satisfaction of a given condition, like `for ... if ... break` and `for ... if ... return`, without using a `for` loop. It may be superfluous.
+- `ReadyChecker` is a context manager to replicate functionality interrupting `for` loops upon satisfaction of a given condition, like `for ... if ... break` and `for ... if ... return`, without using a `for` loop or a `break` clause. It may be superfluous.
 - `Spliterator` splits and recombines strings iteratively until satisfaction of a condition.
 - `UntilFound` calls a function on each item in an iterable until one of them returns a result satisfying a specified condition.
-
-### `seq.py`
-
-`Sequence` manipulation functions and NumPy/Pandas integration.
 
 ## Usage Examples
 
@@ -71,12 +67,12 @@ Adding the same item to different types of `Collections`:
 from gconanpy.iters.duck import DuckCollection
 
 # Work with any collection type
-list_collection = DuckCollection([1, 2, 3])
-set_collection = DuckCollection({1, 2, 3})
-dict_collection = DuckCollection({1: "a", 2: "b", 3: "c"})
+lists = DuckCollection([1, 2, 3])
+sets = DuckCollection({1, 2, 3})
+dicts = DuckCollection({1: "a", 2: "b", 3: "c"})
 
 # Same basic operations work across different types
-for ducks in [list_collection, set_collection, dict_collection]:
+for ducks in [lists, sets, dicts]:
     print(len(ducks))  # -> 3
     print(4 in ducks)  # -> False
 
@@ -111,20 +107,6 @@ add_msg_to(("I", "said"))  # -> ("I", "said", "hello world")
 add_msg_to({"I", "said"})  # -> {"hello world", "I", "said"}
 ```
 
-### Finding Items in Iterables
-
-```python
-from gconanpy.iters.find import iterfind, modifind
-
-# Find first item matching condition
-numbers = [1, 2, 3, 4, 5]
-first_even = iterfind(numbers, lambda x: x % 2 == 0)  # -> 2
-
-# Find item after modification
-def double(x): return x * 2
-first_large = modifind(numbers, modify=double, found_if=lambda x: x > 6)  # -> 4
-```
-
 ### Advanced Iteration Patterns
 
 ```python
@@ -138,7 +120,7 @@ for key, mapping in walker.items():
 
 # Extract all data from nested structure
 shredder = SimpleShredder()
-all_data = shredder.shred(complex_nested_object)
+nums = shredder.shred(nested_data) # -> {1, 2}
 ```
 
 ### Sequence Manipulation
@@ -146,15 +128,15 @@ all_data = shredder.shred(complex_nested_object)
 from gconanpy.iters.seq import uniqs_in, seq_startswith
 
 # Get unique items
-unique_items = uniqs_in([1, 2, 2, 3, 1, 3, 3, 2])  # [1, 2, 3]
+unique_items = uniqs_in([1, 2, 2, 3, 1, 3, 3, 2])  # -> [1, 2, 3]
 
 # Check sequence prefix
-starts_with = seq_startswith([1, 2, 3, 4], [1, 2])  # True
+starts_with = seq_startswith([1, 2, 3, 4], [1, 2])  # -> True
 ```
 
 ### Random Data Generation
 
-Below is a basic example of generating random data using the `Randoms` class. For additional usage examples, see the files in the `tests/` directory.
+Below are basic examples of generating random data using the `Randoms` class. For additional usage examples, see the files in the `tests/` directory. Most of them use `Randoms` to generate arbitrary test data covering a variety of types and possible values.
 
 ```python
 from gconanpy.iters import Randoms
@@ -165,39 +147,13 @@ random_ints = list(Randoms.randints(min_n=5, max_n=10))
 random_sets = Randoms.randintsets(min_n=2, max_n=3)
 ```
 
-## Advanced Features
-
-All classes have the following beneficial features.
-
-### Type-Safe Operations
-
-Proper type hints and generic types for type safety:
-
-- `DuckCollection` for type-safe collection operations
-- `MapSubset` with configurable key and value types
-- `Combinations` with hashable type constraints
-
-### Error Handling
-
-Comprehensive error handling throughout:
-
-- `SimpleShredder` handles various data types gracefully
-- `ErrIterChecker` provides exception-safe iteration
-- `DuckCollection` raises appropriate exceptions for unsupported operations
-
-### Performance Optimizations
-
-- Lazy evaluation in `MapWalker` and `Combinations`
-- Efficient traversal tracking in `SimpleShredder`
-- Optimized NumPy operations in `seq.py`
-
 ## Meta
 
 ### About This Document
 
 - Created by @[GregConan](https://github.com/GregConan) on 2025-08-09
-- Updated by @[GregConan](https://github.com/GregConan) on 2025-08-09
-- Current as of `v0.13.2`
+- Updated by @[GregConan](https://github.com/GregConan) on 2025-10-10
+- Current as of `v0.21.5`
 
 ### License
 
