@@ -81,13 +81,15 @@ Dictionary utilities and custom dictionary classes.
 
 - **`mapping/__init__.py`** Standalone utility functions replicating the dictionary operations in `mapping/dicts.py` for general use
 - **`mapping/dicts.py`**:  Custom dictionary classes with specialized functionality for a variety of use cases
+- **`mapping/grids.py`**: Multidimensional custom dictionary classes.
 
 #### **`meta/`**
 
 Core utilities, meta-programming, and type-checking.
 
-- **`meta/__init__.py`**: Core utilities, basic type classes, and type-checking functionality.
+- **`meta/__init__.py`**: Core utilities and type-checking functionality.
 - **`meta/metaclass.py`**: Metaclass creation utilities and advanced type checking. 
+- **`meta/typeshed.py`**: Custom type classes.
 
 ### `tests/`
 
