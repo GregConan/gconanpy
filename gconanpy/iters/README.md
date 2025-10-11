@@ -4,7 +4,7 @@ Advanced iteration utilities and `Collection` manipulation tools.
 
 ## Overview
 
-Utilities for manipulating `Iterable` objects, especially nested ones. The `iters` module includes container-type-agnostic classes specialized classes for duck typing, operations to find elements in `Iterables`, sequence manipulation, and advanced iteration patterns. This module serves as the foundation for many higher-level operations in the `gconanpy` library.
+Utilities for manipulating `Iterable` objects, especially nested ones. The `iters` module includes operations to find elements in `Iterables`, sequence manipulation, and advanced iteration patterns. This module serves as the foundation for many higher-level operations in the `gconanpy` library.
 
 ## Dependencies
 
@@ -21,17 +21,16 @@ Core iteration and manipulation utilities. Includes functions to combine, compar
 
 #### Key Classes
 
-- `Bytesifier` convert objects to bytes with error handling.
-- `Randoms` generates random data for testing and development.
-- `MapSubset` filters and extracts subsets from `Mapping` objects.
+- `Randoms` randomly selects and/or randomly generates data. Useful for testing.
+- `MapSubset` filters and extracts subsets of `Mapping` objects.
 - `SimpleShredder` recursively collects values from nested structures.
-- `Combinations` generates various combinations of data.
+- `Combinations` generates various combinations of data containers.
 - `IterableMap` is a base class for `Mapping`-like iteration.
 - `MapWalker` recursively iterates over nested `Mapping` objects.
 
 ### `duck.py`
 
-Duck typing interface for collections with unified access patterns. This file is for one class: the `DuckCollection` interface. It can access and modify any `Collection` without knowing its exact type.
+Duck typing interface for unified `Collection` access patterns: the `DuckCollection` class. It can access and modify any `Collection` without knowing its exact type.
 
 Following the Pythonic principle of "duck typing," `DuckCollection` is inspired by the adage "If it looks like a duck, and it quacks like a duck, then it's a duck." Paradoxically, most of the `DuckCollection`'s implementation relies on type checking, which may limit its applicability.
 
@@ -66,13 +65,13 @@ Adding the same item to different types of `Collections`:
 ```python
 from gconanpy.iters.duck import DuckCollection
 
-# Work with any collection type
-lists = DuckCollection([1, 2, 3])
-sets = DuckCollection({1, 2, 3})
-dicts = DuckCollection({1: "a", 2: "b", 3: "c"})
+# Work with various Collection types
+nums_list = DuckCollection([1, 2, 3])
+nums_set = DuckCollection({1, 2, 3})
+nums_dict = DuckCollection({1: "a", 2: "b", 3: "c"})
 
 # Same basic operations work across different types
-for ducks in [lists, sets, dicts]:
+for ducks in [nums_list, nums_set, nums_dict]:
     print(len(ducks))  # -> 3
     print(4 in ducks)  # -> False
 
@@ -136,7 +135,7 @@ starts_with = seq_startswith([1, 2, 3, 4], [1, 2])  # -> True
 
 ### Random Data Generation
 
-Below are basic examples of generating random data using the `Randoms` class. For additional usage examples, see the files in the `tests/` directory. Most of them use `Randoms` to generate arbitrary test data covering a variety of types and possible values.
+Below are very basic examples of generating random data using the `Randoms` class. For additional usage examples, see the files in the `tests/` directory. Most of them use `Randoms` to generate arbitrary test data covering a variety of types and possible values.
 
 ```python
 from gconanpy.iters import Randoms
@@ -152,8 +151,8 @@ random_sets = Randoms.randintsets(min_n=2, max_n=3)
 ### About This Document
 
 - Created by @[GregConan](https://github.com/GregConan) on 2025-08-09
-- Updated by @[GregConan](https://github.com/GregConan) on 2025-10-10
-- Current as of `v0.21.5`
+- Updated by @[GregConan](https://github.com/GregConan) on 2025-10-11
+- Current as of `v0.21.6`
 
 ### License
 

@@ -6,56 +6,20 @@ Input/Output utilities for handling web requests and local file operations.
 
 The `IO` module provides utilities for both web-based and local file system operations. It includes classes and functions for downloading web content, parsing URLs, and managing local files with validation and error handling.
 
-## Dependencies
-
-- `glob` for file pattern matching
-- `json` for JSON file operations
-- `requests` for HTTP operations
-- `shutil` for file copying operations
-- `urllib` for basic web content reading
-
 ## Modules
 
-### `web.py`
 
-Functions and classes for web-based I/O operations including HTTP requests, URL parsing, and web content handling.
-
-#### Key Classes
-
-- **`URL`**: Enhanced URL parser with additional utility methods
-- **`Link`**: Markdown link representation and manipulation
-
-#### Key Features
-
-- HTTP request handling with error checking
-- URL parsing and manipulation
-- Markdown link parsing and generation
-- URL parameter extraction and modification
-
-#### Usage Examples
-
-```python
-from gconanpy.IO.web import download_GET, URL, Link
-
-# Download content from URL
-response = download_GET("https://api.example.com/data", {"Authorization": "BEARER_TOKEN"})
-
-# Parse and manipulate URL
-url = URL("https://example.com/path?param=value")
-params = url.get_params()
-clean_url = url.without_params()
-
-# Create URL from parts
-url = URL.from_parts("api", "v1", "users", user_id=123)
-
-# Handle markdown links
-link = Link.from_markdown("[Example](https://example.com)")
-markdown = link.to_markdown("Custom Text")
-```
 
 ### `local.py`
 
 Functions and classes for local file system operations including file reading, writing, and directory management.
+
+#### Key Functions
+
+- **`extract_from_json`**: Load JSON data from file
+- **`save_to_json`**: Save data to JSON file
+- **`glob_and_copy`**: Copy files matching glob patterns
+- **`walk_dir`**: Walk directory with optional file extension filtering
 
 #### Key Classes
 
@@ -73,19 +37,50 @@ Functions and classes for local file system operations including file reading, w
 ```python
 from gconanpy.IO.local import extract_from_json, save_to_json, LoadedTemplate
 
-# Load JSON data
-data = extract_from_json("config.json")
-
 # Save data to JSON
 save_to_json({"key": "value"}, "output.json")
 
-# Load template from file
-template = LoadedTemplate.from_file_at("template.txt")
-fields = template.fields  # Get template variables
+# Load JSON data
+data = extract_from_json("output.json")  # -> {"key": "value"}
 
-# Walk directory for specific files
+# Load templates from text files
+templates = list()
 for file_path in walk_dir("/path/to/dir", ext=".txt"):
-    print(f"Found: {file_path}")
+    templates.append(LoadedTemplate.from_file_at(file_path))
+    
+    # .fields contains all variable names in the template
+    print(f"Fields from {file_path}: {templates[-1].fields}")
+```
+
+### `web.py`
+
+Functions and classes for web-based I/O operations including HTTP requests, URL parsing, and web content handling.
+
+#### Key Classes
+
+- **`URL`** can parse URLs to extract parameters.
+- **`Link`** can convert hyperlinks to and from Markdown text format.
+
+#### Usage Examples
+
+```python
+from gconanpy.IO.web import download_GET, URL, Link
+
+# Download content from URL
+response = download_GET("https://api.example.com/data", {"Authorization": "BEARER_TOKEN"})
+
+# Parse and manipulate URL
+url = URL("https://example.com/path?param=value")
+url.get_params()  # -> {"param": ["value"]}
+url.without_params()  # -> "https://example.com/path"
+
+# Create URL from parts
+URL.from_parts("foo.com", "api", "v1", "users", user_id=123)  # -> "https://foo.com/api/v1/users?user_id=123
+
+# Handle markdown links
+link = Link.from_markdown("[Example](https://example.com)")
+link.url  # -> "https://example.com"
+link.text  # -> "Example"
 ```
 
 ## Common Use Cases
@@ -101,46 +96,16 @@ response = download_GET("https://api.example.com/data", headers)
 
 # Parse and modify URL
 url = URL("https://example.com/api/v1/users?page=1&limit=10")
-params = url.get_params()  # -> {'page': ['1'], 'limit': ['10']}
+url.get_params()  # -> {'page': ['1'], 'limit': ['10']}
 ```
-
-### File Operations
-
-```python
-from gconanpy.IO.local import extract_from_json, LoadedTemplate
-
-# Load configuration
-config = extract_from_json("config.json")
-
-# Process template
-template = LoadedTemplate.from_file_at("email_template.txt")
-# template.fields contains all variable names in the template
-```
-
-## Error Handling
-
-Both modules include error handling:
-
-- Network request failures are caught and reported
-- File operations include proper exception handling
-- URL parsing includes validation
-- Template loading includes field detection
-
-## Best Practices
-
-- Always use appropriate headers for web requests
-- Validate URLs before processing
-- Handle file paths carefully across different operating systems
-- Use context managers for file operations when possible
-- Include error handling for network and file operations 
 
 ## Meta
 
 ### About This Document
 
 - Created by @[GregConan](https://github.com/GregConan) on 2025-08-05
-- Updated by @[GregConan](https://github.com/GregConan) on 2025-08-09
-- Current as of `v0.13.2`
+- Updated by @[GregConan](https://github.com/GregConan) on 2025-10-11
+- Current as of `v0.21.6`
 
 ### License
 

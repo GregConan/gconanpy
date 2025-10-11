@@ -121,7 +121,7 @@ class TestDifferenceBetween(Tester):
         list_diff = DifferenceBetween(self.alist, longerlist)
         self.check_diff(list_diff, "length", len(self.alist), len(longerlist))
         summary = "Length differs between list1 and list2:\nLength of list1" \
-            f" == {len(self.alist)} and length of list2 == {len(longerlist)}"
+            f" is {len(self.alist)} and length of list2 is {len(longerlist)}"
         self.check_result(str(list_diff), summary)
         self.check_result(len(list_diff.diffs), 2)
 

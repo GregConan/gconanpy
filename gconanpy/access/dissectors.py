@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-09-27
+Updated: 2025-10-11
 """
 # Import standard libraries
 from collections.abc import Callable, Hashable, Iterable
@@ -38,10 +38,9 @@ class DifferenceBetween:
     # Class type variables for type hints
     Diff = TypeVar("Diff")
     ToCompare = TypeVar("ToCompare")
-    PartName = TypeVar("PartName", bound=Hashable)
-    GetComparator = Callable[[ToCompare], Diff]
-    GetPartNames = Callable[[ToCompare], Iterable[PartName]]
-    GetSubcomparator = Callable[[ToCompare, PartName], Diff]
+    AspectName = TypeVar("AspectName", bound=Hashable)
+    GetAspectNames = Callable[[ToCompare], Iterable[AspectName]]
+    GetSubcomparator = Callable[[ToCompare, AspectName], Diff]
 
     # Instance variables
     comparables: list  # The objects to compare/contrast
@@ -91,7 +90,7 @@ class DifferenceBetween:
             names = stringify_iter(self.names, **kwargs_stringify)
             if self.difference:
                 diffs_list = [
-                    f"{self.difference} of {self.names[i]} == {self.diffs[i]}"
+                    f"{self.difference} of {self.names[i]} is {self.diffs[i]}"
                     for i in range(len(self.diffs))]
                 diffs_str = stringify_iter(diffs_list, **kwargs_stringify
                                            ).capitalize()
@@ -102,59 +101,44 @@ class DifferenceBetween:
                     "could not be identified."
         return result
 
-    def compare_all_in(self, by: str, get_subcomparator: GetSubcomparator,
-                       comparisons: Iterable[PartName]) -> list:
-        """ _summary_ 
+    def compare_every(self, by: str, get_subcomparator: GetSubcomparator,
+                      comparisons: Iterable[AspectName]) -> list:
+        """ Try to find the difference between the objects by iterating \
+            over a list (`comparisons`) of aspects that may differ & running \
+            a function on each that checks whether the aspect differs.
 
-        :param by: str, name of the possible difference to find
-        :param get_subcomparator: GetSubcomparator, _description_
-        :param comparisons: Iterable[PartName], _description_
-        :return: list, _description_
+        :param by: str, name of the possible difference to find; name of \
+            the aspect that may differ; what to compare by
+        :param get_subcomparator: Callable[[ToCompare: Any, AspectName: \
+            Hashable], Diff: Any], function that accepts 2 arguments (the \
+            object to compare to others and its comparable aspect's name) \
+            and returns the named comparable aspect from each object
+        :param comparisons: Iterable[AspectName], list of aspects to compare
+        :return: list, the difference between each object and the others, \
+            if any was found
         """
         diffs = list()
-        get_comparison = iter(comparisons)
-        next_name = next(get_comparison, None)
-        while not self.difference and next_name is not None:
+        for next_name in comparisons:
+            if self.difference:
+                break
             diffs = self.compare_by(f"{by} {next_name}", lambda y:
                                     get_subcomparator(y, next_name))
-            next_name = next(get_comparison, None)
         return diffs
 
-    def compare_by(self, by: str, get_comparator: GetComparator
+    def compare_by(self, by: str, get_comparator: Callable[[ToCompare], Diff]
                    ) -> list:
-        """ _summary_
-
-        :param by: str, name of the possible difference to find
-        :param get_comparator: Callable[[Any], Any], \
-            1-arg-to-1-arg function that extracts things to compare
-        :return: list, _description_
+        """
+        :param by: str, name of the possible difference to find; name of \
+            the aspect that may differ; what to compare by
+        :param get_comparator: Callable[[ToCompare: Any], Diff: Any], \
+            1-arg-to-1-arg function that extracts the named comparable \
+            aspect from each thing being compared
+        :return: list, the comparable aspects of each thing being compared
         """
         comparables = [get_comparator(c) for c in self.comparables]
         if not all_equal(comparables):
             self.difference = by
         return comparables
-
-    def compare_elements_0_to(self, end_ix: int) -> list:
-        """ _summary_ 
-
-        :param end_ix: int, _description_
-        :return: list, _description_
-        """
-        return self.compare_all_in("element", getitem,
-                                   [x for x in range(end_ix)])
-
-    def compare_sets(self, by: str, get_comparisons: GetPartNames,
-                     get_subcomparator: GetSubcomparator) -> list:
-        """ _summary_ 
-
-        :param by: str, name of the possible difference to find
-        :param get_comparisons: Callable[[Any], Iterable[Any]], _description_
-        :param get_subcomparator: Callable[[Any, Any], Any], _description_
-        :return: list, _description_
-        """
-        keys = self.compare_by(by, get_comparisons)
-        return list(Sets(keys).differentiate()) if self.difference else \
-            self.compare_all_in(by, get_subcomparator, next(iter(keys)))
 
     def find(self) -> list:
         """ Find the difference(s) between the objects in self.comparables.
@@ -163,30 +147,46 @@ class DifferenceBetween:
         :return: list, the values that differ between the objects; \
                  empty if no difference is found.
         """
+        # If the objects' types differ, return a list of their types
         types = self.compare_by("type", type)
         if self.difference:
             return types
 
         with IgnoreExceptions(TypeError):
+            # If the objects' lengths differ, return a list of their lengths
             lens = self.compare_by("length", len)
             if self.difference:
                 return lens
 
             with IgnoreExceptions(AttributeError, TypeError):
+                # If the objects' keys differ, return each one's unique key(s)
                 keys = self.compare_by("key", get_key_set)
                 if self.difference:
                     return list(Sets(keys).differentiate())
                 else:
-                    values = self.compare_all_in("value", getitem, keys)
+
+                    # If the objects' values differ for a certain key, return
+                    # each one's value for that key
+                    values = self.compare_every("value", getitem, keys)
                     if self.difference:
                         return values
 
             with IgnoreExceptions(KeyError):
-                ix_diffs = self.compare_elements_0_to(set(lens).pop())
+                # If the objects' elements differ at a certain index, return
+                # each one's element at that index
+                ix_diffs = self.compare_every("element", getitem, [
+                    x for x in range(set(lens).pop())])
                 if self.difference:
                     return ix_diffs
 
-        diff_attrs = self.compare_sets("unique attribute(s)", dir, getattr)
+        # If the objects have a different value for a certain attribute,
+        # return each one's value for that attribute
+        BY = "unique attribute(s)"
+        keys = self.compare_by(BY, dir)
+        diff_attrs = list(Sets(keys).differentiate()) if self.difference else \
+            self.compare_every(BY, getattr, next(iter(keys)))
+
+        # Finally, if no difference was found, return an empty list
         return diff_attrs if self.difference else list()
 
 

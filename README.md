@@ -72,7 +72,7 @@ Web and local file system operations.
 Advanced iteration utilities and collection manipulation.
 
 - **`iters/__init__.py`**: Core iteration utilities and collection manipulation functions.
-- **`iters/duck.py`**: Duck typing interface for collections with unified access patterns.
+- **`iters/duck.py`**: Duck typing interface providing unified access patterns for collections.
 - **`iters/filters.py`**: Filter classes for data selection.
 
 #### **`mapping/`**
@@ -102,8 +102,8 @@ Comprehensive test suite for all modules:
 ### About This Document
 
 - Created by @[GregConan](https://github.com/GregConan) on 2025-03-13
-- Updated by @[GregConan](https://github.com/GregConan) on 2025-08-19
-- Current as of `v0.15.1`
+- Updated by @[GregConan](https://github.com/GregConan) on 2025-10-11
+- Current as of `v0.21.5`
 
 ### License
 
