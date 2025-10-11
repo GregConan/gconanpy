@@ -15,22 +15,28 @@ This package requires the following dependencies:
 
 ## Modules
 
-### `attributes.py`
+### `access/`
 
-Dynamically access and modify object attributes. Replicates certain `dict` methods, and certain `gconanpy.mapping` functions, for accessing/modifying attributes instead of elements/items.
+Object attribute and item access utilities for enhanced data manipulation.
 
-#### Key Classes
+- **`__init__.py`**: Low-level utilities providing unified interfaces to access and manipulate items and attributes interchangeably.
+- **`attributes.py`**: Dynamic attribute manipulation and introspection utilities including filtering, lazy access, and comprehensive object analysis.
+- **`dissectors.py`**: Classes to inspect, traverse, examine, and compare complex/nested data structures without already knowing their internal structure. Very useful for interactive debugging.
+- **`find.py`**: Search and finder utilities with early termination patterns, including with integrated string manipulation.
 
-- **`AttrsOf`**: Comprehensive attribute access and manipulation class
-- **`Filter`**: Configurable filter for selecting specific attributes by name and value
+Several `access/` and `mapping/` files share several identically named access and manipulation functions/methods to provide the same functionality for different use cases:
+
+- `access/attributes.py` for object attributes,
+- `mapping/__init__.py` for any `Mapping`s, 
+- `mapping/dicts.py` for custom `dict`s (object-oriented), and
+- `access/__init__.py` for object attributes *or* `Collection` items.
 
 ### `wrappers.py`
 
-Classes that wrap other classes to provide additional functionality.
+Classes that wrap other classes to provide additional functionality. Includes enhanced string handling, tree visualization, function wrapping, and command-line argument validation utilities.
 
 #### Key Classes
 
-- **`ClassWrapper`** is a base class for wrapping/subclassing other classes to add functionality.
 - **`ToString`** is an enhanced `str` subclass with advanced formatting and conversion methods.
 - **`BasicTree`** visually represents hierarchical tree data structures with pretty-printing.
 - **`SoupTree`** visually represents `BeautifulSoup` objects as a tree.
@@ -38,75 +44,100 @@ Classes that wrap other classes to provide additional functionality.
 - **`Valid`** provides command-line argument validation tools to supplement `argparse`.
 - **`ArgParser`** enhances `argparse.ArgumentParser` by adding default options for output directory arguments.
 
-#### Key Features
+### `iters/`
 
-- Specify string representation of various data types (`Collection`, `Mapping`, `datetime`, etc.)
-- Tree structure visualization with customizable branches
-- Function wrapping with parameter preservation
-- Command-line input validation for file paths, directories, and numbers
+Advanced iteration utilities and `Collection` manipulation tools.
 
-### `dissectors.py`
+- **`__init__.py`**: Core iteration utilities and collection manipulation functions including equality checking, merging, filtering, and random data generation.
+- **`duck.py`**: Duck typing interface for collections with unified access patterns, allowing type-agnostic collection manipulation.
+- **`filters.py`**: Filter classes for data selection and manipulation with configurable name and value filtering capabilities.
 
-Classes to inspect, examine, and access complex/nested data structures without already knowing their internal structure. Useful for interactive debugging.
+### `mapping/`
+
+Advanced dictionary utilities and custom dictionary classes.
+
+- **`__init__.py`**: Standalone utility functions for dictionary operations including safe access, lazy loading, inversion, and nested lookups.
+- **`dicts.py`**: Custom dictionary classes with specialized functionality including encryption, dot notation, lazy loading, prompting, and multidimensional mapping.
+
+### `meta/`
+
+Low-level utilities, custom types, and metaclass functionality.
+
+#### Files
+
+- **`__init__.py`**: Core utilities for meta-programming, type checking, exception handling, and object introspection with comprehensive type hint support.
+- **`metaclass.py`**: Metaclass creation utilities and advanced type checking with factory classes for custom metaclass generation.
+
+### `IO/`
+
+Input/Output utilities for web requests and local file operations.
+
+#### Files
+
+- **`__init__.py`**: Module initialization for IO utilities.
+- **`web.py`**: Web-based I/O operations including HTTP requests, URL parsing, and web content handling with enhanced URL and link manipulation.
+- **`local.py`**: Local file system operations including JSON handling, template loading, file copying, and directory traversal with validation.
 
 #### Key Classes
 
-- **`Corer`** can find the largest (or smallest) item in a nested data structure.
-- **`DifferenceBetween`** identifies what makes any given Python objects differ from each other.
-- **`Peeler`** removes unneeded outermost layers of nested containers.
-- **`Shredder`** can "flatten" a nested container, extracting every contained value regardless of how deeply it is nested. It adds filtering capabilities to `gconanpy.iters.SimpleShredder`.
-- **`Xray`** can list the attributes, keys, or outputs of any given Python object.
+- **`URL`**: Enhanced URL parser with additional utility methods
+- **`Link`**: Markdown link representation and manipulation
+- **`LoadedTemplate`**: Enhanced string template loaded from files
 
-#### Key Features
+### `bytesify.py`
 
-- Object comparison with detailed difference reporting
-- Recursive data extraction from complex structures
-- Debug-friendly object inspection
-
-### `reg.py`
-
-Regular expression utilities and pattern matching tools.
+Classes to convert objects to/from bytes. Byte conversion utilities with error handling, encryption support, and human-readable bytes formatting.
 
 #### Key Classes
 
-- **`Regextract`** provides enhanced Regex data extraction with several pre-defined patterns.
-- **`DunderParser`** can parse and manipulate Python "magic method"/"dunder method" names.
+- **`Bytesifier`**: Convert various data types to bytes with error handling
 
 ### `debug.py`
 
-Debugging utilities and tools primarily to aid/ease interactive debugging during development.
+Debugging utilities and tools primarily to aid/ease interactive debugging during development. Includes timing, memory profiling, and logging.
 
 #### Key Classes
 
 - **`Debuggable`** is a base mixin class for objects with debugging capabilities.
 - **`ShowTimeTaken`** provides basic timing functionality as a context manager, like `timeit` that uses existing code instead of accepting the code as string inputs.
 
-#### `extend.py`
+### `extend.py`
 
-Extension utilities for subclassing existing classes.
+Extension utilities for subclassing existing classes and dynamic class creation. Dynamic class creation and extension utilities including annotation handling, module introspection, and class manipulation for advanced Python programming.
 
-#### `testers.py`
+#### Key Functions
 
-Classes for use in automated unit testing, especially using `pytest`. For use cases, see the `tests/test_*.py` files.
+- **`all_annotations_of`**: Get all annotations from a class and its parents
+- **`classes_in_module`**: Get all classes defined in a module
+- **`extend_class`**: Extend existing classes with new functionality
 
-#### `trivial.py`
+### `testers.py`
 
-Basic/trivial functions to use as default values of optional callable parameters in other classes' methods.
+Base classes for unit tests and testing utilities. Testing utilities and base classes for unit tests including test data generation, mock object creation, and common testing patterns for pytest integration.
+
+#### Key Classes
+
+- **`Tester`**: Base class for test utilities with common testing patterns
+- **`TestData`**: Provides test data and sample objects for testing
+
+### `trivial.py`
+
+Basic/trivial/simple functions to use as default values of optional callable parameters in other classes' methods.
+
+### `reg.py`
+
+Regular expression utilities and pattern matching tools including enhanced regex extraction and Python dunder method name parsing.
+
+#### Key Classes
+
+- **`Regextract`** provides enhanced Regex data extraction with several pre-defined patterns.
+- **`DunderParser`** can parse and manipulate Python "magic method"/"dunder method" names.
+
+### `numpandas.py`
+
+Utility functions and classes to manipulate NumPy and Pandas data. NumPy and Pandas data manipulation utilities including DataFrame analysis, array searching, and data filtering operations.
 
 ## Usage Examples
-
-### Attribute Manipulation
-```python
-from gconanpy.attributes import AttrsOf
-
-# Get all public attributes of an object
-attrs = AttrsOf(my_object)
-public_attrs = attrs.public()
-
-# Add attributes to an object
-from gconanpy.attributes import add_to
-obj = add_to(my_object, new_attr="value", another_attr=123)
-```
 
 ### String Conversion
 ```python
@@ -120,30 +151,23 @@ from datetime import datetime
 dt_string = ToString.fromDateTime(datetime.now(), sep="_")
 ```
 
-### Data Structure Analysis
+### NumPy/Pandas Operations
 ```python
-from gconanpy.dissectors import DifferenceBetween, Shredder
+from gconanpy.numpandas import count_uniqs_in_cols, nan_rows_in, search_sequence_numpy
+import pandas as pd
+import numpy as np
 
-# Compare objects and find differences
-diff = DifferenceBetween(obj1, obj2, obj3)
-if diff.is_different:
-    print(f"Differences: {diff.difference}")
+# Count unique values in DataFrame columns
+df = pd.DataFrame({'A': [1, 2, 2, 3], 'B': ['x', 'y', 'y', 'z']})
+unique_counts = count_uniqs_in_cols(df)
 
-# Extract all data from nested structure
-shredder = Shredder()
-all_data = shredder.shred(complex_nested_object)
-```
+# Find rows with NaN values
+nan_rows = nan_rows_in(df)
 
-### Iterable Manipulation
-```python
-from gconanpy.iters import are_all_equal, merge
-
-# Check if all items are equal
-if are_all_equal(my_list):
-    print("All items are identical")
-
-# Merge multiple dictionaries
-merged = merge([dict1, dict2, dict3])
+# Search for sequence in NumPy array
+arr = np.array([1, 2, 3, 4, 5, 6])
+subseq = np.array([3, 4, 5])
+indices = search_sequence_numpy(arr, subseq)
 ```
 
 ## Meta
@@ -152,7 +176,7 @@ merged = merge([dict1, dict2, dict3])
 
 - Created by @[GregConan](https://github.com/GregConan) on 2025-08-05
 - Updated by @[GregConan](https://github.com/GregConan) on 2025-08-09
-- Current as of `v0.13.2`
+- Current as of `v0.21.4`
 
 ### License
 
