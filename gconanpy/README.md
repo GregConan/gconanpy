@@ -37,19 +37,6 @@ Several `access/` and `mapping/` files share several identically named access an
 - `mapping/dicts.py` for custom `dict`s (object-oriented), and
 - `access/__init__.py` for object attributes *or* `Collection` items.
 
-### `wrappers.py`
-
-Classes that wrap other classes to provide additional functionality. Includes enhanced string handling, tree visualization, function wrapping, and command-line argument validation utilities.
-
-#### Key Classes
-
-- **`ToString`** is an enhanced `str` subclass with advanced formatting and conversion methods.
-- **`BasicTree`** visually represents hierarchical tree data structures with pretty-printing.
-- **`SoupTree`** visually represents `BeautifulSoup` objects as a tree.
-- **`WrapFunction`** wraps functions with pre-defined parameters. It enhances `functools.partial` by allowing more specific positional parameter placement.
-- **`Valid`** provides command-line argument validation tools to supplement `argparse`.
-- **`ArgParser`** enhances `argparse.ArgumentParser` by adding default options for output directory arguments.
-
 ### `iters/`
 
 Advanced iteration utilities and `Collection` manipulation tools.
@@ -69,8 +56,6 @@ Advanced dictionary utilities and custom dictionary classes.
 ### `meta/`
 
 Low-level utilities, custom types, and metaclass functionality.
-
-#### Files
 
 - **`__init__.py`**: Core utilities for meta-programming, type checking, exception handling, and object introspection with comprehensive type hint support.
 - **`metaclass.py`**: Metaclass creation utilities and advanced type checking with factory classes for custom metaclass generation.
@@ -110,13 +95,9 @@ Extension utilities for subclassing existing classes and dynamic class creation.
 - **`classes_in_module`**: Get all classes defined in a module
 - **`extend_class`**: Extend existing classes with new functionality
 
-### `testers.py`
+### `numpandas.py`
 
-Base classes for unit tests with common testing patterns, including some basic arbitrary test data. Also includes timing utilities. 
-
-### `trivial.py`
-
-Basic/trivial/simple functions to use as default values of optional callable parameters in other classes' methods.
+Utility functions and classes to manipulate NumPy and Pandas data. NumPy and Pandas data manipulation utilities including DataFrame analysis, array searching, and data filtering operations.
 
 ### `reg.py`
 
@@ -127,9 +108,26 @@ Regular expression utilities and pattern matching tools including enhanced regex
 - **`Regextract`** provides enhanced Regex data extraction with several pre-defined patterns.
 - **`DunderParser`** can parse and manipulate Python "magic method"/"dunder method" names.
 
-### `numpandas.py`
+### `testers.py`
 
-Utility functions and classes to manipulate NumPy and Pandas data. NumPy and Pandas data manipulation utilities including DataFrame analysis, array searching, and data filtering operations.
+Base classes for unit tests with common testing patterns, including some basic arbitrary test data. Also includes timing utilities. 
+
+### `trivial.py`
+
+Basic/trivial/simple functions to use as default values of optional callable parameters in other classes' methods.
+
+### `wrappers.py`
+
+Classes that wrap other classes to provide additional functionality. Includes enhanced string handling, tree visualization, function wrapping, and command-line argument validation utilities.
+
+#### Key Classes
+
+- **`ToString`** is an enhanced `str` subclass with advanced formatting and conversion methods.
+- **`BasicTree`** visually represents hierarchical tree data structures with pretty-printing.
+- **`SoupTree`** visually represents `BeautifulSoup` objects as a tree.
+- **`WrapFunction`** wraps functions with pre-defined parameters. It enhances `functools.partial` by allowing more specific positional parameter placement.
+- **`Valid`** provides command-line argument validation tools to supplement `argparse`.
+- **`ArgParser`** enhances `argparse.ArgumentParser` by adding default options for output directory arguments.
 
 ## Usage Examples
 
@@ -140,6 +138,8 @@ from gconanpy.wrappers import ToString
 
 # Convert any object to string
 string_repr = ToString.fromAny(my_complex_object)
+
+# String representing a dict
 
 # Convert datetime with custom formatting
 dt_string = ToString.fromDateTime(datetime.now(), sep="_")
@@ -169,8 +169,8 @@ indices = search_sequence_numpy(arr, subseq)
 ### About This Document
 
 - Created by @[GregConan](https://github.com/GregConan) on 2025-08-05
-- Updated by @[GregConan](https://github.com/GregConan) on 2025-08-09
-- Current as of `v0.21.4`
+- Updated by @[GregConan](https://github.com/GregConan) on 2025-10-10
+- Current as of `v0.21.5`
 
 ### License
 

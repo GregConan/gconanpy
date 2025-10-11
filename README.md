@@ -10,16 +10,20 @@
 
 ### Python Libraries
 
-`gconanpy` uses [Python-Poetry](https://python-poetry.org/) for dependency management. See `pyproject.toml` for full list of dependencies.
+`gconanpy` uses [Python-Poetry](https://python-poetry.org/) for dependency management.
 
 - `bs4` (BeautifulSoup): HTML/XML parsing
 - `cryptography`: Encryption capabilities
+- `inflection`: String manipulation
 - `more_itertools`: Advanced iteration utilities
 - `numpy`: Numerical operations
 - `pandas`: Data analysis
 - `pathvalidate`: File path validation
+- `regex`: Advanced Regex pattern matching
 - `requests`: HTTP operations
 - `pytest`: Testing framework
+
+See `pyproject.toml` for full list of dependencies and version requirements.
 
 ## Installation
 
@@ -36,14 +40,25 @@ poetry install
 
 The main package containing utility modules for Python development:
 
-- **`attributes.py`**: Dynamic attribute access and manipulation utilities
 - **`debug.py`**: Interactive debugging aids
-- **`dissectors.py`**: Data structure inspection and debugging tools
 - **`extend.py`**: Class and function extension utilities
 - **`reg.py`**: Regular expression utilities and text parsing
 - **`testers.py`**: Base testing framework
 - **`trivial.py`**: Trivially simple utility functions
 - **`wrappers.py`**: Class wrapping and string conversion utilities
+
+#### **`access/`**
+
+## Modules
+
+### `access/`
+
+Object attribute and item access utilities for enhanced data manipulation.
+
+- **`__init__.py`**: Unified interface(s) for low-level access and manipulation of items and attributes interchangeably
+- **`access/attributes.py`**: Dynamic attribute access and manipulation utilities
+- **`access/dissectors.py`**: Data structure inspection and debugging tools
+- **`access/find.py`**: Classes and functions for finding items in iterables with early termination.
 
 #### **`IO/`**
 
@@ -58,8 +73,8 @@ Advanced iteration utilities and collection manipulation.
 
 - **`iters/__init__.py`**: Core iteration utilities and collection manipulation functions.
 - **`iters/duck.py`**: Duck typing interface for collections with unified access patterns.
-- **`iters/find.py`**: Classes and functions for finding items in iterables with early termination.
 - **`iters/seq.py`**: `Sequence` manipulation functions and NumPy/Pandas integration.
+- **`iters/filters.py`**: Filter classes for data selection.
 
 #### **`mapping/`**
 
