@@ -17,25 +17,21 @@ The `meta` module provides utilities for object introspection, creating custom m
 
 Core utilities, as well as meta-programming and type checking functionality.
 
-#### Type Hint Classes
+#### Key Functions
 
-`meta/__init__.py` includes custom type classes, especially protocols and abstract base classes, to support type hinting. Many of them are defined only for type hints to indicate that an object has a specific method or attribute.
-
-- `Boolable` means "supports `bool(x)`"
-- `BytesOrStr` means "`bytes | str | bytearray`"
-- `Poppable` means "supports `x.pop()`"
-- `Updatable` means "supports `x.update(...)`"
-- `HasClass` means "has a `__class__` attribute"
-- `HasSlots` means "has a `__slots__` attribute"
-
-A few more complicated examples subclass existing types, but *exclude* others. They specify that an object "is an X, but not a Y."
-
-- `PureIterable` means "`Iterable`, but not `str`, `bytes`, or `Mapping`."
-- `NonTxtCollection` means "`Collection`, but not `str` or `bytes`."
-
-Others combine class-checking and method-checking:
-
-- `AddableSequence` means "`Sequence` that supports `+` (`__add__`)"
+- **`areinstances`**: Check if objects are instances of specified types
+- **`bool_pair_to_cases`**: Convert boolean pair to case number
+- **`count_digits_of`**: Count digits in a number
+- **`divmod_base`**: Create divmod function for specific base
+- **`full_name_of`**: Get full qualified name of object
+- **`geteverything`**: Get all local variables
+- **`has_method`**: Check if object has specific method
+- **`hashable`**: Check if object is hashable
+- **`method`**: Create method callable
+- **`name_of`**: Get name of object (class, module, etc.)
+- **`names_of`**: Get names of multiple objects
+- **`tuplify`**: Convert object to tuple
+- **`which_of`**: Find which conditions are true
 
 #### Utility Classes
 
@@ -92,14 +88,25 @@ These classes provide general reusable functionality used later by the `Corer` c
 - **`IteratorFactory`** is a base class providing iterator creation methods.
 - **`Comparer`** is a base class providing value comparison methods.
 
-#### Method Abstraction Classes
+### `typeshed.py`
 
-These classes attempt to abstract out the basic functionality shared by access/modification methods for items and attributes, potentially allowing functionality that treats them interchangeably.
+`meta/typeshed.py` includes custom type classes, especially protocols and abstract base classes, to support type hinting. Many of them are defined only for type hints to indicate that an object has a specific method or attribute.
 
-Consider wanting to perform the same operation on an `Iterable`'s elements/items as its attributes. Ideally, using the `Accessor` and/or `Lazily` class, you could define that operation exactly once in one function with a boolean "attributes or elements?" parameter. However, I have not yet found a use case that makes the added complexity and performance overhead worth it.
+- `Boolable` means "supports `bool(x)`"
+- `BytesOrStr` means "`bytes | str | bytearray`"
+- `Poppable` means "supports `x.pop()`"
+- `Updatable` means "supports `x.update(...)`"
+- `HasClass` means "has a `__class__` attribute"
+- `HasSlots` means "has a `__slots__` attribute"
 
-- **`Accessor`** defines get/has/set methods.
-- **`Lazily`** defines lazy access/modification methods.
+A few more complicated examples subclass existing types, but *exclude* others. They specify that an object "is an X, but not a Y."
+
+- `PureIterable` means "`Iterable`, but not `str`, `bytes`, or `Mapping`."
+- `NonTxtCollection` means "`Collection`, but not `str` or `bytes`."
+
+Others combine class-checking and method-checking:
+
+- `AddableSequence` means "`Sequence` that supports `+` (`__add__`)"
 
 #### Usage Examples
 
@@ -123,7 +130,12 @@ formatted = HumanBytes.format(1024 * 1024)  # -> "1.0 MB"
 
 ### `metaclass.py`
 
-Metaclass creation utilities and advanced type checking. 
+Metaclass creation utilities and advanced type checking.
+
+#### Key Functions
+
+- **`name_type_class`**: Create type-checking metaclass
+- **`combinations_of_conditions`**: Generate combinations of conditions
 
 #### Key Classes
 
@@ -222,20 +234,6 @@ smallest = Comparer.compare(
 )
 ```
 
-### Lazy Access Patterns
-
-```python
-from gconanpy.meta import Lazily
-
-# Lazy attribute access
-value = Lazily.get(obj, "attribute_name",
-                   get_if_absent=lambda: "default_value")
-
-# Lazy item access
-item = Lazily.get(container, "key", get_if_absent=lambda: "default",
-                  get_an="item")
-```
-
 ### Method Availability Checking
 
 ```python
@@ -295,8 +293,8 @@ The `meta` module provides sophisticated error handling:
 ### About This Document
 
 - Created by @[GregConan](https://github.com/GregConan) on 2025-08-05
-- Updated by @[GregConan](https://github.com/GregConan) on 2025-08-09
-- Current as of `v0.13.2`
+- Updated by @[GregConan](https://github.com/GregConan) on 2025-10-12
+- Current as of `v0.22.0`
 
 ### License
 

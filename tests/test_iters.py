@@ -3,22 +3,20 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-06
-Updated: 2025-10-10
+Updated: 2025-10-12
 """
 # Import standard libraries
 from collections.abc import Generator, Hashable
 import random
-import string
 from timeit import timeit
 from typing import Any, TypeVar
 
 # Import local custom libraries
 from gconanpy.iters import Combinations, combine_lists, \
-    duplicates_in, merge, Randoms
+    copy_range, invert_range, merge, Randoms
 from gconanpy.iters.duck import DuckCollection
 from gconanpy.iters.filters import MapSubset
 from gconanpy.testers import Tester
-from gconanpy.trivial import always_none
 
 
 class TestMapSubset(Tester):
@@ -221,3 +219,21 @@ class TestRandoms(Tester):
                                         min_len=length,
                                         max_len=length, unique=True)
             self.check_result(len(set(tuples)), len(tuples))
+
+
+class TestRangeFunctions(Tester):
+    """
+    def test_copy_invert_range(self, n_tests: int = 10) -> None:
+        for _ in Randoms.randcount(n_tests, n_tests):
+            a_range = Randoms.randrange()
+            self.check_result(
+                [x for x in reversed(copy_range(a_range))],
+                [y for y in a_range])
+    """  # TODO
+
+    def test_invert_range(self, n_tests: int = 10) -> None:
+        for _ in Randoms.randcount(n_tests, n_tests):
+            a_range = Randoms.randrange()
+            self.check_result(
+                [x for x in invert_range(invert_range(a_range))],
+                [y for y in a_range])

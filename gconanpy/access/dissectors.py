@@ -5,13 +5,13 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-10-11
+Updated: 2025-10-12
 """
 # Import standard libraries
-from collections.abc import Callable, Hashable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from more_itertools import all_equal
 from operator import getitem
-from typing import Any, TypeVar
+from typing import Any, cast, TypeVar
 
 # Import local custom libraries
 try:
@@ -35,20 +35,17 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
 
 
 class DifferenceBetween:
-    # Class type variables for type hints
-    Diff = TypeVar("Diff")
-    ToCompare = TypeVar("ToCompare")
-    AspectName = TypeVar("AspectName", bound=Hashable)
-    GetAspectNames = Callable[[ToCompare], Iterable[AspectName]]
-    GetSubcomparator = Callable[[ToCompare, AspectName], Diff]
+    # Class variables: TypeVars for type hints
+    _Comparable = TypeVar("_Comparable")
+    _Diff = TypeVar("_Diff")
 
     # Instance variables
     comparables: list  # The objects to compare/contrast
     difference: str | None  # Name classifying the difference
-    diffs: list[str | None]  # The differing values themselves
+    diffs: list  # The differing values themselves
     names: list[str]  # The names of the objects to compare/contrast
 
-    def __init__(self, *args: ToCompare, **kwargs: ToCompare):
+    def __init__(self, *args: Any, **kwargs: Any):
         """ Identify difference(s) between any Python objects/values.
 
         :param args: Iterable[Any] of objects to compare.
@@ -78,6 +75,10 @@ class DifferenceBetween:
         self.is_different = not all_equal(self.comparables)
         self.diffs = self.find() if self.is_different else list()
 
+    def __bool__(self) -> bool:
+        """ :return: bool, True if self.comparables differ; else False """
+        return self.is_different
+
     def __repr__(self) -> str:
         """
         :return: str, human-readable summary of how self.comparables differ.
@@ -101,8 +102,9 @@ class DifferenceBetween:
                     "could not be identified."
         return result
 
-    def compare_every(self, by: str, get_subcomparator: GetSubcomparator,
-                      comparisons: Iterable[AspectName]) -> list:
+    def compare_every(self, by: str, get_subcomparator:
+                      Callable[[Any, _Comparable], _Diff],
+                      comparisons: Iterable[_Comparable]) -> list[_Diff]:
         """ Try to find the difference between the objects by iterating \
             over a list (`comparisons`) of aspects that may differ & running \
             a function on each that checks whether the aspect differs.
@@ -110,7 +112,7 @@ class DifferenceBetween:
         :param by: str, name of the possible difference to find; name of \
             the aspect that may differ; what to compare by
         :param get_subcomparator: Callable[[ToCompare: Any, AspectName: \
-            Hashable], Diff: Any], function that accepts 2 arguments (the \
+            Hashable], _Diff: Any], function that accepts 2 arguments (the \
             object to compare to others and its comparable aspect's name) \
             and returns the named comparable aspect from each object
         :param comparisons: Iterable[AspectName], list of aspects to compare
@@ -125,12 +127,12 @@ class DifferenceBetween:
                                     get_subcomparator(y, next_name))
         return diffs
 
-    def compare_by(self, by: str, get_comparator: Callable[[ToCompare], Diff]
-                   ) -> list:
+    def compare_by(self, by: str, get_comparator: Callable[[Any], _Diff]
+                   ) -> list[_Diff]:
         """
         :param by: str, name of the possible difference to find; name of \
             the aspect that may differ; what to compare by
-        :param get_comparator: Callable[[ToCompare: Any], Diff: Any], \
+        :param get_comparator: Callable[[ToCompare: Any], _Diff: Any], \
             1-arg-to-1-arg function that extracts the named comparable \
             aspect from each thing being compared
         :return: list, the comparable aspects of each thing being compared
@@ -174,7 +176,7 @@ class DifferenceBetween:
             with IgnoreExceptions(KeyError):
                 # If the objects' elements differ at a certain index, return
                 # each one's element at that index
-                ix_diffs = self.compare_every("element", getitem, [
+                ix_diffs: list[int] = self.compare_every("element", getitem, [
                     x for x in range(set(lens).pop())])
                 if self.difference:
                     return ix_diffs
@@ -222,7 +224,7 @@ class Shredder(SimpleShredder, Debuggable):
     _T = TypeVar("_T")
 
     def __init__(self, max_shreds: int = 500, debugging: bool = False,
-                 map_filter: MapSubset.FilterFunction = always_true) -> None:
+                 map_filter: MapSubset.FilterFunction | None = None) -> None:
         """ 
         :param max_shreds: int, the maximum number of times to "shred" a \
             data container to collect the data inside; defaults to 500
@@ -254,8 +256,9 @@ class Shredder(SimpleShredder, Debuggable):
 
             # Shred or save each of an_obj's...
             try:  # ...values if it's a Mapping
-                for k, v in an_obj.items():  # type: ignore
-                    if has_method(v, "items") or self.filter(k, v):
+                for k, v in cast(Mapping, an_obj).items():
+                    if has_method(v, "items") or self.filter is None \
+                            or self.filter(k, v):
                         self.shred(v)
             except self.SHRED_ERRORS:
 

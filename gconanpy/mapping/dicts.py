@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-09-30
+Updated: 2025-10-12
 """
 # Import standard libraries
 from collections import defaultdict
@@ -356,13 +356,13 @@ class Updationary[KT, VT](CustomDict[KT, VT]):
 class Walktionary[KT, VT](CustomDict[KT, VT]):
     def walk(self, only_yield_maps: bool = True) -> MapWalker:
         """ Recursively iterate over this dict and every dict inside it. \
-            Defined explicitly to make `only_yield_maps` default to False.
+            Defined explicitly to make `only_yield_maps` default to True.
 
         :param only_yield_maps: bool, True for this iterator to return \
-            key-value pairs only if the value is also a Mapping; else False \
-            to return every item iterated over. Defaults to True.
+            key-value pairs only if the value is also a `Mapping`; else \
+            False to return every item iterated over. Defaults to True.
         :return: MapWalker with `keys`, `values`, and `items` methods to \
-            recursively iterate over this Walktionary.
+            recursively iterate over this `Walktionary`.
         """
         return MapWalker(self, only_yield_maps)
 

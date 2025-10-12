@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-10-10
+Updated: 2025-10-12
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Iterable
@@ -36,7 +36,7 @@ class TestSets(Tester):
         for each_int in Randoms.randints(min_n=n_tests, max_n=n_tests,
                                          min_int=2, max_int=max_int):
             asc_range = range(each_int)
-            dsc_range = invert_range(asc_range)
+            dsc_range = invert_range(asc_range)  # TODO FIX
             ascending = Sets({a} for a in asc_range)
             assert ascending
             descending = Sets({d} for d in dsc_range)
@@ -82,7 +82,7 @@ class TestSets(Tester):
             self.check_result(Sets((set1, *others)).intersection(),
                               intersected)
 
-    def test_union_each(self) -> None:
+    def test_union_each(self) -> None:  # TODO FIX invert_range
         for ascending, descending, both in self.asc_desc_Sets():
             unioned = Sets(cast(tuple[set[int]],  # TODO This shouldn't need a cast
                            tuple(ascending.union_each(descending))))
@@ -97,7 +97,7 @@ class TestSets(Tester):
         intsets = Sets({i} for i in ints)  # split them, each in its own set
         self.check_result(intsets.union(), intsets.unique())
 
-    def test_update_each(self) -> None:
+    def test_update_each(self) -> None:  # TODO FIX invert_range
         for ascending, descending, both in self.asc_desc_Sets():
             ascending.update_each(descending)
             self.check_result(ascending, both)

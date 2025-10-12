@@ -10,11 +10,15 @@ The `access` module provides comprehensive utilities for accessing and manipulat
 
 ### `__init__.py`
 
-Core accessor functions and classes for item and attribute manipulation. Defines 
+Core accessor functions and classes for item and attribute manipulation.  
 
 #### Key Classes
 
 - **`Accessor`**: Unified interface for accessing and manipulating object attributes OR items, with advanced access and manipulation methods as well as basic get/has/set/delete operations.
+
+The **`Accessor`** class attempts to abstract out the basic functionality shared by access/modification methods for items and attributes, potentially allowing functionality that treats them interchangeably.
+
+Consider wanting to perform the same operation on an `Iterable`'s elements/items as its attributes. Ideally, using the `Accessor` class, you could define that operation exactly once in one function with a boolean "attributes or elements?" parameter. However, I have not yet found a use case that makes the added complexity and performance overhead worth it.
 
 #### Key Functions
 
@@ -113,6 +117,7 @@ shredder.shred({"foo": [1, {"bar": ["baz"]}]})  # -> {1, "baz"}
 # Inspect object structure with Xray
 class BareObject():
     foo = "bar"
+my_object = BareObject()
 Xray(my_object)  # -> BareObject attributes: ['foo']
 Xray(dict(a=1, b=2, c=[1, 2, 3, 4, 5]))  # -> dict contents: ['a', 'b', and 'c']
 ```
@@ -147,21 +152,13 @@ finder = UntilFound(lambda x: x > 10)
 result = finder.check_each(numbers, default=None)
 ```
 
-## Best Practices
-
-- Use `getdefault` and `setdefault` for safe data access
-- Leverage `AttrsOf` for comprehensive object introspection
-- Use appropriate filters for attribute selection
-- Handle exceptions gracefully with provided error handling
-- Consider performance implications of deep inspection operations
-
 ## Meta
 
 ### About This Document
 
 - Created by @[GregConan](https://github.com/GregConan) on 2025-10-10
-- Updated by @[GregConan](https://github.com/GregConan) on 2025-10-11
-- Current as of `v0.21.6`
+- Updated by @[GregConan](https://github.com/GregConan) on 2025-10-12
+- Current as of `v0.22.0`
 
 ### License
 

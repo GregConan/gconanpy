@@ -5,7 +5,7 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-10-10
+Updated: 2025-10-12
 """
 # Import standard libraries
 import abc
@@ -17,8 +17,7 @@ from more_itertools import all_equal
 import random
 import string
 import sys
-from typing import Any, cast, overload, ParamSpec, \
-    Self, SupportsIndex, TypeVar
+from typing import Any, cast, Literal, overload, ParamSpec, Self, TypeVar
 
 # Import local custom libraries
 try:
@@ -191,7 +190,7 @@ def invert_range(a_range: range) -> range:
     :param a_range: range
     :return: range, inverted (reversed) copy of `a_range`
     """
-    return range(a_range.stop - 1, a_range.start - 1, -a_range.step)
+    return range(a_range.stop - 1, a_range.start + 1, -a_range.step)
 
 
 def merge(updatables: Iterable[_U]) -> _U:
@@ -310,6 +309,14 @@ class Randoms:
 
     @staticmethod
     def _int_or_randint(int_or_pair: int | tuple[int, int]) -> int:
+        """ Return or randomly generate an int. Defined for use by methods \
+            with parameters to optionally provide OR randomly generate.
+
+        :param int_or_pair: int | tuple[int, int], either the int to return \
+            or a (min, max) range to randomly generate an int between.
+        :return: int, either the provided int or a randomly generated int \
+            within the provided range.
+        """
         try:
             pair = cast(tuple[int, int], int_or_pair)
             return random.randint(pair[0], pair[1])
@@ -403,6 +410,19 @@ class Randoms:
                 min_len: int = MIN, max_len: int = MAX,
                 key_types: _TYPES = RANDTYPES,
                 value_types: _TYPES = RANDTYPES) -> dict[_KT, _VT]:
+        """ 
+        :param keys: Sequence[_KT] | None, possible keys to use in the \
+            returned dict, or None to use random data; defaults to None.
+        :param values: Sequence[_VT] | None, possible values to include in \
+            the returned dict, or None to use random data; defaults to None.
+        :param min_len: int, length of smallest dict to return, defaults to 1
+        :param min_len: int, length of biggest dict to return, defaults to 100
+        :param key_types: type | Sequence[type | None], types of random data \
+            to use as `keys` if `keys=None`; defaults to `RANDTYPES`
+        :param value_types: type | Sequence[type | None], types of random \
+            data to use as `values` if `values=None`; defaults to `RANDTYPES`
+        :return: dict[_KT, _VT], dict with random size and contents.
+        """
         n = random.randint(min_len, max_len)
         keys = cls.randtuple(n, keys, key_types)
         values = cls.randtuple(n, values, value_types)
@@ -475,20 +495,45 @@ class Randoms:
     @classmethod
     def randstr(cls, min_len: int = MIN, max_len: int = MAX,
                 values: Sequence[str] = CHARS) -> str:
+        """ 
+        :param min_len: int, length of shortest possible string to return; \
+            defaults to 1
+        :param max_len: int, length of longest possible string to return;
+            defaults to 100
+        :param values: Sequence[str], possible chars to include in the \
+            returned string;, defaults to `string.printable`
+        :return: str, string with random length and contents
+        """
         return "".join(cls.randsublist(values, min_len, max_len))
 
     @staticmethod
     def randsublist(seq: Sequence[_T], min_len: int = 0,
                     max_len: int = MAX) -> list[_T]:
+        """
+        :param seq: Sequence[_T], possible values to randomly select from
+        :param min_len: int, length of the shortest possible list to return; \
+            defaults to 0
+        :param max_len: int, length of the longest possible list to return; \
+            defaults to 100
+        :return: list[_T], a random number of randomly selected items in `seq`
+        """
         return random.choices(seq, k=random.randint(
             min_len, min(max_len, len(seq))))
 
 
 class ColumnNamer:
-    """ Adapted from https://stackoverflow.com/a/48984697 """
+    """ Iterator that converts column numbers into their corresponding \
+        letter combinations in the manner used by Microsoft Excel.
+
+    Adapted from https://stackoverflow.com/a/48984697 """
 
     def __init__(self, letters: str = string.ascii_uppercase,
                  start_at: int = 1) -> None:
+        """
+        :param letters: str, values to pick from to construct column names; \
+            defaults to the uppercase alphabet to mimic MS Excel.
+        :param start_at: int, starting index / column number; defaults to 1.
+        """
         radix = len(letters)
         self.letters = letters
         self.ix = self.offset = start_at
@@ -507,22 +552,36 @@ class ColumnNamer:
         return col_num * self.base + remainder + self.offset
 
     def num2name(self, col_num: int) -> str:
+        """
+        :param col_num: int, column number/index
+        :return: str, the letter combination naming that column
+        """
         chars = list()
         while col_num > 0:
             col_num, remainder = self._divmod(col_num)
             chars.append(self.letters[remainder - 1])
         return "".join(reversed(chars))
 
-    def name2num(self, excel_col: str) -> int:
+    def name2num(self, col_name: str) -> int:
+        """
+        :param col_name: str, letter combination naming a column
+        :return: int, that column number/index
+        """
         return functools.reduce(self._col_num_base_10, map(
-            self.letters.index, excel_col), 0)
+            self.letters.index, col_name), 0)
 
     def reset(self) -> Self:
         return type(self)(self.letters, self.offset)
 
 
 class SimpleShredder(Traversible):
+    """ Iterator to recursively extract data from nested containers. """
     SHRED_ERRORS = (AttributeError, TypeError)
+
+    def __init__(self) -> None:
+        """ Reset; clear traversal record by removing all collected parts. """
+        Traversible.__init__(self)
+        self.parts: set = set()
 
     def shred(self, an_obj: Any) -> set:
         """ Recursively collect/save the attributes, items, and/or elements \
@@ -532,7 +591,7 @@ class SimpleShredder(Traversible):
         :param an_obj: Any, object to return the parts of.
         :return: set of the particular Hashable non-Container data in an_obj
         """
-        try:  # If it's a string, then it's not shreddable, so save it
+        try:  # If it's a string/bytes, then it's not shreddable, so save it
             self.parts.add(an_obj.strip())
         except self.SHRED_ERRORS:
 
@@ -561,7 +620,7 @@ class SimpleShredder(Traversible):
 
             # Shred or save each of an_obj's...
             try:  # ...values if it's a Mapping
-                for v in an_obj.values():  # type: ignore
+                for v in cast(Mapping, an_obj).values():
                     self.shred(v)
             except self.SHRED_ERRORS:
 
@@ -569,14 +628,7 @@ class SimpleShredder(Traversible):
                 for element in an_obj:
                     self.shred(element)
 
-    def reset(self) -> None:
-        """
-        Remove all previously collected parts and their traversal record.
-        """
-        Traversible.__init__(self)
-        self.parts: set = set()
-
-    __init__ = reset
+    reset = __init__
 
 
 class Combinations:
@@ -613,7 +665,7 @@ class Combinations:
         `d={1:1, 2:2}; Combinations.of_map(d)` yields `{1:1}`, `{2:2}`, & `d`.
 
         :param a_map: _Map, _description_
-        :yield: Generator[_Map, None, None], _description_
+        :yield: Generator[_Map: Mapping, None, None], _description_
         """
         for keys in cls.of_objects(a_map):
             yield MapSubset(keys_are=keys).of(a_map)
@@ -651,32 +703,28 @@ class Combinations:
                     yield combo
 
 
-class IterableMap(abc.ABC):
+class IterableMap[KT: Hashable | None, VT: Any](abc.ABC):
     """ Base class for a custom object to emulate `Mapping` iter methods. """
-    _KeyType = Hashable | None
-    _KeyWalker = Generator[_KeyType, None, None]
-    _Walker = Generator[tuple[_KeyType, Any], None, None]
 
-    def __iter__(self) -> _KeyWalker:
+    def __iter__(self) -> Generator[KT, None, None]:
         for k, _ in self.items():
             yield k
 
     @abc.abstractmethod
-    def items(self) -> _Walker: ...
+    def items(self) -> Generator[tuple[KT, VT], None, None]: ...
 
-    def keys(self) -> _KeyWalker:
+    def keys(self) -> Generator[KT, None, None]:
         yield from self
 
-    def values(self) -> Generator[Any, None, None]:
+    def values(self) -> Generator[VT, None, None]:
         for _, v in self.items():
             yield v
 
 
-class MapWalker(Traversible, IterableMap):
+class MapWalker[KT: Hashable, VT: Any](Traversible, IterableMap[KT, VT]):
     """ Recursively iterate over a Mapping and the Mappings nested in it. """
-    _Walker = Generator[tuple[Hashable, Mapping], None, None]
 
-    def __init__(self, from_map: Mapping,
+    def __init__(self, from_map: Mapping[KT, VT],
                  only_yield_maps: bool = False) -> None:
         """ Initialize iterator that visits every item inside of a Mapping \
             once, including the items in the nested Mappings it contains.
@@ -690,28 +738,64 @@ class MapWalker(Traversible, IterableMap):
         self.only_yield_maps = only_yield_maps
         self.root = from_map
 
-    def _walk(self, key: Hashable | None, value: Mapping | Any) -> _Walker:
+    @overload
+    def _walk(self, key: KT | None, value: Mapping[KT, VT] | VT,
+              only_yield_maps: Literal[True]
+              ) -> Generator[tuple[KT, Mapping[KT, VT]], None, None]: ...
+
+    @overload
+    def _walk(self, key: KT | None, value: Mapping[KT, VT] | VT,
+              only_yield_maps: None | Literal[False] = False
+              ) -> Generator[tuple[KT, VT | Mapping[KT, VT]], None, None]: ...
+
+    def _walk(self, key, value, only_yield_maps: bool | None = None):
+        """
+        :param key: KT | None, the key mapped to `value` in the parent dict, \
+            or None if `value` is the top-level `dict`; first item yielded
+        :param value: Mapping[KT, VT] | VT, the `value` mapped to `key` in \
+            the parent dict, to recursively walk if it's a Mapping itself;
+            second item yielded
+        :param only_yield_maps: bool | None, True for this iterator to yield \
+            key-value pairs only if the value is also a Mapping; else False \
+            to yield every item iterated over. Defaults to None to use the \
+            `self.only_yield_maps` variable defined at initialization.
+        :yield: Generator[tuple[KT, VT | Mapping[KT, VT]], None, None], \
+            first `(key, value)` unless `value` is the root `Mapping`, then \
+            every key-value pair in `value` if it's a `Mapping`, and so on \
+            recursively iterating over every `Mapping` nested in `value`
+        """
         # Only visit each item once; mark each as visited after checking
         if self._will_now_traverse(value):
 
             # Don't yield the initial/root/container/top Mapping itself
             isnt_root = value is not self.root
 
+            if only_yield_maps is None:
+                only_yield_maps = self.only_yield_maps
+
             try:  # If value is a dict, then visit each of ITS key-value pairs
-                for k, v in value.items():
-                    yield from self._walk(k, v)
+                for k, v in cast(Mapping, value).items():
+                    yield from self._walk(k, v, only_yield_maps)
                 if isnt_root:  # Don't yield root
-                    yield (key, value)
+                    yield (cast(KT, key), value)
 
             # Yield non-Mapping items unless otherwise specified
             except AttributeError:
-                if isnt_root and not self.only_yield_maps:
-                    yield (key, value)
+                if isnt_root and not only_yield_maps:
+                    yield (cast(KT, key), value)
 
-    def items(self) -> _Walker:
-        """ Iterate over the key-value pairings in this Mapping and all of \
-            nested Mappings recursively. 
+    @overload
+    def items(self, only_yield_maps: Literal[True]
+              ) -> Generator[tuple[KT, Mapping[KT, VT]], None, None]: ...
 
-        :yield: Iterator[tuple[Hashable | None, Any]], _description_
+    @overload
+    def items(self, only_yield_maps: None | Literal[False] = None
+              ) -> Generator[tuple[KT, VT | Mapping[KT, VT]], None, None]: ...
+
+    def items(self, only_yield_maps: bool | None = None):
+        """ 
+        :yield: Generator[tuple[KT, VT | Mapping[KT, VT]], None, None], \
+            the key-value pairings in this Mapping and all of the nested \
+            Mapping values, iterating recursively.
         """
         yield from self._walk(None, self.root)
