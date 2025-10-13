@@ -79,11 +79,11 @@ obj.new_attr  # -> "value"
 obj.another_attr  # -> 123
 
 # Get all attribute names
-get_names(obj)  # -> {"foo", "bar", ...}
+get_names(obj)  # -> {"new_attr", "another_attr", ...}
 
-# Comprehensive attribute manipulation
+# Attribute selection
 attrs = AttrsOf(obj)
-public_attrs = list(attrs.public())  # -> ["foo", "bar"]
+public_attrs = list(attrs.public())  # -> ["new_attr", "another_attr"]
 methods = list(attrs.methods())
 private_attrs = list(attrs.private())
 ```
