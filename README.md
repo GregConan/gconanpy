@@ -38,6 +38,8 @@ poetry install
 
 ## File Structure
 
+For more details, see the `README.md` file in each subdirectory.
+
 ### `gconanpy/`
 
 The main package containing utility modules for Python development:
