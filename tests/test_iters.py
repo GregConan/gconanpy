@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-06
-Updated: 2025-10-12
+Updated: 2025-10-27
 """
 # Import standard libraries
 from collections.abc import Generator, Hashable
@@ -29,16 +29,19 @@ class TestMapSubset(Tester):
 
 
 class TestDuckCollection(Tester):
-    _K = TypeVar("_K")
+    _K = TypeVar("_K")  # Generic key type
+
+    # Map example data to the type of container it can be converted into
     COLLECTYPES = {list, set, tuple}
-    EXAMPLES: dict[Hashable, set[type]] = {"This is a sample string": {list, set, tuple, str},
-                                           ("This", "is", "a", "string", "tuple"): COLLECTYPES}
+    EXAMPLES: dict[Hashable, set[type]] = {
+        "This is a sample string": {list, set, tuple, str},
+        ("This", "is", "a", "string", "tuple"): COLLECTYPES}
 
     def check_contains(self, ducks: DuckCollection[_K], key: _K,
                        isin: bool) -> bool:
-        """ Test __contains__ and isdisjoint methods of DuckCollection
+        """ Test `__contains__` and `isdisjoint` methods of `DuckCollection`
 
-        :return: bool, True `if key in ducks == isin`; else False
+        :return: bool, True `if ((key in ducks) == isin)`; else False
         """
         conds = {key in ducks, not ducks.isdisjoint({key}),
                  not ducks.isdisjoint({key: "value"})}
@@ -52,10 +55,10 @@ class TestDuckCollection(Tester):
         self.check_result(ducks, adict.keys())
 
         # Test __contains__ and isdisjoint
-        pair = adict.popitem()
+        pair = adict.popitem()  # key-value pair
         self.check_contains(ducks, pair[0], isin=False)
 
-        # Use __contains__ and __isdisjoin__ to test get, pop, and set_to
+        # Use __contains__ and __isdisjoint__ to test get, pop, and set_to
         ducks.set_to(*pair)
         self.check_contains(ducks, pair[0], isin=True)
         self.check_result(ducks.get(pair[0]), pair[1])
@@ -169,8 +172,8 @@ class TestMerge(Tester):
     def test_combine_lists(self, max_n: int = 10) -> None:
         self.add_basics()
         for n in range(1, max_n):
-            self.check_result(combine_lists(
-                [self.alist] * n), self.alist * n)
+            self.check_result(combine_lists([self.alist] * n),
+                              self.alist * n)
 
     def test_merge_dicts_1(self, min_len: int = MIN, max_len: int = MAX,
                            max_n: int = MAX) -> None:
@@ -232,7 +235,7 @@ class TestRangeFunctions(Tester):
     """  # TODO
 
     def test_invert_range(self, n_tests: int = 10) -> None:
-        for _ in Randoms.randcount(n_tests, n_tests):
+        for _ in range(n_tests):
             a_range = Randoms.randrange()
             self.check_result(
                 [x for x in invert_range(invert_range(a_range))],

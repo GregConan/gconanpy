@@ -4,7 +4,7 @@
 Useful/convenient functions for dicts (taken from dicts.py class methods).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-09-28
+Updated: 2025-10-27
 """
 # Import standard libraries
 from collections import defaultdict
@@ -25,7 +25,7 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from meta.typeshed import DATA_ERRORS, SupportsRichComparison
     from trivial import always_none
 
-# Constants: type variables
+# Type variables for type hints
 _D = TypeVar("_D")
 _KT = TypeVar("_KT", bound=Hashable)
 _VT = TypeVar("_VT")
@@ -84,7 +84,7 @@ def from_strings(strings: Iterable[str], delimiter: str = ": "
 def get_or_prompt_for(a_map: Mapping[_KT, _VT], key: _KT, prompt: str,
                       prompt_fn: _Prompter = input,
                       exclude: Container[_VT] = set()) -> _VT | str:
-    """ Return the value mapped to key in a_map if one already exists and \
+    """ Return the value mapped to key in `a_map` if one already exists and \
         is not in `exclude`; else prompt the user to interactively provide \
         it and return that.
 

@@ -5,7 +5,7 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-10-12
+Updated: 2025-10-27
 """
 # Import standard libraries
 import abc
@@ -190,7 +190,8 @@ def invert_range(a_range: range) -> range:
     :param a_range: range
     :return: range, inverted (reversed) copy of `a_range`
     """
-    return range(a_range.stop - 1, a_range.start + 1, -a_range.step)
+    return range(a_range.stop - a_range.step,
+                 a_range.start - a_range.step, -a_range.step)
 
 
 def merge(updatables: Iterable[_U]) -> _U:
@@ -327,6 +328,9 @@ class Randoms:
     def randbool(cls, *_) -> bool:
         """ Taken from https://stackoverflow.com/a/6824868 
 
+        Accepts and ignores positional input parameters for more convenient \
+        use by `Randoms.randatum`.
+
         :return: bool, a 50% random chance of either True or False.
         """
         return bool(random.getrandbits(1))
@@ -449,7 +453,7 @@ class Randoms:
 
     @classmethod
     def randrange(cls, start: int | tuple[int, int] = 0,
-                  stop: int | tuple[int, int] = BIGINT,
+                  stop: int | tuple[int, int] = (1, BIGINT),
                   step: int | tuple[int, int] = 1) -> range:
         return range(cls._int_or_randint(start),
                      cls._int_or_randint(stop),
@@ -481,14 +485,37 @@ class Randoms:
                    max_n: int = MAX, min_len: int = MIN, max_len: int = MAX,
                    same_len: bool = False, unique: bool = False
                    ) -> list[tuple[_VT, ...]]:
+        """
+        :param values: Sequence[_VT] | None, items to randomly select and \
+            place into the returned tuples, or None to include random values \
+            of random basic data types \
+            `(bool, bytes, float, int, None, str)`; defaults to None
+        :param min_n: int, minimum number of tuples to return; defaults to 1
+        :param max_n: int, maximum number of tuples to return; defaults to 100
+        :param min_len: int, minimum tuple length; defaults to 1
+        :param max_len: int, maximum tuple length; defaults to 100
+        :param same_len: bool, True to return a list of tuples that all have \
+            exactly the same number of items; else False; defaults to False
+        :param unique: bool, True to return a list of unique tuples; else \
+            False to return a list of tuples potentially including \
+            duplicates; defaults to False
+        :return: list[tuple[_VT, ...]], list of randomly generated tuples
+        """
         tuples = list()  # to return
+
+        # Make them all the same length if specified
         tup_len = random.randint(min_len, max_len) if same_len else None
         for _ in cls.randcount(min_n, max_n):
+
+            # Otherwise, vary the length
             if tup_len is None:
                 tup_len = random.randint(min_len, max_len)
+
+            # Make them unique if specified
             a_tup = cls.randtuple(tup_len, values)
             while unique and (a_tup in tuples):
                 a_tup = cls.randtuple(tup_len, values)
+
             tuples.append(a_tup)
         return tuples
 
@@ -534,9 +561,12 @@ class ColumnNamer:
             defaults to the uppercase alphabet to mimic MS Excel.
         :param start_at: int, starting index / column number; defaults to 1.
         """
-        radix = len(letters)
         self.letters = letters
         self.ix = self.offset = start_at
+
+        # Numerical base (how many unique digits represent a number) plus the
+        # method to convert integers from that base to base 10 and back
+        radix = len(letters)
         self.base = radix
         self._divmod = staticmethod(divmod_base(radix))
 
