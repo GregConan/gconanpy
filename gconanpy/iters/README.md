@@ -22,7 +22,6 @@ Core iteration and manipulation utilities. Includes functions to combine, compar
 #### Key Classes
 
 - `Randoms` randomly selects and/or randomly generates data. Useful for testing.
-- `MapSubset` filters and extracts subsets of `Mapping` objects.
 - `SimpleShredder` recursively collects values from nested structures.
 - `Combinations` generates various combinations of data containers.
 - `IterableMap` is a base class for `Mapping`-like iteration.
@@ -41,6 +40,16 @@ The intended use case is for functions/methods that do not need to know what typ
 - Unified interface for lists, sets, dictionaries, and other `Collections`
 - Automatic method selection based on `Collection` type
 - Support for immutable `Collection`s like tuples and strings
+
+### `filters.py`
+
+Classes to iterate and/or extract only certain elements of an iterable, those that are explicitly indicated or satisfy certain conditions.
+
+**Key Classes**:
+
+- `BaseFilter` abstracts out the functionality shared by the following two classes.
+- `Filter` can filter and extract elements of an iterable based on their attributes.
+- `MapSubset` filters and extracts subsets of `Mapping` objects.
 
 ### `find.py`
 
@@ -119,7 +128,7 @@ for key, mapping in walker.items():
 
 # Extract all data from nested structure
 shredder = SimpleShredder()
-nums = shredder.shred(nested_data) # -> {1, 2}
+shredder.shred(nested_data) # -> {1, 2}
 ```
 
 ### Sequence Manipulation
@@ -127,10 +136,10 @@ nums = shredder.shred(nested_data) # -> {1, 2}
 from gconanpy.iters.seq import uniqs_in, seq_startswith
 
 # Get unique items
-unique_items = uniqs_in([1, 2, 2, 3, 1, 3, 3, 2])  # -> [1, 2, 3]
+uniqs_in([1, 2, 2, 3, 1, 3, 3, 2])  # -> [1, 2, 3]
 
 # Check sequence prefix
-starts_with = seq_startswith([1, 2, 3, 4], [1, 2])  # -> True
+seq_startswith([1, 2, 3, 4], [1, 2])  # -> True
 ```
 
 ### Random Data Generation
@@ -151,8 +160,8 @@ random_sets = Randoms.randintsets(min_n=2, max_n=3)
 ### About This Document
 
 - Created by @[GregConan](https://github.com/GregConan) on 2025-08-09
-- Updated by @[GregConan](https://github.com/GregConan) on 2025-10-11
-- Current as of `v0.21.6`
+- Updated by @[GregConan](https://github.com/GregConan) on 2025-10-16
+- Current as of `v0.22.0`
 
 ### License
 

@@ -369,8 +369,7 @@ class Grid[KT: Hashable, VT]:  # (Invertionary):  # 2D Grid
             self.Y[ykey][xkey] = self.X[xkey][ykey]
 
     def invert(self) -> None:
-        self.X = self.Y
-        self.Y = self.X
+        self.X, self.Y = self.Y, self.X
 
 
 class Locktionary[KT: str, VT: Bytesifiable

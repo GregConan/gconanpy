@@ -38,6 +38,8 @@ poetry install
 
 ## File Structure
 
+For more details, see the `README.md` file in each subdirectory.
+
 ### `gconanpy/`
 
 The main package containing utility modules for Python development:
@@ -55,7 +57,7 @@ The main package containing utility modules for Python development:
 
 Object attribute and item access utilities for enhanced data manipulation.
 
-- **`__init__.py`**: Unified interface(s) for low-level access and manipulation of items and attributes interchangeably
+- **`access/__init__.py`**: Unified interface(s) for low-level access and manipulation of items and attributes interchangeably
 - **`access/attributes.py`**: Dynamic attribute access and manipulation utilities
 - **`access/dissectors.py`**: Data structure inspection and debugging tools
 - **`access/find.py`**: Classes and functions for finding items in iterables with early termination.
@@ -102,7 +104,7 @@ Comprehensive test suite for all modules:
 ### About This Document
 
 - Created by @[GregConan](https://github.com/GregConan) on 2025-03-13
-- Updated by @[GregConan](https://github.com/GregConan) on 2025-10-11
+- Updated by @[GregConan](https://github.com/GregConan) on 2025-10-12
 - Current as of `v0.21.5`
 
 ### License
