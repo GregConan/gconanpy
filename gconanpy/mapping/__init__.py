@@ -4,7 +4,7 @@
 Useful/convenient functions for dicts (taken from dicts.py class methods).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-10-27
+Updated: 2025-11-03
 """
 # Import standard libraries
 from collections import defaultdict
@@ -74,7 +74,7 @@ def fromConfigParser(config: ConfigParser) -> dict:
 
 def from_strings(strings: Iterable[str], delimiter: str = ": "
                  ) -> dict[str, str]:
-    a_dict = dict()
+    a_dict = {}
     for eachstr in strings:
         k, v = eachstr.split(delimiter)
         a_dict[k] = v
@@ -342,9 +342,9 @@ def missing_keys(a_map: Mapping[_KT, _VT], keys: Iterable[_KT],
 
 def overlap_pct(**collections: Collection[Hashable]
                 ) -> dict[str, dict[str, float]]:
-    overlaps = dict()
+    overlaps = {}
     for collname, collns in collections.items():
-        overlaps[collname] = dict()
+        overlaps[collname] = {}
         for othername, othercollns in collections.items():
             overlaps[collname][othername] = \
                 len(collns) / len(set(collns) | set(othercollns))

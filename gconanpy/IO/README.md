@@ -42,7 +42,7 @@ save_to_json({"key": "value"}, "output.json")
 data = extract_from_json("output.json")  # -> {"key": "value"}
 
 # Load templates from text files
-templates = list()
+templates = []
 for file_path in walk_dir("/path/to/dir", ext=".txt"):
     templates.append(LoadedTemplate.from_file_at(file_path))
     
@@ -102,7 +102,7 @@ url.get_params()  # -> {'page': ['1'], 'limit': ['10']}
 ### About This Document
 
 - Created by @[GregConan](https://github.com/GregConan) on 2025-08-05
-- Updated by @[GregConan](https://github.com/GregConan) on 2025-10-11
+- Updated by @[GregConan](https://github.com/GregConan) on 2025-11-03
 - Current as of `v0.21.6`
 
 ### License

@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-10-10
+Updated: 2025-11-03
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -347,8 +347,8 @@ class TestAccessor(DictTester):
 
     def prep(self, n_tests_orders_of_magnitude: int = 4) -> None:
         self.add_basics()
-        randicts = list()
-        randobjs = list()
+        randicts = []
+        randobjs = []
         for _ in Randoms.randcount(max_len=20):
             randicts.append({**Randoms.randict(
                 keys=string.ascii_letters, max_len=10), **self.adict})

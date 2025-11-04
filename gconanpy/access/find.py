@@ -5,7 +5,7 @@ Classes and functions that iterate and then break once they find what \
     they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-09-18
+Updated: 2025-11-03
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -38,8 +38,8 @@ StrChecker = Callable[[str | None], bool] | Callable[[str], bool]
 
 def iterfind(find_in: Iterable[IterfindItem],
              found_if: Callable = is_not_none,
-             found_args: Iterable = list(),
-             found_kwargs: Mapping[str, Any] = dict(),
+             found_args: Iterable = [],
+             found_kwargs: Mapping[str, Any] = {},
              default: IterfindDefault = None, element_is_arg: bool = True
              ) -> IterfindItem | IterfindDefault:
     for each_item in find_in:
@@ -54,9 +54,9 @@ def iterfind(find_in: Iterable[IterfindItem],
 
 def modifind(find_in: Iterable,
              modify: Callable | None = None,
-             modify_args: Iterable = list(),
+             modify_args: Iterable = [],
              found_if: Callable = is_not_none,
-             found_args: Iterable = list(),
+             found_args: Iterable = [],
              default: Any = None,
              errs: Iterable[type[BaseException]] = [
                  *DATA_ERRORS, UnboundLocalError]) -> Any:

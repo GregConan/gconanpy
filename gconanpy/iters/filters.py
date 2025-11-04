@@ -5,7 +5,7 @@ Classes that can filter objects to only get the elements (or attributes) \
     that match certain specified conditions.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-09-18
-Updated: 2025-10-10
+Updated: 2025-11-03
 """
 # Import standard libraries
 import abc
@@ -75,10 +75,10 @@ class Filter(BaseFilter):
     names: _FILTERDICT
     values: _FILTERDICT
 
-    def __init__(self, names_are: _STRSELECT = tuple(),
-                 values_are: _SELECTORS = tuple(),
-                 names_arent: _STRSELECT = tuple(),
-                 values_arent: _SELECTORS = tuple()) -> None:
+    def __init__(self, names_are: _STRSELECT = (),
+                 values_are: _SELECTORS = (),
+                 names_arent: _STRSELECT = (),
+                 values_arent: _SELECTORS = ()) -> None:
         """ _summary_
 
         :param names_are: Iterable[Callable[[Any], bool]] of \
@@ -141,10 +141,10 @@ class MapSubset[KT, VT](BaseFilter):
     keys: _FILTERDICT
     values: _FILTERDICT
 
-    def __init__(self, keys_are: KT | Iterable[KT] = tuple(),
-                 values_are: VT | Iterable[VT] = tuple(),
-                 keys_arent: KT | Iterable[KT] = tuple(),
-                 values_arent: VT | Iterable[VT] = tuple()) -> None:
+    def __init__(self, keys_are: KT | Iterable[KT] = (),
+                 values_are: VT | Iterable[VT] = (),
+                 keys_arent: KT | Iterable[KT] = (),
+                 values_arent: VT | Iterable[VT] = ()) -> None:
         """
         :param keys: Container[Hashable] of keys to (in/ex)clude.
         :param values: Container of values to (in/ex)clude.

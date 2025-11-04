@@ -4,7 +4,7 @@
 Utility functions and classes to manipulate numpy/pandas data.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-09-28
+Updated: 2025-11-03
 """
 # Import standard libraries
 from collections.abc import Hashable, Iterable, Mapping
@@ -69,7 +69,7 @@ def search_sequence_numpy(arr: np.ndarray, subseq: np.ndarray) -> list[int]:
         start_indices = [all_seq_ixs[0], all_seq_ixs[-seq_len]]
         # start_indices = [all_seq_ixs[x] for x in range(0, all_seq_ixs.shape[0], seq_len)]
     else:
-        start_indices = list()  # No match found
+        start_indices = []  # No match found
     return start_indices
 
 

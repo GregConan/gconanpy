@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-09-26
+Updated: 2025-11-03
 """
 # Import standard libraries
 import abc
@@ -361,7 +361,7 @@ class DontSkip(SkipOrNot):
 
 
 class KeepSkippingExceptions(ErrCatcher):
-    def __init__(self, catch: Iterable[type[BaseException]] = list(),
+    def __init__(self, catch: Iterable[type[BaseException]] = [],
                  is_done: bool = False) -> None:
         """
         :param catch: Iterable[type[BaseException]] to catch and skip; \
@@ -370,7 +370,7 @@ class KeepSkippingExceptions(ErrCatcher):
             else False to execute them 
         """
         super(KeepSkippingExceptions, self).__init__(*catch)
-        self.errors: list[BaseException] = list()
+        self.errors: list[BaseException] = []
         self.is_done = is_done
 
 

@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2025-09-18
+Updated: 2025-11-03
 """
 # Import standard libraries
 import abc
@@ -14,7 +14,7 @@ import inspect
 import re
 import sys
 from types import ModuleType
-from typing import Any, cast, TypeVar
+from typing import Any, cast
 
 # Import third-party PyPI libraries
 from makefun import create_function, with_signature
@@ -118,7 +118,7 @@ def make_MRO_for_subclass_of(*types: type) -> Iterator[type]:
 
     :return: Iterator[type] that yields all classes in the correct MRO
     """
-    dag_dict = dict()
+    dag_dict = {}
     for each_class in types:
         # Exclude self (`each_class`) and object class (`object`) from MRO
         dag_dict[each_class] = inspect.getmro(each_class)[1:-1]
@@ -142,7 +142,7 @@ def params_for(a_class: type, *args: inspect.Parameter
                ) -> list[inspect.Parameter]:
     POS_OR_KEY = inspect.Parameter.POSITIONAL_OR_KEYWORD
     params = [self_param(self_is=a_class)]
-    withdefaults: list[inspect.Parameter] = list()
+    withdefaults: list[inspect.Parameter] = []
     for name, annotation in all_annotations_of(a_class).items():
         pkwargs = dict(name=name, annotation=annotation, kind=POS_OR_KEY)
         if hasattr(a_class, name):
@@ -173,7 +173,7 @@ def trim_MRO(classes: Iterable[type]) -> tuple[type]:
         child/subclass of all `classes` specified; tuple (instead of list) \
         to use as 2nd parameter to dynamically define a class using type(...)
     """
-    minimal_MRO = list()
+    minimal_MRO = []
     for each_class in classes:
         is_redundant = False
         for needed_class in minimal_MRO:
@@ -186,8 +186,8 @@ def trim_MRO(classes: Iterable[type]) -> tuple[type]:
 
 
 def signature_extends(func: Callable,
-                      pre: Iterable[inspect.Parameter] = list(),
-                      post: Iterable[inspect.Parameter] = list(),
+                      pre: Iterable[inspect.Parameter] = [],
+                      post: Iterable[inspect.Parameter] = [],
                       default: Any = None, **kwargs) -> Wrapper:
     """
     :param func: Callable, function or method to extend the signature of

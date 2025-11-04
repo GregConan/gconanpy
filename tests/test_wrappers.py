@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-10-12
+Updated: 2025-11-03
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Iterable
@@ -137,8 +137,8 @@ class TestStringify(Tester):
         self.check_result(actual_result, expected_result)
         assert type(actual_result) is ToString
 
-    def stringify_WrapFunction(self, call: Callable, pre: Iterable = list(),
-                               post: Iterable = list(), **kwargs: Any) -> str:
+    def stringify_WrapFunction(self, call: Callable, pre: Iterable = [],
+                               post: Iterable = [], **kwargs: Any) -> str:
         kwargstrs = [f"{k}={v}" for k, v in kwargs.items()]
         stringified = f"{name_of(WrapFunction)}(call={name_of(call)}, " \
             f"pre={pre}, post={post}, {', '.join(kwargstrs)})"

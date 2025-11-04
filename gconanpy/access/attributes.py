@@ -4,7 +4,7 @@
 Functions/classes to access and/or modify the attributes of any object(s).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-02
-Updated: 2025-10-10
+Updated: 2025-11-03
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Iterable
@@ -37,39 +37,33 @@ def add_to(an_obj: _T, **attributes: Any) -> _T:
     return an_obj
 
 
-def get_all_names(*objects: Any) -> set[str]:
+def get_names(*objects: Any) -> set[str]:  # TODO replace an_obj with *objects?
     """
-    :param objects: Iterable of objects to return the attribute names of
+    :param objects: Iterable[Any], objects to return the attribute names of
     :return: set[str], the name of every attribute of everything in `objects`
     """
-    return merge(get_names(an_obj) for an_obj in objects)
+    names = set()
+    for each_obj in objects:
 
+        # Name some of its own attributes
+        names.update(dir(each_obj))
 
-def get_names(an_obj: Any) -> set[str]:
-    """
-    :param an_obj: Any, object to return the attribute names of
-    :return: set[str], the name of every attribute of `an_obj`
-    """
-    # Name some of its own attributes
-    names = set(dir(an_obj))
+        # Name the rest of its own attributes
+        dict_attr = getattr(each_obj, "__dict__", None)
+        if dict_attr:
+            names.update(dict_attr)
 
-    # Name the rest of its own attributes
-    dict_attr = getattr(an_obj, "__dict__", None)
-    if dict_attr:
-        names.update(dict_attr)
+        # If it's a class, name some attributes of its base class(es)
+        bases = getattr(each_obj, "__bases__", None)
+        if bases:
+            names.update(get_names(*bases))
 
-    # If it's a class, name some attributes of its base class(es)
-    bases = getattr(an_obj, "__bases__", None)
-    if bases:
-        names.update(get_all_names(*bases))
-        # names.update(merge((set(base.__dict__) for base in bases)))
-
-        # Filter out absent attribute names
-        to_remove = set()
-        for attr_name in names:
-            if not hasattr(an_obj, attr_name):
-                to_remove.add(attr_name)
-        names.difference_update(to_remove)
+            # Filter out absent attribute names
+            to_remove = set()
+            for attr_name in names:
+                if not hasattr(each_obj, attr_name):
+                    to_remove.add(attr_name)
+            names.difference_update(to_remove)
 
     return names
 
@@ -79,11 +73,11 @@ def getdefault(obj: Any, name: str, value: Any,
     """ Return the `name` attribute of `obj` if it exists and isn't in \
         `exclude`. Otherwise, return `value`.
 
-    :param an_obj: Any, object to ensure has an attribute with that `name`
-    :param name: str naming the attribute to ensure that `an_obj` has
-    :param value: Any, new value of the `name` attribute of `an_obj` if that \
+    :param obj: Any, object to ensure has an attribute with that `name`
+    :param name: str naming the attribute to ensure that `obj` has
+    :param value: Any, new value of the `name` attribute of `obj` if that \
         attribute doesn't exist or if its value is in `exclude`
-    :param exclude: Container, values of `an_obj.<name>` to overwrite
+    :param exclude: Container, values of `obj.<name>` to overwrite
     :return: Any, either `getattr(obj, name)` or `value`
     """
     try:  # If obj has the attribute, return it unless its value is excluded
@@ -102,22 +96,23 @@ def getdefault(obj: Any, name: str, value: Any,
     return gotten
 
 
-def has(an_obj: Any, name: str, exclude: Container = set()) -> bool:
+def has(obj: Any, name: str, exclude: Container = set()) -> bool:
     """
-    :param name: str
-    :param exclude: Container, values to ignore or overwrite. If `an_obj` \
-        maps `key` to one, then return True as if `key is not in an_obj`.
-    :return: bool, True if `key` is not mapped to a value in `an_obj` or \
+    :param obj: Any, object to check whether it has an attribute called `name`
+    :param name: str, name of the attribute to check for
+    :param exclude: Container, values to ignore or overwrite. If `obj` \
+        maps `key` to one, then return True as if `key is not in obj`.
+    :return: bool, True if `key` is not mapped to a value in `obj` or \
         is mapped to something in `exclude`
     """
     try:  # If an_obj has the attribute, return True unless it doesn't count
-        return getattr(an_obj, name) not in exclude
+        return getattr(obj, name) not in exclude
 
     except AttributeError:  # If an_obj lacks the attribute, return False
         return False
 
-    # `self.<name> in exclude` raises TypeError if self.<name> isn't Hashable.
-    # In that case, self.<name> can't be in exclude, so self has name.
+    # `obj.<name> in exclude` raises TypeError if obj.<name> isn't Hashable.
+    # In that case, obj.<name> can't be in exclude, so obj has name.
     except TypeError:
         return True
 
@@ -247,6 +242,9 @@ class AttrsOf(IterableMap):
     def __contains__(self, name: str) -> Any:
         return hasattr(self.what, name)
 
+    def __delitem__(self, name: str) -> None:
+        delattr(self.what, name)
+
     def __getitem__(self, name: str) -> Any:
         return getattr(self.what, name)
 
@@ -255,11 +253,6 @@ class AttrsOf(IterableMap):
 
     def __setitem__(self, name: str, value: Any) -> None:
         setattr(self.what, name, value)
-
-    def _copy_to(self, an_obj: _T, to_copy: _AttrPair | _IterAttrPairs) -> _T:
-        for attr_name, attr_value in to_copy:
-            setattr(an_obj, attr_name, attr_value)
-        return an_obj
 
     def add_to(self, an_obj: _T, filter_if: Filter.FilterFunction,
                exclude: bool = False) -> _T:
@@ -273,7 +266,11 @@ class AttrsOf(IterableMap):
             of the filter functions return True; else False to EXclude them.
         :return: Any, an_obj with the specified attributes of this object.
         """
-        return self._copy_to(an_obj, self.select(filter_if, exclude))
+        pair_generator = self.items() if filter_if is None \
+            else self.select(filter_if, exclude)
+        for attr_name, attr_value in pair_generator:
+            setattr(an_obj, attr_name, attr_value)
+        return an_obj
 
     def but_not(self, *others: Any) -> set[str]:
         """
@@ -281,7 +278,7 @@ class AttrsOf(IterableMap):
         :return: set[str] naming all attributes that are in this object but \
             not in any of the `others`
         """
-        return self.names - get_all_names(*others)
+        return self.names - get_names(*others)
 
     def first_of(self, attr_names: Iterable[str], default: Any = None,
                  method_names: Container[str] = set()) -> Any:

@@ -4,7 +4,7 @@
 Custom multidimensional dictionaries extending dicts.py classes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-23
-Updated: 2025-10-10
+Updated: 2025-11-03
 """
 # Import standard libraries
 import abc
@@ -253,7 +253,7 @@ class HashGrid[KT: Hashable, VT](BaseHashGrid[KT, VT]):
             self[keys] = value
 
     @classmethod
-    def _name_dims(cls, pairs: Iterable[tuple[Collection[KT], Any]] = tuple(),
+    def _name_dims(cls, pairs: Iterable[tuple[Collection[KT], Any]] = (),
                    strict: bool = True) -> Generator[str, None, None]:
         """ 
         :param pairs: tuple[Collection[KT], VT], a tuple of 2 items where \
@@ -326,13 +326,13 @@ class HashGrid[KT: Hashable, VT](BaseHashGrid[KT, VT]):
 
     @classmethod
     def for_creds(cls, *pairs: tuple[Iterable[KT], VT],
-                  values: Sequence[VT] = tuple(),  strict: bool = True,
-                  usernames: Sequence[KT] = tuple(),
-                  passwords: Sequence[KT] = tuple()) -> Self:
+                  values: Sequence[VT] = (),  strict: bool = True,
+                  usernames: Sequence[KT] = (),
+                  passwords: Sequence[KT] = ()) -> Self:
         """ Make a new `HashGrid` to map username-password pairs to values.
 
         :return: Self, `HashGrid(names=("username", "password"))` """
-        kwargs = dict()
+        kwargs = {}
         if usernames:
             kwargs["usernames"] = usernames
         if passwords:
@@ -356,14 +356,14 @@ class Grid[KT: Hashable, VT]:  # (Invertionary):  # 2D Grid
                  values: Iterable[VT]): ...
 
     def __init__(self, *tuples, x=tuple(), y=tuple(), values=tuple()) -> None:
-        self.X: dict[KT, dict[KT, VT]] = dict()
-        self.Y: dict[KT, dict[KT, VT]] = dict()
+        self.X: dict[KT, dict[KT, VT]] = {}
+        self.Y: dict[KT, dict[KT, VT]] = {}
         if tuples:
             triples = tuples
         elif x and y and values:  # and len(x) == len(y) == len(values):
             triples = zip(x, y, values, strict=True)
         else:
-            triples = tuple()
+            triples = ()
         for xkey, ykey, val in triples:
             self.X[xkey][ykey] = val
             self.Y[ykey][xkey] = self.X[xkey][ykey]
@@ -382,8 +382,8 @@ class Locktionary[KT: str, VT: Bytesifiable
         keys) unless keys are numeric. """
 
     def __init__(self, *pairs: tuple[Collection[KT], VT],
-                 dim_names: Sequence[str] = tuple(),
-                 values: Sequence[KT] = tuple(), strict: bool = True,
+                 dim_names: Sequence[str] = (),
+                 values: Sequence[KT] = (), strict: bool = True,
                  debugging: bool = False,
                  iterations: int = 500,  # TODO Increase after optimizing?
                  **dimensions: Iterable[KT]) -> None:

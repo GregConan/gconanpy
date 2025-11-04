@@ -6,7 +6,7 @@ Expanding Python's built-in accessor (getter/setter/deleter/etc) functions \
     for use on more kinds of objects.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-09-11
-Updated: 2025-09-28
+Updated: 2025-11-03
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Hashable, \
@@ -391,21 +391,21 @@ class Accessor[KT, VT](NamedTuple):
         return obj
 
 
+ACCESS_ITEM = Accessor(
+    contains=operator.contains, get=operator.getitem,
+    set_to=operator.setitem, delete=operator.delitem,
+    MissingError=KeyError)
+ACCESS_ATTR = Accessor(contains=hasattr, get=getattr,
+                       set_to=setattr, delete=delattr,
+                       MissingError=AttributeError)
+
+
 class Access:
-    item = Accessor(contains=operator.contains, get=operator.getitem,
-                    set_to=operator.setitem, delete=operator.delitem,
-                    MissingError=KeyError)
-    attribute = Accessor(contains=hasattr, get=getattr,
-                         set_to=setattr, delete=delattr,
-                         MissingError=AttributeError)
+    item = ACCESS_ITEM
+    attribute = ACCESS_ATTR
 
 
 # TODO REMOVE(?) bc it's slightly slower & using it is less concise?
 # Change to frozendict so it's a global constant (& maybe faster?)
 # https://github.com/Marco-Sulla/python-frozendict/issues/18
-ACCESS = {"item": Accessor(contains=operator.contains, get=operator.getitem,
-                           set_to=operator.setitem, delete=operator.delitem,
-                           MissingError=KeyError),
-          "attribute": Accessor(contains=hasattr, get=getattr,
-                                set_to=setattr, delete=delattr,
-                                MissingError=AttributeError)}
+ACCESS = {"item": ACCESS_ITEM, "attribute": ACCESS_ATTR}

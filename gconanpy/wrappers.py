@@ -4,7 +4,7 @@
 Classes that wrap other classes, especially builtins, to add functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-09-25
+Updated: 2025-11-03
 """
 # Import standard libraries
 import argparse
@@ -159,7 +159,7 @@ class ToString(str):
                 replace: Mapping[str, str] = {":": "-"},
                 encoding: str = sys.getdefaultencoding(),
                 errors: str = "ignore", lastly: str = "and ",
-                iter_kwargs: dict[str, Any] = dict()) -> Self:
+                iter_kwargs: dict[str, Any] = {}) -> Self:
         """ Convert an object ToString
 
         :param an_obj: Any, object to convert ToString
@@ -330,7 +330,7 @@ class ToString(str):
                      sep: str = ", ", quote_numbers: bool = False,
                      prefix: str | None = "[", suffix: str | None = "]",
                      max_len: int | None = None, lastly: str = "and ",
-                     iter_kwargs: Mapping[str, Any] = dict()) -> Self:
+                     iter_kwargs: Mapping[str, Any] = {}) -> Self:
         """ Convert a Collection (e.g. a list, tuple, or set) into an \
             instance of the `ToString` class.
 
@@ -388,7 +388,7 @@ class ToString(str):
                     prefix: str | None = "{", suffix: str | None = "}",
                     sep: str = ", ", max_len: int | None = None,
                     lastly: str = "and ",
-                    iter_kwargs: Mapping[str, Any] = dict()) -> Self:
+                    iter_kwargs: Mapping[str, Any] = {}) -> Self:
         """
         :param a_map: Mapping to convert ToString
         :param quote: str to add before and after each key-value pair in \
@@ -461,7 +461,7 @@ class ToString(str):
     @classmethod
     def quotate_all(cls, objects: Iterable, quote: str | None = "'",
                     quote_numbers: bool = False, max_len: int | None = None,
-                    kwargs: Mapping[str, Any] = dict()) -> list[Self]:
+                    kwargs: Mapping[str, Any] = {}) -> list[Self]:
         return [cls.quotate(an_obj, quote, quote_numbers, max_len=max_len,
                             **kwargs) for an_obj in objects]
 
@@ -634,8 +634,8 @@ class WrapFunction:  # WrapFunction(partial):
         return self.func(*self.pre, *args, *self.post,
                          **self.keywords, **kwargs)
 
-    def __init__(self, func: Callable, pre: Any = tuple(),
-                 post: Any = tuple(), **keywords: Any) -> None:
+    def __init__(self, func: Callable, pre: Any = (),
+                 post: Any = (), **keywords: Any) -> None:
         """ Wrap/"freeze" a function with some parameters already defined \
             to call that function with those parameters later.
 
@@ -742,7 +742,7 @@ class Sets[T: Hashable](tuple[set[T], ...]):
             gotten = type(self)(gotten)
         return gotten
 
-    def __new__(cls, iterables: Iterable[Iterable[T]] = tuple()) -> Self:
+    def __new__(cls, iterables: Iterable[Iterable[T]] = ()) -> Self:
         """ 
         :param iterables: Iterable[Iterable[T]] to convert into `Sets`
         :return: Self, a tuple of all input `iterables` as `Sets`

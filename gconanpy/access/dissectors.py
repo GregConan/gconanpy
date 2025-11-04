@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-10-12
+Updated: 2025-11-03
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping
@@ -54,8 +54,8 @@ class DifferenceBetween:
         self.difference = None
 
         # List the objects to compare, and their names, for comparison methods
-        self.comparables = list()
-        self.names = list()
+        self.comparables = []
+        self.names = []
         for name, to_compare in kwargs.items():
             self.names.append(name)
             self.comparables.append(to_compare)
@@ -119,7 +119,7 @@ class DifferenceBetween:
         :return: list, the difference between each object and the others, \
             if any was found
         """
-        diffs = list()
+        diffs = []
         for next_name in comparisons:
             if self.difference:
                 break

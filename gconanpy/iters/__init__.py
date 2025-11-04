@@ -5,7 +5,7 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-10-27
+Updated: 2025-11-03
 """
 # Import standard libraries
 import abc
@@ -501,7 +501,7 @@ class Randoms:
             duplicates; defaults to False
         :return: list[tuple[_VT, ...]], list of randomly generated tuples
         """
-        tuples = list()  # to return
+        tuples = []  # to return
 
         # Make them all the same length if specified
         tup_len = random.randint(min_len, max_len) if same_len else None
@@ -586,7 +586,7 @@ class ColumnNamer:
         :param col_num: int, column number/index
         :return: str, the letter combination naming that column
         """
-        chars = list()
+        chars = []
         while col_num > 0:
             col_num, remainder = self._divmod(col_num)
             chars.append(self.letters[remainder - 1])

@@ -207,7 +207,7 @@ def bools(*conditions: Boolable) -> list[str]:
     return ["X" if cond else "Y" for cond in conditions]
 
 def recursive_extract(nested_iterable: Iterable) -> list:
-    data = list()
+    data = []
 
     # Traverse a nested container and extract its data
     for item in nested_iterable:
@@ -293,7 +293,7 @@ The `meta` module provides sophisticated error handling:
 ### About This Document
 
 - Created by @[GregConan](https://github.com/GregConan) on 2025-08-05
-- Updated by @[GregConan](https://github.com/GregConan) on 2025-10-12
+- Updated by @[GregConan](https://github.com/GregConan) on 2025-11-03
 - Current as of `v0.22.0`
 
 ### License

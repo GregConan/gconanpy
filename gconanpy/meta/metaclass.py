@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-09-18
+Updated: 2025-11-03
 """
 # Import standard libraries
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
@@ -66,8 +66,8 @@ class MakeMetaclass:
         return cls.new(f"{verb}{capitalized}Meta", _check, _check)
 
     @classmethod
-    def for_classes(cls, is_all_of: type | tuple[type, ...] = tuple(),
-                    isnt_any_of: type | tuple[type, ...] = tuple(),
+    def for_classes(cls, is_all_of: type | tuple[type, ...] = (),
+                    isnt_any_of: type | tuple[type, ...] = (),
                     name: str | None = None) -> type:
         def _checker(is_a: Callable[[Any, type | tuple[type, ...]], bool]):
             @staticmethod
@@ -80,7 +80,7 @@ class MakeMetaclass:
         return cls.new(name, _checker(isinstance), _checker(issubclass))
 
 
-def name_type_class(is_all_of: Any = tuple(), isnt_any_of: Any = tuple(),
+def name_type_class(is_all_of: Any = (), isnt_any_of: Any = (),
                     max_n: int = 5, default: str = "NewTypeClass",
                     pos_verb: str = "Is", neg_verb: str = "IsNot",
                     get_name: Callable[[Any], str] = name_of) -> str:
@@ -108,7 +108,7 @@ class MatcherBase(dict[CC, Any]):
 
     conditions: Sequence[str]  # Instance variable: condition names
 
-    def __init__(self, matches: Mapping[_KT, Any] = dict()
+    def __init__(self, matches: Mapping[_KT, Any] = {}
                  ) -> None:
         for conds in itertools.product((True, False),
                                        repeat=len(self.conditions)):
@@ -146,7 +146,7 @@ class MatcherBase(dict[CC, Any]):
 
 
 def combinations_of_conditions(all_conditions: Sequence[str], cond_mappings:
-                               Mapping[MatcherBase._KT, Any] = dict()) -> dict:
+                               Mapping[MatcherBase._KT, Any] = {}) -> dict:
     class Matcher(MatcherBase):
         conditions = all_conditions
         ConditionCombo = NamedTuple(

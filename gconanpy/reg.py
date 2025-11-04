@@ -4,7 +4,7 @@
 Classes that parse strings and text data, especially using Regex.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
-Updated: 2025-09-18
+Updated: 2025-11-03
 """
 # Import standard libraries
 from collections.abc import Container, Generator
@@ -201,7 +201,7 @@ class DunderParser:
         # Otherwise, just trim the double underscores in dunder_name and \
         # split on single underscores
             else:
-                words = list()
+                words = []
         if not words:
             matched = Regextract.parse(self.AnyDunder, dunder_name)
             if matched:
