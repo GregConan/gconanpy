@@ -5,7 +5,7 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-11-03
+Updated: 2025-11-14
 """
 # Import standard libraries
 import abc
@@ -96,10 +96,9 @@ def default_pop(poppable: Poppable, key: Any = None,
     :return: Object popped from poppable.pop(key), if any; otherwise default
     """
     try:
-        to_return = poppable.pop() if key is None else poppable.pop(key)
+        return poppable.pop() if key is None else poppable.pop(key)
     except (AttributeError, IndexError, KeyError):
-        to_return = default
-    return to_return
+        return default
 
 
 def duplicates_in(a_seq: Sequence[_T]) -> list[_T]:
@@ -564,8 +563,8 @@ class ColumnNamer:
         self.letters = letters
         self.ix = self.offset = start_at
 
-        # Numerical base (how many unique digits represent a number) plus the
-        # method to convert integers from that base to base 10 and back
+        # Numerical base (how many unique digits can represent a number) plus
+        # the method to convert integers from that base to base 10 and back
         radix = len(letters)
         self.base = radix
         self._divmod = staticmethod(divmod_base(radix))

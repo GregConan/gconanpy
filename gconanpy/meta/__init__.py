@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-11-03
+Updated: 2025-11-19
 """
 # Import standard libraries
 import abc
@@ -13,24 +13,31 @@ from collections.abc import Callable, Collection, Hashable, Iterable, Iterator
 from functools import wraps
 from math import log10
 # from operator import attrgetter, methodcaller  # TODO?
+import pdb
 # from types import MappingProxyType  # TODO freeze TimeSpec?
-from typing import Any, Concatenate, get_args, Literal, \
-    no_type_check, overload, ParamSpec, SupportsFloat, TypeVar
+from typing import Any, cast, get_args, Literal, no_type_check, \
+    overload, ParamSpec, SupportsFloat, TypeVar
 from typing_extensions import Self
 
 try:
-    from gconanpy.meta.typeshed import DATA_ERRORS, HasClass, Unhashable, \
+    from gconanpy.meta.typeshed import DATA_ERRORS, Unhashable, \
         SkipException, SupportsItemAccess
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from typeshed import DATA_ERRORS, HasClass, Unhashable, \
+    from typeshed import DATA_ERRORS, Unhashable, \
         SkipException, SupportsItemAccess
 
-# TypeVars for Lazily class methods' input parameters
+# TypeVars for class methods' input parameters
 _D = TypeVar("_D")
 _KT = TypeVar("_KT", bound=Hashable)
 _VT = TypeVar("_VT")
 CALL_2ARG = Callable[[Any, Any], Any]
 CALL_3ARG = Callable[[Any, Any, Any], Any]
+
+# MethodWrappingMeta type variables
+_P = ParamSpec("_P")
+_Super = TypeVar("_Super")
+_Sub = TypeVar("_Sub")
+_T = TypeVar("_T")
 
 
 def areinstances(objects: Iterable, of_what: type | tuple[type, ...]) -> bool:
@@ -68,17 +75,17 @@ def divmod_base(n: int) -> Callable[[int], tuple[int, int]]:
         `(quotient, remainder)` tuple.
     """
     def inner(dividend: int) -> tuple[int, int]:
-        quotient, remainder = divmod(dividend, n)
-        return (quotient - 1, remainder + n) if remainder == 0 \
-            else (quotient, remainder)
-    inner.__doc__ = \
-        f""" Convert int `dividend` into base-{n} via `divmod`, \
+        """ Convert int `dividend` into base-{n} via `divmod`, \
             but represent a nonzero int with a full remainder.
 
         :param dividend: int, number to convert into base-{n}
         :return: tuple[int, int], quotient and remainder after \
             converting `dividend` into base-{n}
         """
+        quotient, remainder = divmod(dividend, n)
+        return (quotient - 1, remainder + n) if remainder == 0 \
+            else (quotient, remainder)
+    inner.__doc__ = cast(str, inner.__doc__).format(n=n)
     return inner
 
 
@@ -205,7 +212,7 @@ def which_of(*conditions: Any) -> set[int]:  # TODO conditions: Boolable
     :param conditions: Iterable[Boolable] of items to filter
     :return: set[int], the indices of every truthy item in `conditions`
     """
-    return set((i for i, cond in enumerate(conditions) if cond))
+    return set[int]((i for i, cond in enumerate(conditions) if cond))
 
 
 class TimeSpec(dict[str, int]):
@@ -213,6 +220,7 @@ class TimeSpec(dict[str, int]):
     # Names of valid TimeSpec options, each corresponding to a duration unit
     UNIT = Literal["auto", "nanoseconds", "microseconds", "milliseconds",
                    "seconds", "minutes", "hours"]
+    UNITS = get_args(UNIT)[1:]  # List all time units; exclude "auto"
 
     # The number of each UNIT per the next unit:
     #   1ns, 1000ns/us, 1000us/ms, 1000ms/sec, 60sec/min, 60min/hr
@@ -220,7 +228,7 @@ class TimeSpec(dict[str, int]):
 
     def __init__(self) -> None:
         super().__init__()
-        units = get_args(self.UNIT)[1:]  # List all time units; exclude "auto"
+        units = self.UNITS
         self[units[0]] = self.OFFSETS[0]  # Initialize for iteration
         for i in range(1, len(self.OFFSETS)):  # Calculate unit ratios/offsets
             self[units[i]] = self[units[i-1]] * self.OFFSETS[i]
@@ -308,7 +316,6 @@ class IgnoreExceptions(ErrCatcher):
     def __enter__(self) -> Self:
         return self
 
-    # TODO Does this stop SysExit and pdb exit from propagating? It shouldn't!
     def __exit__(self, exc_type: type[BaseException] | None = None,
                  *_: Any) -> bool:
         """ Exit the runtime context related to this object. The parameters \
@@ -512,64 +519,49 @@ class Comparer(IteratorFactory):
         return biggest
 
 
-class ClassWrapper:
-    # MethodWrapper type hint vars for return_as_* methods
-    _P = ParamSpec("_P")  # _P means (*args, **kwargs)
-    _T = TypeVar("_T")  # _T means self.__class__ means type(self)
-    UnwrappedMethod = Callable[Concatenate[_T, _P], Any]
-    WrappedMethod = Callable[Concatenate[_T, _P], _T]
+class MethodWrappingMeta(type):
+    """ Metaclass to wrap all instance methods of a class.
 
-    # New type hint variables for other ClassWrapper methods
-    _Super = TypeVar("_Super")
-    _Sub = TypeVar("_Sub")
+    Ensures that any method of the wrapper subclass which ordinarily \
+    returns an instance of the wrapped superclass will instead return \
+    an instance of the wrapper subclass.
+
+    Adapted from pythontutorials.net/blog/how-to-wrap-every-method-of-a-class
+    """
+    # Defined here instead of metaclass.py bc it has no gconanpy dependencies
+
     ASSIGNED = ("__doc__", "__name__", "__text_signature__")
 
-    def __init__(self, superclass: type[_Super]) -> None:
-        self.superclass = superclass
-        self.attr_names = dir(superclass)
+    def __new__(cls, name: str, bases: tuple[type[_Super], ...],
+                namespace: dict[str, Any], /, **kwds: Any):
+        old_class = bases[0]
 
-    def _wrap_method_of(self, subclass: type[_Sub], func: Callable):
-        @wraps(func, assigned=self.ASSIGNED)
-        def inner(*args, **kwargs):
-            result = func(*args, **kwargs)
-            return result if not isinstance(result, self.superclass) \
-                else subclass(result)  # type: ignore
+        # Create the new class
+        new_class = super().__new__(cls, name, bases, namespace)
 
-        setattr(inner, "__objclass__", subclass)
-        setattr(inner, "__self__", subclass)
-        inner.__qualname__ = f"{subclass.__name__}.{inner.__name__}"
-        return inner
-
-    def class_decorator(self, subclass: type[_Sub]) -> type[_Sub]:
-        self.subclass = subclass
-        for attr_name in self.attr_names:
-            if not attr_name.startswith("__"):
-                superattr = getattr(self.superclass, attr_name, None)
-                subattr = getattr(subclass, attr_name, None)
-                if callable(superattr) and callable(subattr):
-                    setattr(subclass, attr_name,
-                            self._wrap_method_of(subclass, superattr))
-        return subclass
+        # Wrap every method of the class; check all attributes to find methods
+        for attr_name in dir(old_class):
+            old_attr = getattr(old_class, attr_name)
+            new_method = getattr(new_class, attr_name)
+            # Skip non-methods and special methods
+            if (not attr_name.startswith("__")) and callable(old_attr) \
+                    and callable(new_method):
+                # Wrap the method
+                setattr(new_class, attr_name, cls.wrap_method_of(
+                    new_class, old_class, name, new_method))
+        return new_class
 
     @classmethod
-    def return_as_its_class(cls, meth: UnwrappedMethod) -> WrappedMethod:
-        S = TypeVar("S", bound=HasClass)
+    def wrap_method_of(cls, new_class: type[_Sub], old_class: type[_Super],
+                       new_cls_name: str, new_meth: Callable[_P, _T | _Super]
+                       ) -> Callable[_P, _T | _Sub]:
+        @wraps(new_meth, assigned=cls.ASSIGNED)
+        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T | _Sub:
+            ret = new_meth(*args, **kwargs)
+            return cast(_T, ret) if not isinstance(ret, old_class) else \
+                cast(_Sub, new_class(ret))  # pyright: ignore[reportCallIssue]
 
-        @wraps(meth, assigned=cls.ASSIGNED)
-        def inner(self: S, *args: Any, **kwargs: Any) -> S:
-            return self.__class__(meth(self, *args, **kwargs))
-
-        # TODO
-        # setattr(inner, "__self__", self.subclass)
-        # inner.__qualname__ = f"{self.subclass.__name__}.{inner.__name__}"
-        # inner.__annotations__["return"] = self.subclass
-        return inner
-
-    @classmethod
-    def return_self_if_no_value(cls, meth: WrappedMethod) -> WrappedMethod:
-        S = TypeVar("S")
-
-        @wraps(meth, assigned=cls.ASSIGNED)
-        def inner(self: S, value: Boolable) -> S:
-            return meth(self, value) if value else self
-        return inner
+        setattr(wrapper, "__objclass__", new_class)
+        setattr(wrapper, "__self__", new_class)
+        wrapper.__qualname__ = f"{new_cls_name}.{wrapper.__name__}"
+        return wrapper

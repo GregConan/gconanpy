@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-10-12
+Updated: 2025-11-16
 """
 # Import standard libraries
 from collections import defaultdict
@@ -270,10 +270,10 @@ class Subsetionary[KT, VT](CustomDict[KT, VT]):
 
     @classmethod
     def from_subset_of(cls, from_map: Mapping,
-                       keys_are: KT | Container[KT] = set(),
-                       values_are: VT | Container[VT] = set(),
-                       keys_arent: KT | Container[KT] = set(),
-                       values_arent: VT | Container[VT] = set()) -> Self:
+                       keys_are: KT | Iterable[KT] = set(),
+                       values_are: VT | Iterable[VT] = set(),
+                       keys_arent: KT | Iterable[KT] = set(),
+                       values_arent: VT | Iterable[VT] = set()) -> Self:
         """ Convert a subset of `from_map` into a new `Subsetionary`.
 
         :param from_map: Mapping to create a new Subsetionary from a subset of.
@@ -287,13 +287,13 @@ class Subsetionary[KT, VT](CustomDict[KT, VT]):
             NONE OF the provided `values`.
         :return: Subsetionary including only the specified keys and values.       
         """
-        return MapSubset(keys_are, values_are, keys_arent, values_arent
-                         ).of(from_map, cls)
+        return MapSubset[KT, VT](keys_are, values_are, keys_arent,
+                                 values_arent).of(from_map, cls)
 
-    def subset(self, keys_are: KT | Container[KT] = set(),
-               values_are: VT | Container[VT] = set(),
-               keys_arent: KT | Container[KT] = set(),
-               values_arent: VT | Container[VT] = set()) -> Self:
+    def subset(self, keys_are: KT | Iterable[KT] = set(),
+               values_are: VT | Iterable[VT] = set(),
+               keys_arent: KT | Iterable[KT] = set(),
+               values_arent: VT | Iterable[VT] = set()) -> Self:
         """ Create a new `Subsetionary` including only a subset of this one.
 
         :param keys: Container[Hashable] of keys to (in/ex)clude.
@@ -306,8 +306,8 @@ class Subsetionary[KT, VT](CustomDict[KT, VT]):
             NONE OF the provided `values`.
         :return: Subsetionary including only the specified keys and values.       
         """
-        return MapSubset(keys_are, values_are, keys_arent, values_arent
-                         ).of(self)
+        return MapSubset[KT, VT](keys_are, values_are, keys_arent,
+                                 values_arent).of(self)
 
 
 class Updationary[KT, VT](CustomDict[KT, VT]):

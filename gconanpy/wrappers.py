@@ -4,7 +4,7 @@
 Classes that wrap other classes, especially builtins, to add functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-11-03
+Updated: 2025-11-19
 """
 # Import standard libraries
 import argparse
@@ -17,9 +17,8 @@ from more_itertools import all_equal
 import os
 import re
 import sys
-from typing import Any, Concatenate, Literal, NamedTuple, overload, \
-    ParamSpec, SupportsIndex, TypeVar
-from typing_extensions import Self
+from typing import Any, cast, Concatenate, Literal, NamedTuple, \
+    overload, ParamSpec, Self, SupportsIndex, TypeVar
 
 # Import third-party PyPI libraries
 import bs4
@@ -29,33 +28,28 @@ import pathvalidate
 try:
     from gconanpy.iters import exhaust_wrapper
     from gconanpy.iters.filters import MapSubset
-    from gconanpy.meta import (bool_pair_to_cases, ClassWrapper,
-                               name_of, TimeSpec, tuplify)
+    from gconanpy.meta import bool_pair_to_cases, \
+        MethodWrappingMeta, name_of, TimeSpec, tuplify
     from gconanpy.meta.typeshed import NonTxtCollection
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from iters import exhaust_wrapper
     from iters.filters import MapSubset
-    from meta import (bool_pair_to_cases, ClassWrapper,
-                      name_of, TimeSpec, tuplify)
+    from meta import bool_pair_to_cases, \
+        MethodWrappingMeta, name_of, TimeSpec, tuplify
     from meta.typeshed import NonTxtCollection
 
+# Type variables
+_P = ParamSpec("_P")
 
-# Wrap every str method that returns str to return a ToString instance instead
-str_wrapper = ClassWrapper(str)
 
+class ToString(str, metaclass=MethodWrappingMeta):
+    # Metaclass wraps every str method that returns str
+    # to return a ToString instance instead.
 
-@str_wrapper.class_decorator
-class ToString(str):
     # Filter to call fromIterable in quotate method using the recursive
     # iter_kwargs input parameter without adding a parameter exclusive to
     # fromMapping method (and not fromIterable)
     _ITER_SUBSET = MapSubset(keys_arent="join_on")
-
-    # Type hint for passing own methods to others as input parameters
-    Stringifier = Callable[[Any], Self]
-
-    # TODO Wrap string methods so type checker shows they return a ToString?
-    # TODO No, just hint them properly in a .pyi Python stub file?
 
     def __add__(self, value: str | None) -> Self:
         """ Append `value` to the end of `self`. Implements `self + value`. \
@@ -66,7 +60,7 @@ class ToString(str):
         :return: ToString, `self` with `value` appended after it; \
             `if not value`, then `return self` unchanged.
         """
-        return type(self)(super().__add__(value)) if value else self
+        return self if value is None else type(self)(super().__add__(value))
 
     def __sub__(self, value: str | None) -> Self:
         """ Remove `value` from the end of `self`. Implements `self - value`.
@@ -77,7 +71,7 @@ class ToString(str):
             doesn't end with `value` or `if not value`, then \
             `return self` unchanged.
         """
-        return type(self)(super().removesuffix(value)) if value else self
+        return self if value is None else cast(Self, self.removesuffix(value))
 
     def enclosed_by(self, affix: str) -> Self:
         """
@@ -140,7 +134,14 @@ class ToString(str):
                    # Add datetimestamp and file extension
                    ).that_ends_with(put_date_after).that_ends_with(file_ext)
 
-    def force_join(self, iterable: Iterable, **format) -> Self:
+    def force_join(self, iterable: Iterable, **format: Any) -> Self:
+        """ Coerce the elements of `iterable` together into a string.
+
+        :param iterable: Iterable to coercively convert into a string.
+        :param format: Mapping[str, Any], `fromIterable` parameters; include \
+            these to format the elements while joining them.
+        :return: Self, `iterable` converted `ToString`.
+        """
         cls = type(self)
         if format:
             stringified = cls.fromIterable([cls.fromAny(el, **format)
@@ -279,7 +280,7 @@ class ToString(str):
         :return: ToString representing the `Callable` object `an_obj`.
         """
         # Put all pre-defined args and kwargs into this instance's str repr
-        iter_kwargs: Mapping = dict(prefix="[", suffix="]", lastly="")
+        iter_kwargs = dict(prefix="[", suffix="]", lastly="")
         kwargstrs = cls.fromMapping(kwargs, quote_keys=False, prefix=None,
                                     suffix=None, join_on="=", max_len=max_len,
                                     lastly="", iter_kwargs=iter_kwargs)
@@ -465,9 +466,8 @@ class ToString(str):
         return [cls.quotate(an_obj, quote, quote_numbers, max_len=max_len,
                             **kwargs) for an_obj in objects]
 
-    @str_wrapper.return_as_its_class  # method returns ToString
     def replace_all(self, replacements: Mapping[str, str], count: int = -1,
-                    reverse: bool = False) -> str:
+                    reverse: bool = False) -> Self:
         """ Repeatedly run the `replace` (or `rreplace`) method.
 
         :param replacements: Mapping[str, str] of (old) substrings to their \
@@ -481,28 +481,25 @@ class ToString(str):
             corresponding value-substrings in `replace`.
         """
         string = self  # cls = type(self)
-        replace: Callable[[ToString, str, str, int], ToString] = \
-            ToString.rreplace if reverse else \
-            ToString.replace  # type: ignore[no-redef]  # TODO
+        replace = ToString.rreplace if reverse else ToString.replace
         for old, new in replacements.items():
-            string = replace(string, old, new, count)
-        return string
+            string = replace(cast(Self, string), old, new, count)
+        return cast(Self, string)
 
-    @str_wrapper.return_as_its_class  # method returns ToString
-    def rreplace(self, old: str, new: str, count: int = -1) -> Self:
+    def rreplace(self, old: str, new: str, count: SupportsIndex = -1) -> Self:
         """ Return a copy with occurrences of substring old replaced by new.
             Like `str.replace`, but replaces the last `old` occurrences first.
 
         :param old: str, the substring to replace occurrences of with `new`.
         :param new: str to replace `count` occurrences of `old` with.
-        :param count: int, the maximum number of occurrences to replace. \
-            Defaults to -1 (replace all occurrences). Include a different \
-            number to replace only the LAST `count` occurrences, starting \
-            from the end of the string.
+        :param count: SupportsIndex, the maximum number of occurrences to \
+            replace. Defaults to -1 (replace all occurrences). Include a \
+            different number to replace only the LAST `count` occurrences, \
+            starting from the end of the string.
         :return: ToString, a copy with its last `count` instances of the \
             `old` substring replaced by a `new` substring.
         """
-        return new.join(self.rsplit(old, count))  # type: ignore[no-redef]  # TODO
+        return type(self)(new.join(self.rsplit(old, count)))
 
     def rtruncate(self, max_len: int | None = None, prefix: str = "..."
                   ) -> Self:
@@ -548,33 +545,34 @@ class Branches(NamedTuple):
     `I` (vertical line) connects the top to the bottom.
     `L` (end branch) connects the top to the right.
     `T` (split branch) connects the top to the bottom and the right.
-    `X` (empty) represents a blank indentation character.
+    `O` (empty) represents a blank indentation character.
     """
     I: str = "│"
     L: str = "└"
     T: str = "├"
-    X: str = " "
+    O: str = " "
 
 
-class BasicTree(tuple[str, list]):
+class BasicTree(tuple[str, list["BasicTree"]]):
     full: str | tuple[str, str]
     BRANCH = Branches()
 
     def prettify(self, prefix: ToString = ToString(),
-                 branch: Branches = BRANCH) -> str:
+                 branch: Branches = BRANCH) -> ToString:
         pretties = [prefix + self[0]]
 
         if prefix.endswith(branch.L):
-            prefix = prefix.rreplace(branch.L, branch.X, count=1
-                                     ).replace(branch.T, branch.I)
+            prefix = cast(ToString, prefix.rreplace(
+                branch.L, branch.O, count=1).replace(branch.T, branch.I))
 
         if self[1]:
             for child in self[1][:-1]:
                 pretties.append(child.prettify(prefix + branch.T, branch))
             pretties.append(self[1][-1].prettify(
-                prefix.replace(branch.T, branch.I) + branch.L, branch))
+                cast(ToString, prefix.replace(branch.T, branch.I)
+                     ) + branch.L, branch))
 
-        return "\n".join(pretties)
+        return cast(ToString, ToString("\n").join(pretties))
 
     def prettify_spaces(self, indents_from_left: int = 0,
                         indent: str = "  ") -> str:
@@ -591,9 +589,9 @@ class BasicTree(tuple[str, list]):
             yield self
         if not depth_first:
             for child in self[1]:
-                yield child
+                yield cast(Self, child)
         for child in self[1]:
-            yield from child.walk(depth_first, depth_first)
+            yield from cast(Self, child).walk(depth_first, depth_first)
 
 
 class SoupTree(BasicTree):
@@ -603,6 +601,7 @@ class SoupTree(BasicTree):
 
     @classmethod
     def from_soup(cls, page_el: bs4.element.PageElement) -> Self:
+        ret: tuple[str, list]
         match page_el:
             case bs4.Tag():
                 ret = (page_el.name,
@@ -711,8 +710,7 @@ class WrapFunction:  # WrapFunction(partial):
 # @ClassWrapper(tuple).class_decorator  # TODO?
 class Sets[T: Hashable](tuple[set[T], ...]):
     """ Wrapper class to centralize methods comparing/using multiple sets. """
-    _P = ParamSpec("_P")  # for apply method
-    _R = TypeVar("_R")  # for apply method
+    _R = TypeVar("_R")  # for _zip_sets method
 
     are_same = all_equal  # Check whether sets have the same elements
 

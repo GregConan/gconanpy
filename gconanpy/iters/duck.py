@@ -3,11 +3,12 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-01
-Updated: 2025-09-26
+Updated: 2025-11-14
 """
 # Import standard libraries
-from collections.abc import Collection, Hashable, Iterable, \
-    Iterator, MutableSet, MutableMapping, MutableSequence, Sequence
+from copy import copy, deepcopy
+from collections.abc import Collection, Hashable, Iterable, Iterator, \
+    MutableSet, MutableMapping, MutableSequence, Reversible, Sequence
 from more_itertools import all_equal
 import sys
 from typing import Any, Mapping, cast, overload, Self, TypeVar
@@ -17,15 +18,16 @@ try:
     from gconanpy.mapping import keys_mapped_to
     from gconanpy.meta import DATA_ERRORS, name_of
     from gconanpy.meta.typeshed import AddableSequence, BytesOrStr, \
-        DATA_ERRORS, SupportsGetItem, SupportsItemAccess
+        DATA_ERRORS, SupportsAnd, SupportsGetItem, SupportsItemAccess, \
+        SupportsRichComparison
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from mapping import keys_mapped_to
     from meta import name_of
-    from meta.typeshed import AddableSequence, BytesOrStr, \
-        DATA_ERRORS, SupportsGetItem, SupportsItemAccess
+    from meta.typeshed import AddableSequence, BytesOrStr, DATA_ERRORS, \
+        SupportsGetItem, SupportsItemAccess, SupportsRichComparison
 
 
-_K = TypeVar("_K", Hashable, None)
+_K = TypeVar("_K", Hashable, None)  # Mapping keys type
 
 
 class DuckCollection[T]:
@@ -44,6 +46,10 @@ class DuckCollection[T]:
             `MutableSequence`, `MutableSet`, and `MutableMapping` classes.
         """
         self.ducks = ducks
+
+    def __add__(self, other: Iterable[T]) -> Self:
+        copied = self.copy()
+        return copied.extend(other) or copied
 
     def __contains__(self, duck: T) -> bool:
         """
@@ -108,10 +114,11 @@ class DuckCollection[T]:
 
     def __reversed__(self) -> Iterator[T]:  # -> reversed[T]:
         """
-        :return: Iterator[T], a reverse iterator over this `DuckCollection`.
+        :return: Iterator[T], a reverse iterator over this `DuckCollection`, \
+            if it's `Reversible`; else an iterator over this `DuckCollection`
         """
         try:
-            return reversed(self.ducks)  # type: ignore
+            return reversed(cast(Reversible[T], self.ducks))
         except DATA_ERRORS:
             return iter(self.ducks)
 
@@ -186,9 +193,14 @@ class DuckCollection[T]:
         """
         self.ducks = type(self.ducks)(*args, **kwargs)
 
-    def copy(self) -> Self:
-        """  :return: Self, a shallow copy of this `DuckCollection`.  """
-        return self.__class__(self.ducks)
+    def copy(self, deep: bool = False) -> Self:
+        """
+        :param deep: bool, True to return a deep copy, else False to return \
+            a shallow copy; defaults to False.
+        :return: Self, a copy of this `DuckCollection`.
+        """
+        copy_it = deepcopy if deep else copy
+        return type(self)(copy_it(self.ducks))
 
     def difference_update(self, ducks: Iterable[T]) -> None:
         """ Remove all elements of another `Iterable` (`ducks`) from this one.
@@ -202,6 +214,8 @@ class DuckCollection[T]:
         except DATA_ERRORS:  # If it isn't a set, iteratively remove `ducks`.
             for duck in ducks:  # TODO Is there any reason to complicate this?
                 self.discard(duck)
+
+    __sub__ = difference_update
 
     def discard(self, duck: T) -> None:
         """ Remove an element from this `DuckCollection` if present; if not, \
@@ -239,7 +253,8 @@ class DuckCollection[T]:
 
     get = __getitem__
 
-    def index(self, duck: T, start: int = 0, stop: int = sys.maxsize) -> int | _K:
+    def index(self, duck: T, start: int = 0, stop: int = sys.maxsize
+              ) -> int | _K:
         """ Return first index of `duck` in the `Sequence` wrapped by this \
             `DuckCollection`. Raise exception if this isn't a `Sequence`, or \
             if `duck` isn't in this `DuckCollection`.
@@ -260,9 +275,10 @@ class DuckCollection[T]:
                 key = self.ducks.index(duck, start, stop)
             case Mapping():
                 key = None
-                for key in keys_mapped_to(cast(Mapping[_K, T], self.ducks), duck):
+                for key in keys_mapped_to(cast(Mapping[_K, T],
+                                               self.ducks), duck):
                     try:
-                        if start < cast(int, key) < stop:
+                        if start < cast(SupportsRichComparison, key) < stop:
                             break
                     except DATA_ERRORS:
                         break
@@ -272,21 +288,6 @@ class DuckCollection[T]:
                 raise TypeError
         return key
 
-    def isdisjoint(self, other: Collection[T]) -> bool:
-        """ 
-        :param other: Collection[T]
-        :return: bool, True if this `DuckCollection` has no elements in \
-            common with `other`; else False if there's any intersection.
-        """
-        try:  # Try using bitwise AND to check that there's no intersection
-            return not (self.ducks & other
-                        )  # type: ignore[reportOperatorIssue]
-        except TypeError:  # If bitwise AND doesn't work, iteratively check
-            for duck in other:
-                if duck in self.ducks:
-                    return False
-            return True
-
     def insert(self, duck: T, at_ix: int | _K = -1):
         """ Insert `duck` into this `DuckCollection` before `at_ix`.
 
@@ -295,7 +296,7 @@ class DuckCollection[T]:
         :raises TypeError: if `self.ducks` is an unsupported type.
         """
         match self.ducks:
-            case BytesOrStr():
+            case bytes() | str():
                 self.ducks = self.ducks[:ix] + duck + self.ducks[ix:]
             case MutableSequence():
                 self.ducks.insert(cast(int, at_ix), duck)
@@ -319,6 +320,21 @@ class DuckCollection[T]:
         :return: set[T] of all elements in `self` and in `other`.
         """
         return set(self.ducks) & set(other)
+
+    def isdisjoint(self, other: Collection[T]) -> bool:
+        """ 
+        :param other: Collection[T]
+        :return: bool, True if this `DuckCollection` has no elements in \
+            common with `other`; else False if there's any intersection.
+        """
+        try:  # Try using bitwise AND to check that there's no intersection
+            return not (self.ducks & other
+                        )  # type: ignore[reportOperatorIssue]
+        except TypeError:  # If bitwise AND doesn't work, iteratively check
+            for duck in other:
+                if duck in self.ducks:
+                    return False
+            return True
 
     @overload
     def pop(self, key: int | None) -> T: ...
@@ -358,8 +374,6 @@ class DuckCollection[T]:
             case _:
                 raise TypeError
         return popped
-
-    set_to = __setitem__
 
     def remove(self, duck: T) -> None:
         """ Remove first occurrence of `duck` in this `DuckCollection`. \
@@ -425,6 +439,8 @@ class DuckCollection[T]:
                             count -= 1
             case _:
                 raise TypeError
+
+    set_to = __setitem__
 
     # DuckCollection can use "extend" and "update" interchangeably. The class
     # will automatically choose the appropriate method to concatenate/merge.

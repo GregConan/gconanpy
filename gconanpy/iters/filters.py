@@ -5,7 +5,7 @@ Classes that can filter objects to only get the elements (or attributes) \
     that match certain specified conditions.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-09-18
-Updated: 2025-11-03
+Updated: 2025-11-16
 """
 # Import standard libraries
 import abc
@@ -22,7 +22,7 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
 class BaseFilter(abc.ABC):
     _FILTERDICT = dict[bool, tuple]
 
-    on: tuple[str, ...]
+    on: tuple[str, ...]  # Name the attributes/values/etc. to filter on
 
     def __init__(self, **kwargs) -> None:
         for selector_name in self.on:
@@ -41,16 +41,16 @@ class BaseFilter(abc.ABC):
                              getattr(other, which)[are])
                           for which in self.on for are in (True, False)))
 
-    def invert(self) -> Self:
+    def __invert__(self) -> Self:
         """ 
         :return: Self, inverted version of this `Filter` which will always \
             return the opposite boolean value as the original `Filter`; for \
             any `Filter` `f`, string `s`, and value `v`, \
-            `not f.invert()(s, v) is f(s, v)`
+            `(not ~f(s, v)) is f(s, v)`
         """
-        kwargs = {f"{which}_are{'nt' if cond else ''}":
-                  getattr(self, which)[cond]
-                  for which in self.on for cond in (True, False)}
+        kwargs = {f"{selector_name}_are{'nt' if cond else ''}":
+                  getattr(self, selector_name)[cond]
+                  for selector_name in self.on for cond in (True, False)}
         return type(self)(**kwargs)
 
 
@@ -126,15 +126,15 @@ class MapSubset[KT, VT](BaseFilter):
     _M = TypeVar("_M", bound=Mapping)  # Type of Mapping to get subset(s) of
     _T = TypeVar("_T", bound=Mapping)  # Type of Mapping to return
 
-    _WHICH = Literal["keys", "values"]  # Names of each Filter's attributes
-    _FILTERDICT = dict[bool, tuple]  # Types of Filter attrs
+    _WHICH = Literal["keys", "values"]  # Names of MapSubset's attributes
+    _FILTERDICT = dict[bool, tuple]  # Types of MapSubset attrs
 
     # Public class variables:
 
     # MapSubset type hint for other methods/functions
     FilterFunction = Callable[[Hashable, Any], bool]  # type(MapSubset(...))
 
-    # The two types of things to filter on
+    # The two types of things to subset on
     on = get_args(_WHICH)  # ("keys", "values")
 
     # Public instance variables: key filters and value filters

@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-11-03
+Updated: 2025-11-05
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping
@@ -21,7 +21,7 @@ try:
     from gconanpy.meta import Comparer, has_method, \
         IgnoreExceptions, IteratorFactory, name_of
     from gconanpy.meta.typeshed import DATA_ERRORS
-    from gconanpy.trivial import always_true, get_key_set
+    from gconanpy.trivial import get_key_set
     from gconanpy.wrappers import Sets, stringify, stringify_iter
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from debug import Debuggable
@@ -30,7 +30,7 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from meta import Comparer, has_method, \
         IgnoreExceptions, IteratorFactory, name_of
     from meta.typeshed import DATA_ERRORS
-    from trivial import always_true, get_key_set
+    from trivial import get_key_set
     from wrappers import Sets, stringify, stringify_iter
 
 
@@ -72,8 +72,12 @@ class DifferenceBetween:
             self.names.append(arg_name)
 
         # If objects differ, then discover how; else there's no need
-        self.is_different = not all_equal(self.comparables)
-        self.diffs = self.find() if self.is_different else list()
+        try:
+            self.is_different = not all_equal(self.comparables)
+            self.diffs = self.find() if self.is_different else list()
+        except DATA_ERRORS:
+            self.diffs = self.find()
+            self.is_different = bool(self.diffs)
 
     def __bool__(self) -> bool:
         """ :return: bool, True if self.comparables differ; else False """
@@ -138,8 +142,14 @@ class DifferenceBetween:
         :return: list, the comparable aspects of each thing being compared
         """
         comparables = [get_comparator(c) for c in self.comparables]
-        if not all_equal(comparables):
-            self.difference = by
+        try:
+            if not all_equal(comparables):
+                self.difference = by
+        except DATA_ERRORS:  # Recursively dissect non-Boolables
+            subdiff = type(self)(*comparables)
+            if subdiff.difference:
+                comparables = subdiff.diffs
+                self.difference = f"{subdiff.difference} of {by}"
         return comparables
 
     def find(self) -> list:

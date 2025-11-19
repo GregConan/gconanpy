@@ -5,7 +5,7 @@ Classes and functions that iterate and then break once they find what \
     they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-11-03
+Updated: 2025-11-05
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -45,11 +45,9 @@ def iterfind(find_in: Iterable[IterfindItem],
     for each_item in find_in:
         args = [each_item, *found_args] if element_is_arg else found_args
         if found_if(*args, **found_kwargs):
-            to_return = each_item
-            break
+            return each_item
     else:
-        to_return = default
-    return to_return
+        return default
 
 
 def modifind(find_in: Iterable,

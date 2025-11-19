@@ -4,7 +4,7 @@
 Classes for use in type hints/checks. No behavior, except in MultiTypeMeta.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-12
-Updated: 2025-10-10
+Updated: 2025-11-06
 """
 # Import standard libraries
 import abc
@@ -22,9 +22,13 @@ class SupportsContains[T](Protocol):
 
 
 if TYPE_CHECKING:
-    from _typeshed import SupportsGetItem, \
+    from _typeshed import SupportsGetItem, SupportsAdd, \
         SupportsItemAccess, SupportsLenAndGetItem
 else:  # Can't import _typeshed at runtime, so define its imports manually
+
+    @runtime_checkable
+    class SupportsAdd(Protocol):
+        def __add__(self, x, /): ...
 
     @runtime_checkable
     class SupportsGetItem[T](Protocol):
@@ -39,6 +43,12 @@ else:  # Can't import _typeshed at runtime, so define its imports manually
                                      SupportsGetItem[VT], Protocol):
         def __delitem__(self, key: KT, /): ...
         def __setitem__(self, key: KT, value: VT, /): ...
+
+
+@runtime_checkable
+class SupportsAnd(Protocol):
+    def __and__(self, value, /): ...
+    def __rand__(self, value, /): ...
 
 
 @runtime_checkable
@@ -102,8 +112,8 @@ class ProtoSequence[T](SupportsLenAndGetSlice[T], SupportsContains[T],
 
 
 @runtime_checkable
-class AddableSequence[T](ProtoSequence[T], Protocol):
-    def __add__(self, value): ...
+class AddableSequence[T](ProtoSequence[T], SupportsAdd, Protocol):
+    ...
 
 
 @runtime_checkable
@@ -123,14 +133,13 @@ class MultiTypeMeta(type, abc.ABC):
     _TypeArgs = type | tuple[type, ...]
     _TypeChecker = Callable[[Any, _TypeArgs], bool]
 
-    IS_A: _TypeArgs = (object, )
+    IS_A: _TypeArgs = ()
     ISNT_A: _TypeArgs = tuple()
 
     @staticmethod
-    def check(thing: Any, is_if: _TypeChecker,
-              is_a: _TypeArgs = IS_A,
+    def check(thing: Any, is_if: _TypeChecker, is_a: _TypeArgs = IS_A,
               isnt_a: _TypeArgs = ISNT_A) -> bool:
-        return is_if(thing, is_a) and not is_if(thing, isnt_a)
+        return ((not is_a) or is_if(thing, is_a)) and not is_if(thing, isnt_a)
 
     def __instancecheck__(cls, instance: Any) -> bool:
         return cls.check(instance, isinstance, cls.IS_A, cls.ISNT_A)

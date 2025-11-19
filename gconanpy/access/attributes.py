@@ -228,7 +228,7 @@ class AttrsOf(IterableMap):
     # Filters to choose which attributes to copy or iterate over
     IS_METHOD = Filter(values_are=callable)
     IS_PRIVATE = Filter(names_are=is_private)
-    IS_PUBLIC = IS_PRIVATE.invert()
+    IS_PUBLIC = ~IS_PRIVATE
     IS_PUBLIC_METHOD = IS_PUBLIC + IS_METHOD
 
     def __init__(self, what: Any) -> None:
@@ -239,7 +239,7 @@ class AttrsOf(IterableMap):
         self.names = get_names(what)  # set(dir(what))
         self.what = what
 
-    def __contains__(self, name: str) -> Any:
+    def __contains__(self, name: str) -> bool:
         return hasattr(self.what, name)
 
     def __delitem__(self, name: str) -> None:

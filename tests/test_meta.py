@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-07
-Updated: 2025-09-29
+Updated: 2025-11-05
 """
 # Import standard libraries
 import builtins
@@ -169,18 +169,21 @@ class TestMetaClasses(Tester):
 
     def assert_that_all(self, objects: Iterable[Any], *,
                         is_if: MultiTypeMeta._TypeChecker = isinstance,
-                        is_a: MultiTypeMeta._TypeArgs = (object, ),
-                        isnt_a: MultiTypeMeta._TypeArgs = tuple()) -> None:
+                        is_a: MultiTypeMeta._TypeArgs = (),
+                        isnt_a: MultiTypeMeta._TypeArgs = ()) -> None:
         for an_obj in objects:
-            assert is_if(an_obj, is_a)
-            for true_kwargs in Combinations.of_map({"is_a": is_a,
-                                                    "isnt_a": isnt_a}):
-                assert MultiTypeMeta.check(an_obj, is_if, **true_kwargs)
+            assert (not is_a) or is_if(an_obj, is_a)
+            if is_a != isnt_a:
+                for true_kwargs in Combinations.of_map({"is_a": is_a,
+                                                        "isnt_a": isnt_a}):
+                    assert MultiTypeMeta.check(an_obj, is_if, **true_kwargs)
 
-            assert not is_if(an_obj, isnt_a)
-            for false_kwargs in Combinations.of_map({"is_a": isnt_a,
-                                                     "isnt_a": is_a}):
-                assert not MultiTypeMeta.check(an_obj, is_if, **false_kwargs)
+                assert not is_if(an_obj, isnt_a)
+                for false_kwargs in Combinations.of_map({"is_a": isnt_a,
+                                                        "isnt_a": is_a}):
+                    if any(false_kwargs.values()):
+                        assert not MultiTypeMeta.check(
+                            an_obj, is_if, **false_kwargs)
 
     def test_Boolable_builtins(self) -> None:
         self.assert_that_all(vars(builtins).values(), is_a=Boolable)

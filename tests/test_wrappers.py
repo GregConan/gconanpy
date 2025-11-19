@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-11-03
+Updated: 2025-11-18
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Iterable
@@ -28,8 +28,9 @@ from gconanpy.wrappers import (Branches, Sets, SoupTree, stringify,
 
 class TestSets(Tester):
     N_TESTS: int = 25
-    randintsets = WrapFunction(Randoms.randintsets, min_n=10, max_n=20,
-                               min_len=N_TESTS, max_len=N_TESTS)
+    randintsets: Callable[..., list[set[int]]] = \
+        WrapFunction(Randoms.randintsets, min_n=10, max_n=20,
+                     min_len=N_TESTS, max_len=N_TESTS)
 
     def asc_desc_Sets(self, n_tests: int = 20, max_int: int = 20,
                       ) -> Generator[tuple[Sets, Sets, Sets], None, None]:
@@ -37,26 +38,26 @@ class TestSets(Tester):
                                          min_int=2, max_int=max_int):
             asc_range = range(each_int)
             dsc_range = invert_range(asc_range)  # TODO FIX
-            ascending = Sets({a} for a in asc_range)
+            ascending = Sets[int]({a} for a in asc_range)
             assert ascending
-            descending = Sets({d} for d in dsc_range)
+            descending = Sets[int]({d} for d in dsc_range)
             assert descending
-            both = Sets({i, j} for i, j in zip(copy_range(asc_range),
-                                               copy_range(dsc_range)))
+            both = Sets[int]({i, j} for i, j in zip(copy_range(asc_range),
+                                                    copy_range(dsc_range)))
             assert both
             yield ascending, descending, both
 
     def test_differentiate_and_merge(self) -> None:
-        sets = Sets(({1, 2, 3, 4, 5}, {4, 5, 6, 7, 8}, {6, 7, 8, 9, 10}))
-        self.check_result(Sets(sets.differentiate()),
-                          Sets(({1, 2, 3}, set(), {9, 10})))
-        self.check_result(sets.merge(), set(range(1, 11)))
+        sets = Sets[int](({1, 2, 3, 4, 5}, {4, 5, 6, 7, 8}, {6, 7, 8, 9, 10}))
+        self.check_result(Sets[int](sets.differentiate()),
+                          Sets[int](({1, 2, 3}, set(), {9, 10})))
+        self.check_result(sets.merge(), set[int](range(1, 11)))
 
     def test_differentiate(self) -> None:
         for bigset in self.randintsets():
             randcount = Randoms.randcount()
-            sets = Sets((set(Randoms.randsublist(list(bigset)))
-                         for _ in randcount))
+            sets = Sets[int]((set(Randoms.randsublist(list(bigset)))
+                              for _ in randcount))
             differentiated = sets.differentiate()
             for postdif in differentiated:
                 for otherset in differentiated:
@@ -64,16 +65,16 @@ class TestSets(Tester):
                         assert postdif.isdisjoint(otherset)
 
     def test_filter(self) -> None:
-        sets = Sets(((1, 2, 3), (3, 4, 5, 6), (1, 9, 10)))
-        self.check_result(Sets(sets.filter(lambda x: x > 5)),
-                          Sets((tuple(), (6, ), (9, 10))))
+        sets = Sets[int](((1, 2, 3), (3, 4, 5, 6), (1, 9, 10)))
+        self.check_result(Sets[int](sets.filter(lambda x: x > 5)),
+                          Sets[int]((tuple(), (6, ), (9, 10))))
 
     def test_intersection(self) -> None:
-        int_bounds = dict(min_int=-10, max_int=10)
-        self.check_result(Sets(((1, 2, 3), (1, 4, 5), (1, 6, 7, 8), (1, 9, 10))
-                               ).intersection(), {1})
-        self.check_result(Sets(((1, 2, 3), (4, 5, 6), (6, 7, 8))
-                               ).intersection(), set())
+        int_bounds = dict[str, int](min_int=-10, max_int=10)
+        self.check_result(Sets[int](((1, 2, 3), (1, 4, 5), (1, 6, 7, 8),
+                                     (1, 9, 10))).intersection(), {1})
+        self.check_result(Sets[int](((1, 2, 3), (4, 5, 6), (6, 7, 8))
+                                    ).intersection(), set())
         for set1 in self.randintsets(**int_bounds):
             others = Sets(Randoms.randintsets(**int_bounds))
             intersected = set(set1).copy()
@@ -108,7 +109,7 @@ class TestSoupTree(Tester):
         soup = self.get_soup()
         stree = SoupTree.from_soup(soup)
         branch = Branches()
-        invalid = re.compile(f"({branch.T})(?:{branch.X})*"
+        invalid = re.compile(f"({branch.T})(?:{branch.O})*"
                              f"({branch.I}|{branch.L}|{branch.T})")
         pretty = stree.prettify(branch=branch)
         assert invalid.match(pretty) is None
