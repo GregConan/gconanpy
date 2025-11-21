@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-11-03
+Updated: 2025-11-20
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -477,7 +477,7 @@ class TestDotDicts(DictTester):
             del dd.b
             self.check_result([v for v in dd.values()], [1, 3])
             self.check_result(len(dd), 2)
-            self.check_result(dd.PROTECTEDS in dd, False)
+            self.check_result(dd._PROTECTEDS in dd, False)
 
     def test_get(self, classes: CLASSES = TEST_CLASSES) -> None:
         for dd in self.get_custom_dicts(classes, DotDict):
@@ -489,11 +489,14 @@ class TestDotDicts(DictTester):
 
     def test_homogenize(self, classes: CLASSES = TEST_CLASSES) -> None:
         for dd in self.get_custom_dicts(classes, DotDict):
-            dd.testdict = dict(hello=dict(q=dd),
-                               world=DotDict(foo=dict(bar="baz")))
-            print(type(dd.testdict["world"]))
-            for a_dict in (dd["testdict"], dd["testdict"]["hello"],
-                           dd.testdict["world"].foo):
+            dd.testd = dict(hello=dict(q=dd),
+                            world=DotDict(foo=dict(bar="baz")))
+            print(type(dd.testd["world"]))
+            testdicts = (
+                dd["testd"], dd["testd"]["hello"],
+                dd.testd["world"
+                         ].foo)  # pyright: ignore[reportAttributeAccessIssue]
+            for a_dict in testdicts:
                 assert not isinstance(a_dict, type(dd))
             dd.homogenize()
             for a_map in MapWalker(dd, only_yield_maps=True).values():
@@ -512,10 +515,10 @@ class TestDotDicts(DictTester):
         for LazyDotDictClass in classes:
             ldd = LazyDotDictClass(self.adict)
 
-            protected_attrs: set | Any = getattr(ldd, ldd.PROTECTEDS)
+            protected_attrs: set | Any = getattr(ldd, ldd._PROTECTEDS)
             assert self.cannot_alter(ldd, *protected_attrs)
             assert protected_attrs.issuperset({"lazyget", "lazysetdefault",
-                                               ldd.PROTECTEDS})
+                                               "__protected_keywords__"})
             # for attr_name in protected_attrs: self.check_result(ldd[attr_name], getattr(ldd, attr_name))  # TODO?
 
     def test_subclass(self, classes: CLASSES = TEST_CLASSES) -> None:
@@ -525,9 +528,12 @@ class TestDotDicts(DictTester):
                 def __init__(self, *args, **kwargs):
                     super().__init__(*args, **kwargs)
 
-                def __getattr__(self, name):
-                    return f"sub{super().__getattr__(name)}"
+                def __getitem__(self, name):
+                    return f"sub{super().__getitem__(name)}"
 
+            print(f"ddclass: {ddclass}")
+            print(f"DotDictSubClass: {DotDictSubClass}")
+            print(type(DotDictSubClass.update))
             ddsc = DotDictSubClass(self.adict)
             self.check_result({x: getattr(ddsc, x) for x in ddsc.keys()},
                               dict(a="sub1", b="sub2", c="sub3"))

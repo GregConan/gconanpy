@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-11-16
+Updated: 2025-11-20
 """
 # Import standard libraries
 from collections import defaultdict
@@ -12,8 +12,8 @@ from collections.abc import (Callable, Collection, Container, Generator,
                              Hashable, Iterable, Mapping, Sequence)
 from configparser import ConfigParser
 from operator import itemgetter
-from typing import Any, cast, Literal, overload, ParamSpec, TypeVar
-from typing_extensions import Self
+from typing import Any, cast, get_args, Literal, overload, ParamSpec, \
+    Self, TypeVar
 
 # Import third-party PyPI libraries
 from cryptography.fernet import Fernet
@@ -405,9 +405,27 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
     """
     _D = TypeVar("_D")  # Default option input parameter type hint for lookup
 
-    # Name of set[str] of attributes, methods, and other keywords that should
-    # not be accessible/modifiable as keys/values/items
-    PROTECTEDS = "__protected_keywords__"
+    # Attributes, methods, and other keywords that should not be
+    # mutable/modifiable as items/key-value pairs. Define them all explicitly
+    # so static type checkers can distinguish between using dot notation to
+    # get a named attribute and using it as shorthand to get a value/item.
+    _PROTECTEDS = "__protected_keywords__"
+    _ATTR = Literal[
+        '__class__', '_D', '__dict__', '__doc__', '__module__',
+        '__orig_bases__', '__parameters__', '__type_params__',
+        '_ATTR', '_METHODS', '__protected_keywords__', "traversed"]
+    _METHODS = Literal[
+        '__class_getitem__', '__contains__', '__delattr__', '__delitem__',
+        '__dir__', '__eq__', '__format__', '__ge__', '__getattr__',
+        '__getattribute__', '__getitem__', '__getstate__', '__gt__',
+        '__init__', '__init_subclass__', '__ior__', '__iter__', '__le__',
+        '__len__', '__lt__', '__ne__', '__new__', '__or__', '__reduce__',
+        '__reduce_ex__', '__repr__', '__reversed__', '__ror__',
+        '__setattr__', '__setitem__', '__setstate__', '__sizeof__',
+        '__str__', '__subclasshook__', '__weakref__', '_is_ready_to',
+        '_will_now_traverse', 'clear', 'copy', 'fromConfigParser',
+        'fromkeys', 'get', 'get_subset_from_lookups', 'homogenize', 'items',
+        'keys', 'lookup', 'pop', 'popitem', 'setdefault', 'update', 'values']
 
     def __init__(self, from_map: FromMap = None, **kwargs: VT) -> None:
         """ 
@@ -422,9 +440,10 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
         # Initialize self as a Traversible for self.homogenize() method
         Traversible.__init__(self)
 
-        # Prevent overwriting method/attributes or treating them like items
-        dict.__setattr__(self, self.PROTECTEDS,
-                         {self.PROTECTEDS}.union(get_attr_names(self)))
+        # Ensure that any subclasses' attributes are protected as well
+        dict.__setattr__(self, self._PROTECTEDS,
+                         {*get_args(self._ATTR), *get_args(self._METHODS),
+                          }.union(get_attr_names(self)))
 
     def __delattr__(self, name: KT) -> None:
         """ Implement `delattr(self, name)`. Same as `del self[name]`.
@@ -437,23 +456,33 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
             else super(DotDict, self).__delattr__
         return _delattr(name)
 
-    def __getattr__(self, name: KT) -> VT:
-        """ `__getattr__(self, name) == getattr(self, name) == self.<name>`
+    @overload
+    def __getattribute__(self, name: _METHODS) -> Callable: ...
+    @overload
+    def __getattribute__(self, name: _ATTR) -> Any: ...
+    @overload
+    def __getattribute__(self, name: KT) -> VT: ...
+
+    def __getattribute__(self, name):
+        # Overloaded instead of __getattr__ because otherwise static type
+        # checkers won't recognize value types when accessed with dot notation
+        """ `self.__getattribute__(name) == getattr(self, name) == self.<name>`
             If name is not protected, then `self.name is self["name"]`
 
         Effectively the same as `__getattr__ = dict.__getitem__` except that \
-        `hasattr(self, <not in dict>)` works; it does not raise a `KeyError`.
+        `hasattr(self, <not in dict>)` works (it doesn't raise a `KeyError`) \
+        and type checkers can infer types of keys accessed with dot notation.
 
         :param name: str naming the attribute/element of self to return.
         :raises AttributeError: if name is not an item or attribute of self.
         :return: Any, `getattr(self, name)` and/or `self[name]`
         """
         try:  # First, try to get an attribute (e.g. a method) of this object
-            return dict.__getattribute__(self, name)
+            return object.__getattribute__(self, name)
         except AttributeError as err:
 
             try:  # Next, get a value mapped to the key, if any
-                return dict.__getitem__(self, name)
+                return object.__getattribute__(self, "__getitem__")(name)
 
             # If neither exists, then raise AttributeError
             except KeyError:  # Don't raise KeyError; it breaks hasattr
@@ -506,7 +535,7 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
         :return: bool, True if the attribute is not protected; \
                  else raise error
         """
-        protecteds = getattr(self, self.PROTECTEDS, set())
+        protecteds = getattr(self, "__protected_keywords__", set())
         if attr_name in protecteds:
             raise err_type(f"Cannot {alter} read-only '{name_of(self)}' "
                            f"object attribute '{attr_name}'")

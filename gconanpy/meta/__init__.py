@@ -10,8 +10,9 @@ Updated: 2025-11-19
 import abc
 import builtins
 from collections.abc import Callable, Collection, Hashable, Iterable, Iterator
-from functools import wraps
+import functools
 from math import log10
+# import operator
 # from operator import attrgetter, methodcaller  # TODO?
 import pdb
 # from types import MappingProxyType  # TODO freeze TimeSpec?
@@ -279,6 +280,7 @@ class Recursively:
 
     @staticmethod
     def getitem(an_obj: SupportsItemAccess, key: _KT) -> Any:
+        # return functools.reduce(operator.getitem, tuplify(key), an_obj)
         for k in tuplify(key):
             an_obj = an_obj[k]
         return an_obj
@@ -555,7 +557,7 @@ class MethodWrappingMeta(type):
     def wrap_method_of(cls, new_class: type[_Sub], old_class: type[_Super],
                        new_cls_name: str, new_meth: Callable[_P, _T | _Super]
                        ) -> Callable[_P, _T | _Sub]:
-        @wraps(new_meth, assigned=cls.ASSIGNED)
+        @functools.wraps(new_meth, assigned=cls.ASSIGNED)
         def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T | _Sub:
             ret = new_meth(*args, **kwargs)
             return cast(_T, ret) if not isinstance(ret, old_class) else \

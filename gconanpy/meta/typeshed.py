@@ -4,7 +4,7 @@
 Classes for use in type hints/checks. No behavior, except in MultiTypeMeta.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-12
-Updated: 2025-11-06
+Updated: 2025-11-19
 """
 # Import standard libraries
 import abc
@@ -134,7 +134,7 @@ class MultiTypeMeta(type, abc.ABC):
     _TypeChecker = Callable[[Any, _TypeArgs], bool]
 
     IS_A: _TypeArgs = ()
-    ISNT_A: _TypeArgs = tuple()
+    ISNT_A: _TypeArgs = ()
 
     @staticmethod
     def check(thing: Any, is_if: _TypeChecker, is_a: _TypeArgs = IS_A,

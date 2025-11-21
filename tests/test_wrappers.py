@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-11-18
+Updated: 2025-11-19
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Iterable
@@ -85,8 +85,7 @@ class TestSets(Tester):
 
     def test_union_each(self) -> None:  # TODO FIX invert_range
         for ascending, descending, both in self.asc_desc_Sets():
-            unioned = Sets(cast(tuple[set[int]],  # TODO This shouldn't need a cast
-                           tuple(ascending.union_each(descending))))
+            unioned = Sets(tuple(ascending.union_each(descending)))
             self.check_result(unioned, both)
 
     def test_unique(self) -> None:

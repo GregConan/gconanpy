@@ -13,7 +13,7 @@ from collections.abc import Callable, Collection, Generator, \
     Hashable, Iterable, Mapping
 import datetime as dt
 import sys
-from typing import Any, cast, Concatenate, Literal, NamedTuple, \
+from typing import Any, Concatenate, Literal, NamedTuple, \
     overload, ParamSpec, Protocol, Self, SupportsIndex, TypeVar
 
 # Import third-party PyPI libraries
@@ -32,12 +32,12 @@ _P = ParamSpec("_P")
 
 
 class _FormatMapMapping(Protocol):
-    # Copied verbatim from builtins.pyi
+    # Copied verbatim from builtins.pyi for ToString's str methods
     def __getitem__(self, key: str, /) -> Any: ...
 
 
 class _TranslateTable(Protocol):
-    # Copied verbatim from builtins.pyi
+    # Copied verbatim from builtins.pyi for ToString's str methods
     def __getitem__(self, key: int, /) -> str | int | None: ...
 
 
@@ -174,44 +174,16 @@ class Branches(NamedTuple):
 
 
 class BasicTree(tuple[str, list["BasicTree"]]):
-    full: str | tuple[str, str]
     BRANCH = Branches()
 
     def prettify(self, prefix: ToString = ToString(),
-                 branch: Branches = BRANCH) -> ToString:
-        pretties = [prefix + self[0]]
-
-        if prefix.endswith(branch.L):
-            prefix = cast(ToString, prefix.rreplace(
-                branch.L, branch.O, count=1).replace(branch.T, branch.I))
-
-        if self[1]:
-            for child in self[1][:-1]:
-                pretties.append(child.prettify(prefix + branch.T, branch))
-            pretties.append(self[1][-1].prettify(
-                cast(ToString, prefix.replace(branch.T, branch.I)
-                     ) + branch.L, branch))
-
-        return cast(ToString, ToString("\n").join(pretties))
+                 branch: Branches = BRANCH) -> ToString: ...
 
     def prettify_spaces(self, indents_from_left: int = 0,
-                        indent: str = "  ") -> str:
-        children = [child.prettify_spaces(indents_from_left + 1,
-                                          indent) for child in self[1]]
-        pretty = f"{indent * indents_from_left}{self[0]}"
-        if children:
-            pretty += "\n" + "\n".join(children)
-        return pretty
+                        indent: str = "  ") -> str: ...
 
-    def walk(self, depth_first: bool = True,
-             include_self: bool = True) -> Generator[Self, None, None]:
-        if include_self:
-            yield self
-        if not depth_first:
-            for child in self[1]:
-                yield cast(Self, child)
-        for child in self[1]:
-            yield from cast(Self, child).walk(depth_first, depth_first)
+    def walk(self, depth_first: bool = True, include_self: bool = True
+             ) -> Generator[Self, None, None]: ...
 
 
 class SoupTree(BasicTree):

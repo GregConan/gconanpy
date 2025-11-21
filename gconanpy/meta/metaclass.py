@@ -4,13 +4,14 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-11-03
+Updated: 2025-11-20
 """
 # Import standard libraries
+import abc
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 import itertools
 # from operator import attrgetter, methodcaller  # TODO?
-from typing import Any, cast, NamedTuple
+from typing import Any, cast, get_args, LiteralString, NamedTuple
 
 # Import local custom libraries
 try:
@@ -78,6 +79,21 @@ class MakeMetaclass:
         if not name:
             name = name_type_class(is_all_of, isnt_any_of)
         return cls.new(name, _checker(isinstance), _checker(issubclass))
+
+
+class PrivateAttrNameMeta(type, abc.ABC):
+    STR_TYPES = (str, LiteralString)
+
+    def __instancecheck__(self, instance: Any, /) -> bool:
+        return isinstance(instance, self.STR_TYPES) and \
+            instance.startswith("__")
+
+    def __subclasscheck__(self, subclass: Any, /) -> bool:
+        return issubclass(subclass, self.STR_TYPES)
+
+
+class PrivateAttrName(str, metaclass=PrivateAttrNameMeta):
+    ...
 
 
 def name_type_class(is_all_of: Any = (), isnt_any_of: Any = (),
