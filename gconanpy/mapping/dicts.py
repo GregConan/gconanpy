@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-11-20
+Updated: 2025-11-22
 """
 # Import standard libraries
 from collections import defaultdict
@@ -535,7 +535,7 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
         :return: bool, True if the attribute is not protected; \
                  else raise error
         """
-        protecteds = getattr(self, "__protected_keywords__", set())
+        protecteds = getattr(self, "__protected_keywords__", ())
         if attr_name in protecteds:
             raise err_type(f"Cannot {alter} read-only '{name_of(self)}' "
                            f"object attribute '{attr_name}'")

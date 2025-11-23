@@ -31,6 +31,7 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
 _D = TypeVar("_D")
 _KT = TypeVar("_KT", bound=Hashable)
 _VT = TypeVar("_VT")
+
 CALL_2ARG = Callable[[Any, Any], Any]
 CALL_3ARG = Callable[[Any, Any, Any], Any]
 
@@ -52,6 +53,38 @@ def bool_pair_to_cases(cond1, cond2) -> int:  # TODO cond*: Boolable
     return sum({x + 1 for x in which_of(cond1, cond2)})
 
 
+# TODO Move to a file called "wrap", "metafunc", or "wrapfunc"?
+def change_error(old: type[BaseException], new: type[BaseException]
+                 ) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
+    """ Create a wrapper to change which exception a `Callable` raises.
+
+    :param old: type[BaseException] to replace with `new`
+    :param new: type[BaseException] to replace `old` with
+    :return: Callable[[Callable[_P, _T]], Callable[_P, _T]], \
+        function that returns a copy of the input `Callable` identical in \
+        every way except that instead of ever raising `old`, it raises `new`.
+    """
+    def outer(func: Callable[_P, _T]) -> Callable[_P, _T]:
+        """ 
+        :param func: Callable[_P, _T], any function that can raise {old}
+        :raises {new}: if `func` is called and raises {old}
+        :return: Callable[_P, _T], a copy of `func` that will raise {new} \
+            instead of ever raising {old}
+        """
+        @functools.wraps(func)
+        def inner(*args: _P.args, **kwargs: _P.kwargs) -> _T:
+            try:
+                return func(*args, **kwargs)
+            except old as err:
+                raise new(*err.args)
+        return inner
+
+    # Return wrapped function with docstring specifying the errors it replaces
+    outer.__doc__ = cast(str, outer.__doc__).format(
+        old=old.__name__, new=new.__name__)
+    return outer
+
+
 def count_digits_of(a_num: int | float):
     """
     :param a_num: int | float, numeric value to count the digits of
@@ -61,6 +94,7 @@ def count_digits_of(a_num: int | float):
     return int(log10(absnum)) + 1 if a_num % 1 == 0 else len(str(absnum)) - 1
 
 
+# TODO Move to a file called "wrap", "metafunc", or "wrapfunc"?
 def divmod_base(n: int) -> Callable[[int], tuple[int, int]]:
     """ Get a function that converts integers into base `n` via `divmod`, \
         but represents a nonzero int with a full remainder.
