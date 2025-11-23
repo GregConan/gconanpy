@@ -38,8 +38,8 @@ class AttrMap[T](MutableMapping[str, T]):
         "__str__", "__subclasshook__", "__weakref__", "asdict",
         "clear", "copy", "fromkeys", "get", "items", "keys", "pop", "popitem",
         "setdefault", "update", "values"]
-    _MISC_ATTR = Literal["__base__", "__bases__",
-                         "__basicsize__", "__hash__", "__weakref__"]
+    _MISC_ATTR = Literal["__base__", "__bases__", "__basicsize__", "__hash__",
+                         "__orig_class__", "__weakref__"]
     _STR_SET = Literal["__protected_keywords__", "names"]
     _TUP_ATTR = Literal["__orig_bases__", "__parameters__", "__type_params__"]
     _TYPE_VAR = Literal["_METHOD", "_MISC_ATTR", "_STR_SET",
@@ -86,6 +86,8 @@ class AttrMap[T](MutableMapping[str, T]):
     def __getattribute__(self, name: Literal["__hash__"]) -> None: ...
     @overload
     def __getattribute__(self, name: Literal["__weakref__"]) -> Any: ...
+    @overload
+    def __getattribute__(self, name: Literal["__orig_class__"]) -> type: ...
 
     @overload
     def __getattribute__(self, name: Literal["__dict__"]
