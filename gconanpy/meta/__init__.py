@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-11-19
+Updated: 2025-12-02
 """
 # Import standard libraries
 import abc
@@ -54,8 +54,8 @@ def bool_pair_to_cases(cond1, cond2) -> int:  # TODO cond*: Boolable
 
 
 # TODO Move to a file called "wrap", "metafunc", or "wrapfunc"?
-def change_error(old: type[BaseException], new: type[BaseException]
-                 ) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
+def error_changer(old: type[BaseException], new: type[BaseException]
+                  ) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
     """ Create a wrapper to change which exception a `Callable` raises.
 
     :param old: type[BaseException] to replace with `new`

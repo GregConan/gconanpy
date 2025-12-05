@@ -2,7 +2,7 @@
 Class that forces type checker to understand dot notation item access.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-11-21
-Updated: 2025-11-22
+Updated: 2025-12-02
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Mapping, MutableMapping
@@ -10,13 +10,13 @@ from typing import Any, get_args, Literal, overload, Self, TypeVar
 
 # Import local custom libraries
 try:
-    from gconanpy.meta import change_error
+    from gconanpy.meta import error_changer
 except (ImportError, ModuleNotFoundError):
-    from meta import change_error
+    from meta import error_changer
 
 # Wrapper function that takes a method that can raise AttributeError and
 # returns a copy identical except that it can raise KeyError.
-wrap_attr2key = change_error(AttributeError, KeyError)
+wrap_attr2key = error_changer(AttributeError, KeyError)
 
 
 class AttrMap[T](MutableMapping[str, T]):
@@ -47,7 +47,7 @@ class AttrMap[T](MutableMapping[str, T]):
 
     __dict__: dict[str, T]
     __protected_keywords__: set[str] = {
-        "__dict__", "__protected_keywords__", *get_args(_METHOD),
+        "__dict__", *get_args(_STR_SET), *get_args(_METHOD),
         *get_args(_MISC_ATTR), *get_args(_TUP_ATTR), *get_args(_TYPE_VAR)}
     names: set[str]
 
@@ -62,8 +62,7 @@ class AttrMap[T](MutableMapping[str, T]):
         return hasattr(self, name)
 
     def __delattr__(self, name: str, /) -> None:
-        if name in getattr(self, "__protected_keywords__", set()
-                           ) or name == "names":
+        if name in getattr(self, "__protected_keywords__", ()):
             raise AttributeError("Cannot delete protected attribute")
         super().__delattr__(name)
         self.names.discard(name)
@@ -106,8 +105,9 @@ class AttrMap[T](MutableMapping[str, T]):
 
     def __setattr__(self, name: str, value: T, /) -> None:
         if name in getattr(self, "__protected_keywords__", ()):
-            raise AttributeError("Cannot change protected attribute")
-        elif name != "names":
+            if name != "names":
+                raise AttributeError("Cannot change protected attribute")
+        else:
             self.names.add(name)
         super().__setattr__(name, value)
 
@@ -118,11 +118,11 @@ class AttrMap[T](MutableMapping[str, T]):
     __setitem__ = wrap_attr2key(__setattr__)
 
     def asdict(self) -> dict[str, T]:
-        return {n: self[n] for n in self.names}
+        return {n: getattr(self, n) for n in self.names}
 
     def clear(self) -> None:
         for name in self.names:
-            del self[name]
+            delattr(self, name)
 
     def copy(self) -> Self:
         return type(self)(self.asdict())

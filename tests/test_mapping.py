@@ -3,24 +3,27 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-11-20
+Updated: 2025-12-02
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
                              Mapping, MutableMapping)
 from math import prod
 import pdb
+import operator
 import random
 import string
 from types import SimpleNamespace
-from typing import Any, TypeVar
+from typing import Any, Concatenate, ParamSpec, TypeVar
 
 # Import local custom libraries
 from gconanpy import mapping
 from gconanpy.access import attributes
 from gconanpy.access import ACCESS, Access, Accessor
 from gconanpy.debug import StrictlyTime
-from gconanpy.iters import Combinations, duplicates_in, MapWalker, powers_of_ten, Randoms
+from gconanpy.iters import Combinations, duplicates_in, MapWalker, \
+    powers_of_ten, Randoms
+from gconanpy.mapping.attrmap import AttrMap
 from gconanpy.mapping.dicts import *
 from gconanpy.mapping.grids import HashGrid, Locktionary  # GridCryptionary,
 from gconanpy.meta import full_name_of, TimeSpec
@@ -31,13 +34,13 @@ from gconanpy.trivial import (always_false, always_none,
 
 
 # Make various combinations of custom dicts to validate them all
-DotInvertionary = type("DotInvertionary", (DotDict, Invertionary), dict())
-DotWalktionary = type("DotWalktionary", (DotDict, Walktionary), dict())
+DotInvertionary = type("DotInvertionary", (DotDict, Invertionary), {})
+DotWalktionary = type("DotWalktionary", (DotDict, Walktionary), {})
 InvertCryptionary = type("InvertCryptionary",
-                         (Cryptionary, Invertionary), dict())
+                         (Cryptionary, Invertionary), {})
 InvertPromptionary = type("InvertPromptionary",
-                          (Promptionary, Invertionary), dict())
-SubDotDict = type("SubDotDict", (DotDict, Subsetionary), dict())
+                          (Promptionary, Invertionary), {})
+SubDotDict = type("SubDotDict", (DotDict, Subsetionary), {})
 
 
 class DictTester(Tester):
@@ -69,6 +72,52 @@ class DictTester(Tester):
             assert False
         except AttributeError:
             pass
+
+
+class TestAttrMap(Tester):
+    _P = ParamSpec("_P")
+
+    def basic_attrmap(self) -> AttrMap[int]:
+        self.add_basics()
+        return AttrMap[int](self.adict)
+
+    def protectest(self, method: Callable[Concatenate[AttrMap, str, _P], Any],
+                   err: type[BaseException], exclude_names: bool = False,
+                   *args: _P.args, **kwargs: _P.kwargs) -> None:
+        failed = False
+        attrmap = self.basic_attrmap()
+        protecteds = set[str](attrmap.__protected_keywords__)
+        if exclude_names:
+            protecteds.remove("names")
+        for protected_attr_name in protecteds:
+            try:
+                method(attrmap, protected_attr_name, *args, **kwargs)
+                failed = True
+            except err:
+                pass
+            if failed:
+                raise err(f"{name_of(method)} failed to raise exception")
+
+    def test_contains_get_pop_keys_and_len(self) -> None:
+        attrmap = self.basic_attrmap()
+        keys = set[str](attrmap.keys())
+        assert len(keys) == len(attrmap)
+        for k in keys:
+            assert k in attrmap
+            assert attrmap[k] == attrmap.pop(k)
+            assert k not in attrmap
+        assert len(attrmap) == 0
+
+    def test_get_and_items(self) -> None:
+        attrmap = self.basic_attrmap()
+        for k, v in attrmap.items():
+            assert attrmap[k] == v
+
+    def test_protected(self) -> None:
+        self.protectest(delattr, AttributeError)
+        self.protectest(setattr, AttributeError, True, 1)
+        self.protectest(operator.delitem, KeyError)
+        self.protectest(operator.setitem, KeyError, True, 1)
 
 
 class TestCryptionary(DictTester):
@@ -228,7 +277,7 @@ class TestDictFunctions(DictTester):
             self.check_result(lazyget(a_dict, k), v)
             for triv_fn, triv_out in self.TRIVIALS.items():
                 for args in list(), tuple(), self.alist:
-                    for kwargs in dict(), self.adict:
+                    for kwargs in {}, self.adict:
 
                         # Return the value to get if we do not exclude it
                         for exclude in Combinations.excluding(
@@ -257,7 +306,7 @@ class TestDictFunctions(DictTester):
 
     def unhashable_lazytest(self, lazy_getter: Callable,
                             dict_class: type[dict] = dict) -> None:
-        VALUE = ["arbitrary", "unhashable", "list", set(), dict()]
+        VALUE = ["arbitrary", "unhashable", "list", set(), {}]
         KEY = "a"
         a_dict = dict_class({KEY: VALUE})
         self.check_result(VALUE, lazy_getter(
@@ -266,7 +315,7 @@ class TestDictFunctions(DictTester):
     def test_has(self, dict_has: Callable = mapping.has,
                  dict_class: type[dict] = dict) -> None:
         self.add_basics()
-        VALUE = ["arbitrary", "unhashable", "list", set(), dict()]
+        VALUE = ["arbitrary", "unhashable", "list", set(), {}]
         KEY = "a"
         a_dict = dict_class({KEY: VALUE})
         assert dict_has(a_dict, KEY)
