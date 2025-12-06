@@ -2,7 +2,7 @@
 Class that forces type checker to understand dot notation item access.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-11-21
-Updated: 2025-12-02
+Updated: 2025-12-05
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Mapping, MutableMapping
@@ -40,12 +40,13 @@ class AttrMap[T](MutableMapping[str, T]):
         "setdefault", "update", "values"]
     _MISC_ATTR = Literal["__base__", "__bases__", "__basicsize__", "__hash__",
                          "__orig_class__", "__weakref__"]
-    _STR_SET = Literal["__protected_keywords__", "names"]
+    _STR_SET = Literal["__mutable__", "__protected_keywords__", "names"]
     _TUP_ATTR = Literal["__orig_bases__", "__parameters__", "__type_params__"]
     _TYPE_VAR = Literal["_METHOD", "_MISC_ATTR", "_STR_SET",
                         "_TUP_ATTR", "_TYPE_VAR"]
 
     __dict__: dict[str, T]
+    __mutable__: set[str] = {"names", }
     __protected_keywords__: set[str] = {
         "__dict__", *get_args(_STR_SET), *get_args(_METHOD),
         *get_args(_MISC_ATTR), *get_args(_TUP_ATTR), *get_args(_TYPE_VAR)}
@@ -105,7 +106,7 @@ class AttrMap[T](MutableMapping[str, T]):
 
     def __setattr__(self, name: str, value: T, /) -> None:
         if name in getattr(self, "__protected_keywords__", ()):
-            if name != "names":
+            if name not in getattr(self, "__mutable__", ()):
                 raise AttributeError("Cannot change protected attribute")
         else:
             self.names.add(name)
@@ -126,3 +127,24 @@ class AttrMap[T](MutableMapping[str, T]):
 
     def copy(self) -> Self:
         return type(self)(self.asdict())
+
+
+class DefaultAttrMap[T](AttrMap[T]):
+    """ `DefaultAttrMap` is to `AttrMap` what `defaultdict` is to `dict`. """
+
+    __mutable__: set[str] = {"_default_factory", "names"}
+    __protected_keywords__: set[str] = {"_default_factory",
+                                        *AttrMap.__protected_keywords__}
+
+    def __init__(self, default_factory: Callable[[str], T],
+                 from_map: Mapping[str, T] = {}, **kwargs: T) -> None:
+        self._default_factory = default_factory
+        super().__init__(from_map, **kwargs)
+
+    def __getattr__(self, name: str):
+        try:
+            return super().__getattribute__(name)
+        except AttributeError:
+            value = self._default_factory(name)
+            setattr(self, name, value)
+            return value

@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-12-02
+Updated: 2025-12-05
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -44,12 +44,12 @@ SubDotDict = type("SubDotDict", (DotDict, Subsetionary), {})
 
 
 class DictTester(Tester):
-    _E = TypeVar("_E", bound=CustomDict)
-    CLASSES = tuple[type[_E], ...]
+    _C = TypeVar("_C", bound=CustomDict)
+    CLASSES = tuple[type[_C], ...]
     TEST_CLASSES: CLASSES
 
-    def get_custom_dicts(self, classes: CLASSES, _base: type[_E]
-                         ) -> Generator[_E, None, None]:
+    def get_custom_dicts(self, classes: CLASSES, _base: type[_C]
+                         ) -> Generator[_C, None, None]:
         self.add_basics()
         for dict_class in classes:
             yield dict_class(self.adict)
@@ -76,6 +76,17 @@ class DictTester(Tester):
 
 class TestAttrMap(Tester):
     _P = ParamSpec("_P")
+    CLASSES = tuple[type[AttrMap], ...]
+    TEST_CLASSES: CLASSES = (
+        AttrMap, )
+
+    """
+    def get_custom_dicts(self, classes: CLASSES, _base: type[AttrMap]
+                         ) -> Generator[AttrMap[int], None, None]:
+        self.add_basics()
+        for dict_class in classes:
+            yield dict_class(self.adict)
+    """  # TODO TEST DefaultAttrMap
 
     def basic_attrmap(self) -> AttrMap[int]:
         self.add_basics()
