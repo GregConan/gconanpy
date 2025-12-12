@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-11-05
+Updated: 2025-12-12
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping
@@ -195,8 +195,9 @@ class DifferenceBetween:
         # return each one's value for that attribute
         BY = "unique attribute(s)"
         keys = self.compare_by(BY, dir)
-        diff_attrs = list(Sets(keys).differentiate()) if self.difference else \
-            self.compare_every(BY, getattr, next(iter(keys)))
+        diff_attrs = list[set[str]](Sets[str](keys).differentiate()) if \
+            self.difference else self.compare_every(
+                BY, getattr, next(iter(keys)))
 
         # Finally, if no difference was found, return an empty list
         return diff_attrs if self.difference else list()

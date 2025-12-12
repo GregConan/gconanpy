@@ -3,13 +3,13 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-09-24
+Updated: 2025-12-12
 """
 # Import standard libraries
 from typing import Any, cast
 
 # Import local custom libraries
-from gconanpy.access.dissectors import \
+from gconanpy.access.nested import \
     Corer, DifferenceBetween, Shredder, Xray
 from gconanpy.iters import SimpleShredder
 from gconanpy.iters.filters import MapSubset
