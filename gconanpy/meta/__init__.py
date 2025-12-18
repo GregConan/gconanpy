@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-12-02
+Updated: 2025-12-17
 """
 # Import standard libraries
 import abc
@@ -248,6 +248,30 @@ def which_of(*conditions: Any) -> set[int]:  # TODO conditions: Boolable
     :return: set[int], the indices of every truthy item in `conditions`
     """
     return set[int]((i for i, cond in enumerate(conditions) if cond))
+
+
+class cached_property[T]:
+    """ Parameterized version of `textblob.decorators.cached_property`, a 
+    property that is only computed once per instance and then replaces itself
+    with an ordinary attribute. Deleting the attribute resets the property.
+
+    Credit to Marcel Hellkamp, author of `bottle.py`.
+    """
+
+    def __init__(self, func: Callable[..., T]) -> None:
+        self.__doc__ = func.__doc__
+        self.func = func
+
+    @overload
+    def __get__(self, obj: None, cls) -> Self: ...
+    @overload
+    def __get__(self, obj: Any, cls) -> T: ...
+
+    def __get__(self, obj, cls):
+        if obj is None:
+            return self
+        value = obj.__dict__[self.func.__name__] = self.func(obj)
+        return value
 
 
 class TimeSpec(dict[str, int]):

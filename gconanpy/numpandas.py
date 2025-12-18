@@ -4,10 +4,11 @@
 Utility functions and classes to manipulate data using numpy, scipy, & pandas.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-12-04
+Updated: 2025-12-16
 """
 # Import standard libraries
 from collections.abc import Hashable, Iterable, Mapping
+from operator import methodcaller
 from pprint import pprint
 import string
 from typing import Any, cast, Literal, TypeVar
@@ -31,12 +32,16 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
 AXIS = Literal[0, 1, "columns", "index", "rows"]
 
 # Characters to strip when parsing words to count word frequencies
-IGNORABLES: str = string.punctuation + string.whitespace
+IGNORABLES: str = string.punctuation + string.whitespace + "’"
 
 # Possible word capitalization cases
 WORD_CASE = Literal["title", "upper", "lower", None]
 
 # NOTE All functions/classes below are in alphabetical order.
+
+
+def avg_of(ser: pd.Series) -> int | float:
+    return ser / ser.sum()
 
 
 def compare_word_frequencies(df: pd.DataFrame, words_col: str, group_by: str,
@@ -87,10 +92,13 @@ def count_words_in(ser: pd.Series, strip_chars: str = IGNORABLES,
     :return: pd.Series mapping each word in `ser` to the number of times that
         it appears in `ser`.
     """
-    words = pd.Series(" ".join(ser.fillna("").str.strip(strip_chars)).split())
+    words = cast(pd.Series, pd.Series(" ".join(ser.fillna("")).split()
+                                      ).str.strip(strip_chars))
     if case is not None:
         words = cast(pd.Series, getattr(words.str, case)())
-    return words.value_counts()
+    counts = words.value_counts()
+    counts.drop("", inplace=True, errors="ignore")
+    return counts
 
 
 def count_uniqs_in_cols(a_df: pd.DataFrame) -> dict[str, int]:
@@ -194,7 +202,7 @@ def to_frequencies(df: pd.DataFrame, axis: AXIS = "index") -> pd.DataFrame:
         `axis=1` to instead divide every row by its sum.
     :return: pd.DataFrame, each column's (or row's) frequency percentages.
     """
-    return cast(pd.DataFrame, df.apply(lambda ser: ser / ser.sum(), axis=axis))
+    return cast(pd.DataFrame, df.apply(avg_of, axis=axis))
 
 
 def try_filter_df(df: pd.DataFrame, filters:
@@ -210,14 +218,14 @@ def try_filter_df(df: pd.DataFrame, filters:
     """
     new_df = prev_df = df
     for col_name, acceptable_values in filters.items():
-        # not `match len(new_df.index)` because that'd need a double `break`?
-        n_rows = len(new_df.index)
+        # not `match new_df.shape[0]` because that'd need a double `break`?
+        n_rows = new_df.shape[0]
         if n_rows == 1:
             return new_df
         elif n_rows == 0:
             '''
             raise ValueError("Value not found in DataFrame")
-            if len(prev_df.index) == 0:
+            if prev_df.shape[0] == 0:
                 pdb.set_trace()
                 pass
             '''
@@ -227,12 +235,12 @@ def try_filter_df(df: pd.DataFrame, filters:
             new_df = cast(pd.DataFrame, new_df.loc[new_df[col_name].isin(
                 tuplify(acceptable_values))
             ])
-    if len(new_df.index) > 1:
+    if new_df.shape[0] > 1:
         for col_name, acceptable_values in filters.items():
             for val in acceptable_values:
                 new_df = cast(pd.DataFrame, new_df.loc[
                     new_df[col_name].str.contains(val)])
-                if len(new_df.index) == 1:
+                if new_df.shape[0] == 1:
                     return new_df
 
-    return new_df if len(new_df.index) > 0 else df
+    return new_df if new_df.shape[0] > 0 else df

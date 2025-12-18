@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-12-05
+Updated: 2025-12-17
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,

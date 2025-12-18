@@ -4,16 +4,17 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-11-22
+Updated: 2025-12-17
 """
 # Import standard libraries
 from collections import defaultdict
-from collections.abc import (Callable, Collection, Container, Generator,
-                             Hashable, Iterable, Mapping, Sequence)
+from collections.abc import Callable, Collection, Container, \
+    Generator, Hashable, Iterable, Mapping, Sequence
 from configparser import ConfigParser
-from operator import itemgetter
-from typing import Any, cast, get_args, Literal, overload, ParamSpec, \
-    Self, TypeVar
+import functools
+from numbers import Number
+import operator
+from typing import Any, cast, Literal, overload, ParamSpec, Self, TypeVar
 
 # Import third-party PyPI libraries
 from cryptography.fernet import Fernet
@@ -42,9 +43,13 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
 MapParts = Iterable[tuple[Hashable, Any]]
 FromMap = TypeVar("FromMap", Mapping, MapParts, None)
 
+# Constants for MathableDict: numerical type hint, functools.wraps(assigned=...
+_ASSIGNED = ("__doc__", "__name__", "__qualname__")
+_NUM = int | float | complex
+
 
 class CustomDict[KT, VT](dict[KT, VT]):
-    """ Custom dict base class that explicitly includes its class name in \
+    """ Custom dict base class. Explicitly includes its class name in \
         its string representation(s) via __repr__ method. """
 
     def __repr__(self) -> str:
@@ -61,6 +66,119 @@ class CustomDict[KT, VT](dict[KT, VT]):
             dictionary with the same contents.
         """
         return self.__class__(self)
+
+
+class MathableDict[KT: Hashable, VT: Number](CustomDict[KT, VT]):
+    """ `dict` that can perform math operations on its items. For example:
+
+    ```
+    MathableDict(a=4, b=3) + MathableDict(a=2, b=1) = MathableDict(a=6, b=4)
+    MathableDict(a=4, b=3) - MathableDict(a=2, b=0) = MathableDict(a=2, b=3)
+    MathableDict(a=4, b=3) * MathableDict(a=2, b=3) = MathableDict(a=8, b=9)
+    MathableDict(a=4, b=3) / MathableDict(a=2, b=3) = MathableDict(a=2, b=1)
+    ```
+
+    Etc. All basic operations are supported:
+
+    - Basic arithmetic: add (`+`), divide (`/`), multiply (`*`), subtract (`-`)
+    - Bit shifting: left (`<<`) and right (`>>`)
+    - Comparison: equal (`==`), greater or equal (`>=`), greater (`>`), less
+        or equal (`<=`), less (`<`), and unequal (`!=`)
+    - Division precisely: floor (`//`), modulo (`%`)
+    - Exponentiation: power (`**`)
+    - Sign: absolute value (`abs`), negative (`-`), positive (`+`)
+
+    Additional operations currently include: averaging (`avg`) 
+
+    Missing items are treated as `0` or `1`, whichever is least affected by 
+    the operation. If any item is missing from `self` or from the other
+    `Mapping`(s), then by default,
+
+    - `add`, `avg`, `lshift`, `mul`, `rshift`, and `sub` will always use `0`.
+    - `div`, `floordiv`, `mod`, and `pow` will use `0` for values missing from
+      `self` and `1` for values missing from `other`, partly to prevent
+       divide-by-zero errors.
+    """
+    _ASSIGNED = ("__doc__", "__name__", "__qualname__")
+    _ZERO = cast(VT, 0)
+
+    @staticmethod
+    def _math_meth_1_arg(func: Callable[[_NUM], _NUM]):
+        """ Given a basic math operation, return a `MathableDict` dunder method
+            that does that operation on every value in this `MathableDict`.
+
+        :param func: Callable[[VT: Number], VT], a function that accepts
+            one number, does a basic math operation on it, and returns
+            another number (the result of that operation).
+        :return: Callable[[Self], Self], a (dunder) method to run
+            `func` on for every value in this `MathableDict`.
+        """
+        @functools.wraps(func, assigned=_ASSIGNED)
+        def wrapper(self: Self) -> Self:
+            return type(self)({k: cast(VT, func(cast(_NUM, v)))
+                               for k, v in self.items()})
+        return wrapper
+
+    @staticmethod
+    def _math_meth_2_args(func: Callable[[VT, VT], VT],
+                          default_self: VT = _ZERO, default_other: VT = _ZERO):
+        # No return type hint because it'd include unparsable Self type
+        """ Given a basic math operation, return a `MathableDict` dunder method
+            that does that operation on every value in this `MathableDict`.
+
+        :param func: Callable[[VT: Number, VT], VT], a function that accepts
+            two numbers, does a basic math operation using them, and returns
+            one number (the result of that operation).
+        :param default_self: VT, the first argument to run `func` with when
+            the value is in the other `Mapping`(s) but missing from `self`.
+        :param default_self: VT, the second argument to run `func` with when
+            the value is in `self` but missing from the other `Mapping`(s).
+        :return: Callable[[Self, VT | Mapping[KT, VT]], Self], a (dunder) 
+            method to run `func` on for every value in this `MathableDict`.
+        """
+        @functools.wraps(func, assigned=_ASSIGNED)
+        def wrapper(self: Self, other: VT | Mapping[KT, VT]) -> Self:
+            newMD = type(self)()
+            if isinstance(other, Mapping):
+                for k in self.keys() | other.keys():
+                    newMD[k] = func(self.get(k, default_self),
+                                    other.get(k, default_other))
+            else:
+                for k, v in self.items():
+                    newMD[k] = func(v, other)
+            return newMD
+        return wrapper
+
+    __abs__ = _math_meth_1_arg(operator.abs)
+    __add__ = _math_meth_2_args(operator.add)
+    __div__ = __truediv__ = _math_meth_2_args(operator.truediv, 0, 1)
+    # __eq__ = _math_meth_2_args(operator.eq)  # Unneeded; default dict method
+    __floordiv__ = _math_meth_2_args(operator.floordiv, 0, 1)
+    __ge__ = _math_meth_2_args(operator.ge)
+    __gt__ = _math_meth_2_args(operator.gt)
+    __le__ = _math_meth_2_args(operator.le)
+    __lshift__ = _math_meth_2_args(operator.lshift)
+    __lt__ = _math_meth_2_args(operator.lt)
+    __mod__ = _math_meth_2_args(operator.mod, 0, 1)
+    __mul__ = _math_meth_2_args(operator.mul)
+    # __ne__ = _math_meth_2_args(operator.ne)  # Unneeded; default dict method
+    __neg__ = _math_meth_1_arg(operator.neg)
+    __pos__ = _math_meth_1_arg(operator.pos)
+    __pow__ = _math_meth_2_args(operator.pow, 0, 1)
+    __rshift__ = _math_meth_2_args(operator.rshift)
+    __sub__ = _math_meth_2_args(operator.sub)
+
+    def avg(self, *others: VT | Mapping[KT, VT]) -> Self:
+        """ Take the average of (every value in) this `MathableDict` with 
+            other values and/or with (every value in) other `MathableDict`s.
+
+        :param others: VT | Mapping[KT, VT], other values to average this 
+            `MathableDict`'s values with.
+        :return: Self, a `MathableDict` where every value is the average of
+            this `MathableDict` and all `others`.
+        """
+        return functools.reduce(operator.add, (self, *others)
+                                ) / (len(others) + 1)
 
 
 class Exclutionary[KT, VT](CustomDict[KT, VT]):
@@ -245,8 +363,8 @@ class Sortionary[KT: SupportsRichComparison, VT: SupportsRichComparison
     """ Custom dict class that can yield a generator of its key-value pairs \
         sorted in order of either keys or values. """
     _BY = Literal["keys", "values"]
-    _WHICH: dict[_BY, itemgetter] = {"keys": itemgetter(0),
-                                     "values": itemgetter(1)}
+    _WHICH: dict[_BY, operator.itemgetter] = {"keys": operator.itemgetter(0),
+                                              "values": operator.itemgetter(1)}
 
     def sorted_by(self, by: _BY, descending: bool = False
                   ) -> Generator[tuple[KT, VT], None, None]:
@@ -410,22 +528,6 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
     # so static type checkers can distinguish between using dot notation to
     # get a named attribute and using it as shorthand to get a value/item.
     _PROTECTEDS = "__protected_keywords__"
-    _ATTR = Literal[
-        '__class__', '_D', '__dict__', '__doc__', '__module__',
-        '__orig_bases__', '__parameters__', '__type_params__',
-        '_ATTR', '_METHODS', '__protected_keywords__', "traversed"]
-    _METHODS = Literal[
-        '__class_getitem__', '__contains__', '__delattr__', '__delitem__',
-        '__dir__', '__eq__', '__format__', '__ge__', '__getattr__',
-        '__getattribute__', '__getitem__', '__getstate__', '__gt__',
-        '__init__', '__init_subclass__', '__ior__', '__iter__', '__le__',
-        '__len__', '__lt__', '__ne__', '__new__', '__or__', '__reduce__',
-        '__reduce_ex__', '__repr__', '__reversed__', '__ror__',
-        '__setattr__', '__setitem__', '__setstate__', '__sizeof__',
-        '__str__', '__subclasshook__', '__weakref__', '_is_ready_to',
-        '_will_now_traverse', 'clear', 'copy', 'fromConfigParser',
-        'fromkeys', 'get', 'get_subset_from_lookups', 'homogenize', 'items',
-        'keys', 'lookup', 'pop', 'popitem', 'setdefault', 'update', 'values']
 
     def __init__(self, from_map: FromMap = None, **kwargs: VT) -> None:
         """ 
@@ -440,10 +542,10 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
         # Initialize self as a Traversible for self.homogenize() method
         Traversible.__init__(self)
 
-        # Ensure that any subclasses' attributes are protected as well
+        # Ensure that any subclasses' attributes are protected as well;
+        # prevent overwriting methods/attributes or treating them like items
         dict.__setattr__(self, self._PROTECTEDS,
-                         {*get_args(self._ATTR), *get_args(self._METHODS),
-                          }.union(get_attr_names(self)))
+                         {self._PROTECTEDS}.union(get_attr_names(self)))
 
     def __delattr__(self, name: KT) -> None:
         """ Implement `delattr(self, name)`. Same as `del self[name]`.
@@ -456,33 +558,23 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
             else super(DotDict, self).__delattr__
         return _delattr(name)
 
-    @overload
-    def __getattribute__(self, name: _METHODS) -> Callable: ...
-    @overload
-    def __getattribute__(self, name: _ATTR) -> Any: ...
-    @overload
-    def __getattribute__(self, name: KT) -> VT: ...
-
-    def __getattribute__(self, name):
-        # Overloaded instead of __getattr__ because otherwise static type
-        # checkers won't recognize value types when accessed with dot notation
-        """ `self.__getattribute__(name) == getattr(self, name) == self.<name>`
+    def __getattr__(self, name: KT) -> VT:
+        """ `__getattr__(self, name) == getattr(self, name) == self.<name>`
             If name is not protected, then `self.name is self["name"]`
 
         Effectively the same as `__getattr__ = dict.__getitem__` except that \
-        `hasattr(self, <not in dict>)` works (it doesn't raise a `KeyError`) \
-        and type checkers can infer types of keys accessed with dot notation.
+        `hasattr(self, <not in dict>)` works; it doesn't raise a `KeyError`).
 
-        :param name: str naming the attribute/element of self to return.
-        :raises AttributeError: if name is not an item or attribute of self.
-        :return: Any, `getattr(self, name)` and/or `self[name]`
+        :param name: str naming the attribute/element of `self` to return.
+        :raises AttributeError: if `name` isn't an item or attribute of `self`.
+        :return: VT, `getattr(self, name)` and/or `self[name]`
         """
         try:  # First, try to get an attribute (e.g. a method) of this object
             return object.__getattribute__(self, name)
         except AttributeError as err:
 
             try:  # Next, get a value mapped to the key, if any
-                return object.__getattribute__(self, "__getitem__")(name)
+                return self[name]  # dict.__getitem__(self, name)
 
             # If neither exists, then raise AttributeError
             except KeyError:  # Don't raise KeyError; it breaks hasattr
@@ -535,7 +627,7 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
         :return: bool, True if the attribute is not protected; \
                  else raise error
         """
-        protecteds = getattr(self, "__protected_keywords__", ())
+        protecteds = getattr(self, self._PROTECTEDS, ())
         if attr_name in protecteds:
             raise err_type(f"Cannot {alter} read-only '{name_of(self)}' "
                            f"object attribute '{attr_name}'")
@@ -746,6 +838,7 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
 
     def __getitem__(self, key: Hashable) -> Any:
         """ `x.__getitem__(y)` <==> `x[y]`
+
         Explicitly defined to automatically decrypt encrypted values.
 
         :param key: Hashable, key mapped to the value to retrieve
@@ -781,12 +874,15 @@ class Cryptionary(Promptionary, Bytesifier, Debuggable):
         :param from_map: Mapping | Iterable[tuple[Hashable, Any] ] | None, \
             `m` in `dict.update` method; defaults to None
         """
+        # Convert the inputs to a standard (key, value) format
         map_iters: list[Iterable] = [kwargs.items()]
         match from_map:
             case Mapping():
                 map_iters.append(from_map.items())
             case tuple():
                 map_iters.append(from_map)
+
+        # Update this dict using the now-standardized input k-v pairings
         for each_map_iter in map_iters:
             for k, v in each_map_iter:
                 self[k] = v

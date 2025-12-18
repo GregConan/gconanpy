@@ -5,7 +5,7 @@ This file forces static type checkers to acknowledge that `ToString` methods
 never return `str` and only return `ToString`, even inherited methods.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-11-19
-Updated: 2025-11-19
+Updated: 2025-12-15
 """
 # Import standard libraries
 import argparse
@@ -157,16 +157,6 @@ stringify_iter = ToString.fromIterable
 
 
 class Branches(NamedTuple):
-    """ A defined tuple of symbols to visually represent a branching \
-        hierarchical tree structure, like a filesystem directory or a \
-        document written in a markup language (e.g. HTML, XML, markdown, \
-        etc). All symbols should have the same length.
-
-    `I` (vertical line) connects the top to the bottom.
-    `L` (end branch) connects the top to the right.
-    `T` (split branch) connects the top to the bottom and the right.
-    `O` (empty) represents a blank indentation character.
-    """
     I: str = "│"
     L: str = "└"
     T: str = "├"

@@ -5,7 +5,7 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-11-14
+Updated: 2025-12-17
 """
 # Import standard libraries
 import abc
@@ -34,7 +34,7 @@ _H = TypeVar("_H", bound=Hashable)      # ...invert & uniqs_in
 _Map = TypeVar("_Map", bound=Mapping)   # ...Combinations.of_map
 _P = ParamSpec("_P")                    # ...exhaust_wrapper
 _Seq = TypeVar("_Seq", bound=Sequence)  # ...seq_*
-_T = TypeVar("_T")    # ...duplicates_in & Combinations.randsublist
+_T = TypeVar("_T")    # ...*duplicate*, subseq_*, & Combinations.randsublist
 _U = TypeVar("_U", bound=Updatable)     # ...merge & update_return
 RANDATUM = TypeVar("RANDATUM", bool, bytes, float, int, None, str
                    )  # ...Randoms.randata & Randoms.randatum
@@ -85,6 +85,21 @@ def copy_range(a_range: range) -> range:
     :return: range, a new copy of `a_range` that has not been iterated yet
     """
     return range(a_range.start, a_range.stop, a_range.step)
+
+
+def deduplicate_keep_order(parts: Sequence[_T]) -> list[_T]:
+    """
+    Remove duplicate `parts` without changing the order of `parts`.
+
+    :param parts: Sequence[_T] to remove duplicate elements from
+    :return: list[_T], `parts` without duplicate elements
+    """
+    # Can't just turn into a set and back bc we need to preserve order
+    new_parts = [parts[0]]
+    for part in parts[1:]:
+        if part not in new_parts:
+            new_parts.append(part)
+    return new_parts
 
 
 def default_pop(poppable: Poppable, key: Any = None,
@@ -243,6 +258,25 @@ def seq_rtruncate(a_seq: _Seq, max_len: int) -> _Seq:
     :return: Sequence[_T: Any], the LAST `max_len` items in `a_seq`
     """
     return cast(_Seq, a_seq[-max_len:]) if len(a_seq) > max_len else a_seq
+
+
+def subseq_indices(subseq: Sequence[_T], a_seq: Sequence[_T]
+                   ) -> Generator[tuple[int, int], None, None]:
+    """ Get the start and end indices of one sequence within another.
+
+    For each instance of `subseq` within `a_seq`, get the index within `a_seq`
+    where it starts and the index within `a_seq` where it ends.
+
+    :param subseq: Sequence[_T] contained within `a_seq`; `a_seq` subsequence 
+    :param a_seq: Sequence[_T] that contains `subseq`
+    :yield: Generator[tuple[int, int], None, None], a (Start_Index, End_Index)
+        pair for each instance of `subseq` within `a_seq` 
+    """
+    subseq_len = len(subseq)
+    for start_ix in (i for i, el in enumerate[_T](a_seq) if el == subseq[0]):
+        end_ix = start_ix + subseq_len
+        if a_seq[start_ix:end_ix] == subseq:
+            yield (start_ix, end_ix - 1)
 
 
 def startswith(an_obj: Any, prefix: Any,  # TODO Move to duck.py ?
