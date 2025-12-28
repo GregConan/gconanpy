@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-12-17
+Updated: 2025-12-18
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -23,7 +23,7 @@ from gconanpy.access import ACCESS, Access, Accessor
 from gconanpy.debug import StrictlyTime
 from gconanpy.iters import Combinations, duplicates_in, MapWalker, \
     powers_of_ten, Randoms
-from gconanpy.mapping.attrmap import AttrMap
+from gconanpy.mapping.attrmap import AttrMap, DefaultAttrMap
 from gconanpy.mapping.dicts import *
 from gconanpy.mapping.grids import HashGrid, Locktionary  # GridCryptionary,
 from gconanpy.meta import full_name_of, TimeSpec
@@ -78,7 +78,7 @@ class TestAttrMap(Tester):
     _P = ParamSpec("_P")
     CLASSES = tuple[type[AttrMap], ...]
     TEST_CLASSES: CLASSES = (
-        AttrMap, )
+        AttrMap, DefaultAttrMap)
 
     """
     def get_custom_dicts(self, classes: CLASSES, _base: type[AttrMap]

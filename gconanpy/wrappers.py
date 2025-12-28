@@ -28,13 +28,13 @@ import pathvalidate
 try:
     from gconanpy.iters import exhaust_wrapper
     from gconanpy.iters.filters import MapSubset
-    from gconanpy.meta import bool_pair_to_cases, \
+    from gconanpy.meta import bool_pair_to_cases, cached_property, \
         MethodWrappingMeta, name_of, TimeSpec, tuplify
     from gconanpy.meta.typeshed import NonTxtCollection
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from iters import exhaust_wrapper
     from iters.filters import MapSubset
-    from meta import bool_pair_to_cases, \
+    from meta import bool_pair_to_cases, cached_property, \
         MethodWrappingMeta, name_of, TimeSpec, tuplify
     from meta.typeshed import NonTxtCollection
 
@@ -527,6 +527,11 @@ class ToString(str, metaclass=MethodWrappingMeta):
                  ) -> Self:
         return self if max_len is None or len(self) <= max_len else \
             type(self)(self[:max_len - len(suffix)] + suffix)
+
+    @cached_property[int]
+    def width(self) -> int:
+        """ :return: int, this string's maximum line width. """
+        return max(len(each_line) for each_line in self.split("\n"))
 
 
 # Shorter names to export

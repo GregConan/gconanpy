@@ -4,7 +4,7 @@
 Functions/classes to access and/or modify the attributes of any object(s).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-02
-Updated: 2025-11-03
+Updated: 2025-12-28
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Iterable
@@ -37,10 +37,10 @@ def add_to(an_obj: _T, **attributes: Any) -> _T:
     return an_obj
 
 
-def get_names(*objects: Any) -> set[str]:  # TODO replace an_obj with *objects?
+def get_names(*objects: Any) -> set[str]:
     """
-    :param objects: Iterable[Any], objects to return the attribute names of
-    :return: set[str], the name of every attribute of everything in `objects`
+    :param objects: Any, object(s) to return the attribute names of
+    :return: set[str], the name of every attribute of all of the `objects`
     """
     names = set()
     for each_obj in objects:
@@ -164,12 +164,12 @@ def lazyget(an_obj: Any, name: str,
     :param an_obj: Any, object to try to get an attribute of.
     :param name: str naming the attribute to try to get.
     :param get_if_absent: Callable, function to get the default value.
-    :param getter_args: Iterable[Any] of `get_if_absent` arguments.
-    :param getter_kwargs: Mapping[Any] of `get_if_absent` keyword arguments.
+    :param args: Iterable[Any] of `get_if_absent` arguments.
+    :param kwargs: Mapping[Any] of `get_if_absent` keyword arguments.
     :param exclude: Container of values not to return and instead return \
-        `get_if_absent(*getter_args, **getter_kwargs)`.
+        `get_if_absent(*args, **kwargs)`.
     :return: Any, the `name` attribute of `an_obj` if it exists and is not \
-        in `exclude`; else `get_if_absent(*getter_args, **getter_kwargs)`
+        in `exclude`; else `get_if_absent(*args, **kwargs)`
     """
     return get_if_absent(*args, **kwargs) if \
         not has(an_obj, name, exclude) else getattr(an_obj, name)
@@ -185,13 +185,13 @@ def lazysetdefault(an_obj: Any, name: str,
     :param an_obj: Any, object to get (or set) an attribute of.
     :param name: str naming the attribute to get (or set).
     :param get_if_absent: Callable, function to set & return default value.
-    :param getter_args: Iterable[Any] of `get_if_absent` arguments.
-    :param getter_kwargs: Mapping[Any] of `get_if_absent` keyword arguments.
+    :param args: Iterable[Any] of `get_if_absent` arguments.
+    :param kwargs: Mapping[Any] of `get_if_absent` keyword arguments.
     :param exclude: Container of possible values to replace with \
-        `get_if_absent(*getter_args, **getter_kwargs)` and return (if \
+        `get_if_absent(*args, **kwargs)` and return (if \
         any of them is the named `an_obj` attribute).
     :return: Any, the `name` attribute of `an_obj` if it exists and is not \
-        in `exclude`; else `get_if_absent(*getter_args, **getter_kwargs)`
+        in `exclude`; else `get_if_absent(*args, **kwargs)`
     """
     if not has(an_obj, name, exclude):
         setattr(an_obj, name, get_if_absent(*args, **kwargs))

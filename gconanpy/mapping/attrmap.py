@@ -148,3 +148,6 @@ class DefaultAttrMap[T](AttrMap[T]):
             value = self._default_factory(name)
             setattr(self, name, value)
             return value
+
+    # Ensure that trying to access a missing item will create a new item
+    __getitem__ = wrap_attr2key(__getattr__)

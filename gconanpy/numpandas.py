@@ -21,9 +21,11 @@ import pandas as pd
 try:
     from gconanpy.iters import merge
     from gconanpy.meta import tuplify
+    from gconanpy.wrappers import ToString
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from iters import merge
     from meta import tuplify
+    from wrappers import ToString
 
 
 # Constants, especially for word frequency counting:
@@ -118,6 +120,12 @@ def nan_rows_in(a_df: pd.DataFrame) -> pd.DataFrame:
     return a_df[a_df.isna().any(axis=1)]  # type: ignore
 
 
+def print_df_with_title(df: pd.DataFrame, title: str) -> None:
+    df_str = ToString(df)
+    print(title.center(df_str.width))
+    print(df_str)
+
+
 def search_sequence_numpy(arr: np.ndarray, subseq: np.ndarray) -> list[int]:
     """ Find sequence in an array using NumPy only. "Approach #1" of the \
         code at https://stackoverflow.com/a/36535397 with an extra line to \
@@ -148,6 +156,37 @@ def search_sequence_numpy(arr: np.ndarray, subseq: np.ndarray) -> list[int]:
     else:
         start_indices = []  # No match found
     return start_indices
+
+
+def transform_df(df: pd.DataFrame, new_index: str, new_cols: str,
+                 new_values: str) -> pd.DataFrame:
+    """ Restructure a `DataFrame` using its values.
+
+    :param df: pd.DataFrame whose column names include the provided
+        `new_index`, `new_cols`, and `new_values` strings.
+    :param new_index: str naming the `df` column containing values which
+        will become the output `DataFrame`'s index.
+    :param new_cols: str naming the `df` column containing values which 
+        will become the output `DataFrame`'s columns.
+    :param new_values: str naming the `df` column containing values which 
+        will become the output `DataFrame`'s values.
+    :return: pd.DataFrame, transformed/restructured 
+    """
+    _T = TypeVar("_T")
+    uniqs = pd.Series(df[new_index].unique())
+
+    def _regrouper(value: _T) -> dict[_T, dict[Any, Any]]:
+        """ Utility method to apply to each value in the new index column of 
+            the input `DataFrame`, mapping each new column to its value.
+
+        :param value: _type_, _description_
+        :return: dict[Any, Any], _description_
+        """
+        return {value: dict[Any, Any](df[df[new_index] == value][[
+            new_cols, new_values]
+        ].values)}  # pyright: ignore[reportAttributeAccessIssue]
+
+    return pd.DataFrame(merge(uniqs.apply(_regrouper).tolist())).T
 
 
 class TransformDF:

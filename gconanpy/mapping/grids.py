@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 """
-Custom multidimensional dictionaries extending dicts.py classes.
+Custom multidimensional dictionaries.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-23
-Updated: 2025-11-03
+Updated: 2025-12-28
 """
 # Import standard libraries
 import abc
-from collections.abc import Collection, Generator, Hashable, \
+from collections.abc import Callable, Collection, Generator, Hashable, \
     Iterable, Mapping, Sequence
 import string
 from typing import Any, cast, overload, Self, TypeVar
@@ -30,42 +30,48 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from meta.typeshed import ComparableHashable
 
 
-class BaseHashGrid[KT: Hashable, VT](abc.ABC, CustomDict[int, VT]):
-    _D = TypeVar("_D")
+_R = TypeVar("_R")  # BaseHashGrid method return value
+
+
+class BaseHashGrid[KT: Hashable, VT](abc.ABC, CustomDict[Any, VT]):  # int, VT]
+    _D = TypeVar("_D")  # Method parameter default value
 
     @abc.abstractmethod
     def _sort_keys(self, keys) -> tuple[KT, ...]: ...
 
-    # TODO Use a method to wrap every dict method to insert _hash_keys(...)?
-    # def _wrap(func: Callable[...]) -> Callable[...]:
+    @staticmethod
+    def _wrap_1arg(func: Callable[[dict[int, VT], int], _R]):
+        # -> Callable[[dict[int, VT], Iterable[KT] | Mapping[str, KT]], _R]:
+        def wrapper(self: Self, keys: Iterable[KT] | Mapping[str, KT], /
+                    ) -> _R:
+            try:
+                hashed = hash(keys)
+            except TypeError:
+                hashed = hash(self._sort_keys(keys))
+            return func(self, hashed)
 
-    def __contains__(self, keys: Iterable[KT] | Mapping[str, KT], /) -> bool:
-        """ Return `bool(keys in self)`.
+        return wrapper
 
-        :param keys: Iterable[KT] | Mapping[str, KT], keys/coordinates
-        :return: bool, True if the `keys` are mapped to a value in this \
-            `HashGrid`; else False if they aren't.
-        """
-        return super().__contains__(self._hash_keys(keys))
+    @staticmethod
+    def _wrap_2arg(func: Callable[[dict[int, VT], int, VT], _R]):
+        def wrapper(self: Self, keys: Iterable[KT] | Mapping[str, KT],
+                    value: VT, /) -> _R:
+            try:
+                hashed = hash(keys)
+            except TypeError:
+                hashed = hash(self._sort_keys(keys))
+            return func(self, hashed, value)
 
-    def __getitem__(self, keys: Iterable[KT] | Mapping[str, KT], /) -> VT:
-        """ Return `self[keys]`.
+        return wrapper
 
-        :param keys: Iterable[KT] | Mapping[str, KT], keys/coordinates
-        :return: VT, `self[keys]`; the value mapped to the `keys`
-        """
-        return super().__getitem__(self._hash_keys(keys))
+    __contains__ = cast(Callable[[Self, object], bool],
+                        _wrap_1arg(dict.__contains__))
+    __delitem__ = _wrap_1arg(dict.__delitem__)
+    __getitem__ = cast(Callable[[Self, Iterable[KT] | Mapping[str, KT]], VT],
+                       _wrap_1arg(dict.__getitem__))
+    __setitem__ = _wrap_2arg(dict.__setitem__)
 
-    def __setitem__(self, keys: Iterable[KT] | Mapping[str, KT],
-                    value: VT, /) -> None:
-        """ Set `self[keys]` to `value`.
-
-        :param keys: Iterable[KT] | Mapping[str, KT], keys/coordinates
-        :param value: VT, new value to map to `keys` in this `HashGrid`.
-        :raises ValueError: if `strict=True` and `keys` is the wrong length \
-            (its length should equal the number of dimensions).
-        """
-        return super().__setitem__(self._hash_keys(keys), value)
+    # TODO casting __delitem__ and __setitem__ is ignored. why? bc return None?
 
     def _hash_keys(self, keys: Iterable[KT] | Mapping[str, KT]) -> int:
         """
@@ -124,7 +130,7 @@ class UnorderedHashGrid[KT: ComparableHashable, VT
         :return: tuple[KT, ...], the `keys` as a tuple sorted in the \
             correct order to access values stored in this `HashGrid`.
         """
-        return tuple(sorted(tuple(keys)))
+        return tuple[KT, ...](sorted(tuple[KT, ...](keys)))
 
 
 class HashGrid[KT: Hashable, VT](BaseHashGrid[KT, VT]):
@@ -180,8 +186,8 @@ class HashGrid[KT: Hashable, VT](BaseHashGrid[KT, VT]):
     def __init__(self, *, dim_names: Sequence[str], values: Sequence[VT],
                  strict: bool = True, **dimensions: Iterable[KT]) -> None: ...
 
-    def __init__(self, *pairs, dim_names=tuple(), values=tuple(),
-                 strict=True, **dimensions) -> None:
+    def __init__(self, *pairs, dim_names=(), values=(), strict=True,
+                 **dimensions) -> None:
         """ Mapping of an arbitrary number of dimensions to specific values.
 
         `hg = HashGrid(([1,2,3], "foo"), ([7,8,9], "bar"))` is the same as \
@@ -214,9 +220,9 @@ class HashGrid[KT: Hashable, VT](BaseHashGrid[KT, VT]):
         self.strict = strict
 
         # Save the dimension names in the correct order
-        self.dim_names = tuple(dim_names if dim_names else
-                               dimensions if dimensions else
-                               self._name_dims(pairs, strict))
+        self.dim_names = tuple[str, ...](dim_names if dim_names else
+                                         dimensions if dimensions else
+                                         self._name_dims(pairs, strict))
 
         self._fill(*pairs, values=values, **dimensions)
 
@@ -234,10 +240,10 @@ class HashGrid[KT: Hashable, VT](BaseHashGrid[KT, VT]):
 
         return super().__setitem__(keys, value)
 
-    def _fill(self, *pairs, values=tuple(), **dimensions):
+    def _fill(self, *pairs, values=(), **dimensions):
 
         # Each dimension's place/index in the right order
-        self.dim_ix = {v: k for k, v in enumerate(self.dim_names)}
+        self.dim_ix = {v: k for k, v in enumerate[str](self.dim_names)}
 
         # If groups of keys/coordinates are given as parallel sequences,
         # then line up the dimensions in the right order to convert them
@@ -294,7 +300,7 @@ class HashGrid[KT: Hashable, VT](BaseHashGrid[KT, VT]):
             # Split these 2 lines to avoid "generator not subscriptable" err
             cast_keys = cast(Mapping[str, KT], keys)
             keys = (cast_keys[dim] for dim in self.dim_names)
-        return tuple(keys)
+        return tuple[KT, ...](keys)
 
     def _sort_mixed_keys(self, *keys: KT, **kwargs: KT) -> tuple[KT, ...]:
         """
@@ -308,8 +314,8 @@ class HashGrid[KT: Hashable, VT](BaseHashGrid[KT, VT]):
         try:
             if kwargs:
                 keys_iter = iter(keys)
-                keys = tuple(kwargs.get(dim, next(keys_iter))
-                             for dim in self.dim_names)
+                keys = tuple[KT, ...](kwargs.get(dim, next(keys_iter))
+                                      for dim in self.dim_names)
             return keys
 
         # If keys are missing from args & kwargs, then raise KeyError
@@ -355,7 +361,7 @@ class Grid[KT: Hashable, VT]:  # (Invertionary):  # 2D Grid
     def __init__(self, *, x: Iterable[KT], y: Iterable[KT],
                  values: Iterable[VT]): ...
 
-    def __init__(self, *tuples, x=tuple(), y=tuple(), values=tuple()) -> None:
+    def __init__(self, *tuples, x=(), y=(), values=()) -> None:
         self.X: dict[KT, dict[KT, VT]] = {}
         self.Y: dict[KT, dict[KT, VT]] = {}
         if tuples:
@@ -369,7 +375,9 @@ class Grid[KT: Hashable, VT]:  # (Invertionary):  # 2D Grid
             self.Y[ykey][xkey] = self.X[xkey][ykey]
 
     def invert(self) -> None:
-        self.X, self.Y = self.Y, self.X
+        temp = self.X
+        self.X = self.Y
+        self.Y = temp
 
 
 class Locktionary[KT: str, VT: Bytesifiable
@@ -416,9 +424,9 @@ class Locktionary[KT: str, VT: Bytesifiable
             self.strict = strict
 
             # Save the dimension names in the correct order
-            self.dim_names = tuple(dim_names if dim_names else
-                                   dimensions if dimensions else
-                                   self._name_dims(pairs, strict))
+            self.dim_names = tuple[str, ...](dim_names if dim_names else
+                                             dimensions if dimensions else
+                                             self._name_dims(pairs, strict))
 
             # Create encryption mechanism
             Encryptor.__init__(self, len(dim_names), iterations)

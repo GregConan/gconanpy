@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-12-17
+Updated: 2025-12-27
 """
 # Import standard libraries
 from collections import defaultdict
@@ -43,7 +43,7 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
 MapParts = Iterable[tuple[Hashable, Any]]
 FromMap = TypeVar("FromMap", Mapping, MapParts, None)
 
-# Constants for MathableDict: numerical type hint, functools.wraps(assigned=...
+# Constants for MathDict: numerical type hint, functools.wraps(assigned=...
 _ASSIGNED = ("__doc__", "__name__", "__qualname__")
 _NUM = int | float | complex
 
@@ -68,14 +68,14 @@ class CustomDict[KT, VT](dict[KT, VT]):
         return self.__class__(self)
 
 
-class MathableDict[KT: Hashable, VT: Number](CustomDict[KT, VT]):
+class MathDict[KT: Hashable, VT: Number](CustomDict[KT, VT]):
     """ `dict` that can perform math operations on its items. For example:
 
     ```
-    MathableDict(a=4, b=3) + MathableDict(a=2, b=1) = MathableDict(a=6, b=4)
-    MathableDict(a=4, b=3) - MathableDict(a=2, b=0) = MathableDict(a=2, b=3)
-    MathableDict(a=4, b=3) * MathableDict(a=2, b=3) = MathableDict(a=8, b=9)
-    MathableDict(a=4, b=3) / MathableDict(a=2, b=3) = MathableDict(a=2, b=1)
+    MathDict(a=4, b=3) + MathDict(a=2, b=1) = MathDict(a=6, b=4)
+    MathDict(a=4, b=3) - MathDict(a=2, b=0) = MathDict(a=2, b=3)
+    MathDict(a=4, b=3) * MathDict(a=2, b=3) = MathDict(a=8, b=9)
+    MathDict(a=4, b=3) / MathDict(a=2, b=3) = MathDict(a=2, b=1)
     ```
 
     Etc. All basic operations are supported:
@@ -99,19 +99,19 @@ class MathableDict[KT: Hashable, VT: Number](CustomDict[KT, VT]):
       `self` and `1` for values missing from `other`, partly to prevent
        divide-by-zero errors.
     """
-    _ASSIGNED = ("__doc__", "__name__", "__qualname__")
+    # Numerical argument default value type hint acceptable by type checker
     _ZERO = cast(VT, 0)
 
     @staticmethod
     def _math_meth_1_arg(func: Callable[[_NUM], _NUM]):
-        """ Given a basic math operation, return a `MathableDict` dunder method
-            that does that operation on every value in this `MathableDict`.
+        """ Given a basic math operation, return a `MathDict` dunder method
+            that does that operation on every value in this `MathDict`.
 
         :param func: Callable[[VT: Number], VT], a function that accepts
             one number, does a basic math operation on it, and returns
             another number (the result of that operation).
         :return: Callable[[Self], Self], a (dunder) method to run
-            `func` on for every value in this `MathableDict`.
+            `func` on for every value in this `MathDict`.
         """
         @functools.wraps(func, assigned=_ASSIGNED)
         def wrapper(self: Self) -> Self:
@@ -123,18 +123,18 @@ class MathableDict[KT: Hashable, VT: Number](CustomDict[KT, VT]):
     def _math_meth_2_args(func: Callable[[VT, VT], VT],
                           default_self: VT = _ZERO, default_other: VT = _ZERO):
         # No return type hint because it'd include unparsable Self type
-        """ Given a basic math operation, return a `MathableDict` dunder method
-            that does that operation on every value in this `MathableDict`.
+        """ Given a basic math operation, return a `MathDict` dunder method
+            that does that operation on every value in this `MathDict`.
 
         :param func: Callable[[VT: Number, VT], VT], a function that accepts
             two numbers, does a basic math operation using them, and returns
             one number (the result of that operation).
         :param default_self: VT, the first argument to run `func` with when
             the value is in the other `Mapping`(s) but missing from `self`.
-        :param default_self: VT, the second argument to run `func` with when
+        :param default_other: VT, the second argument to run `func` with when
             the value is in `self` but missing from the other `Mapping`(s).
         :return: Callable[[Self, VT | Mapping[KT, VT]], Self], a (dunder) 
-            method to run `func` on for every value in this `MathableDict`.
+            method to run `func` on for every value in this `MathDict`.
         """
         @functools.wraps(func, assigned=_ASSIGNED)
         def wrapper(self: Self, other: VT | Mapping[KT, VT]) -> Self:
@@ -169,13 +169,13 @@ class MathableDict[KT: Hashable, VT: Number](CustomDict[KT, VT]):
     __sub__ = _math_meth_2_args(operator.sub)
 
     def avg(self, *others: VT | Mapping[KT, VT]) -> Self:
-        """ Take the average of (every value in) this `MathableDict` with 
-            other values and/or with (every value in) other `MathableDict`s.
+        """ Take the average of (every value in) this `MathDict` with 
+            other values and/or with (every value in) other `MathDict`s.
 
         :param others: VT | Mapping[KT, VT], other values to average this 
-            `MathableDict`'s values with.
-        :return: Self, a `MathableDict` where every value is the average of
-            this `MathableDict` and all `others`.
+            `MathDict`'s values with.
+        :return: Self, a `MathDict` where every value is the average of
+            this `MathDict` and all `others`.
         """
         return functools.reduce(operator.add, (self, *others)
                                 ) / (len(others) + 1)

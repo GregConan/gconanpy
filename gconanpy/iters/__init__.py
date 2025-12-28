@@ -5,7 +5,7 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-12-17
+Updated: 2025-12-28
 """
 # Import standard libraries
 import abc
@@ -73,7 +73,7 @@ def are_all_equal(comparables: Iterable, eq_meth: str | None = None,
 
 def combine_lists(lists: Iterable[list]) -> list:
     """
-    :param lists: Iterable[list], objects to combine
+    :param lists: Iterable[list], lists to combine
     :return: list combining all of the `lists` into one
     """
     return list(itertools.chain.from_iterable(lists))
@@ -216,7 +216,6 @@ def merge(updatables: Iterable[_U]) -> _U:
     :param updatables: Iterable[Updatable], objects to combine
     :return: Updatable combining all of the `updatables` into one
     """
-    # return reduce(lambda x, y: x.update(y) or x, updatables)
     return functools.reduce(update_return, updatables)
 
 
@@ -300,10 +299,13 @@ def startswith(an_obj: Any, prefix: Any,  # TODO Move to duck.py ?
     return result
 
 
+# TODO Rename to deduplicate_sort?
 def uniqs_in(listlike: Iterable[_H], stringify: Callable[[Any], str] = str
              ) -> list[_H]:
-    """Alphabetize and list the unique elements of an iterable.
-        To list non-private local variables' names, call `uniqs_in(locals())`.
+    """ List the unique elements of an iterable, then convert each to a string
+        and sort them all as strings.
+
+    To list non-private local variables' names, call `uniqs_in(locals())`.
 
     :param listlike: Iterable[Hashable] to get the unique elements of
     :return: list[Hashable] (sorted) of all unique strings in listlike \
@@ -337,8 +339,9 @@ class Randoms:
     CHARS = tuple(string.printable)  # String characters to randomly pick
     MIN = 1    # Default minimum number of items/tests
     MAX = 100  # Default maximum number of items/tests
-    RANDTYPES: tuple[type | None, ...] = RANDATUM.__constraints__
 
+    # Types of values for randata/randatum randomly generate
+    RANDTYPES: tuple[type | None, ...] = RANDATUM.__constraints__
     _TYPES = type | Sequence[type | None]
 
     @staticmethod
@@ -391,9 +394,9 @@ class Randoms:
             `max_val - min_val` range; or False or None to assign \
             equal (no) weight to all types; defaults to True.
         :raises ValueError: if `types` and `weights` are different lengths.
-        :yield: Generator[Any, None, None], a random number (between `min_n` \
-            and `max_n`) of randomly generated instances of types randomly \
-            chosen from the provided `types`
+        :yield: Generator[RANDATUM, None, None], a random number (between
+            `min_n` and `max_n`) of randomly generated instances of types
+            randomly chosen from the provided `types`.
         """
         types_tup: tuple[type[RANDATUM] | None, ...] = tuplify(dtypes)
         if (not weights) or len(types_tup) < 2:
