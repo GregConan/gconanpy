@@ -5,7 +5,7 @@ Classes that can filter objects to only get the elements (or attributes) \
     that match certain specified conditions.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-09-18
-Updated: 2025-11-16
+Updated: 2025-12-28
 """
 # Import standard libraries
 import abc
@@ -20,8 +20,6 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
 
 
 class BaseFilter(abc.ABC):
-    _FILTERDICT = dict[bool, tuple]
-
     on: tuple[str, ...]  # Name the attributes/values/etc. to filter on
 
     def __init__(self, **kwargs) -> None:

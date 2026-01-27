@@ -4,7 +4,7 @@
 Functions/classes to access and/or modify the attributes of any object(s).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-02
-Updated: 2025-12-28
+Updated: 2026-01-26
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Iterable
@@ -13,18 +13,16 @@ from typing import Any, ParamSpec, TypeVar
 # Import local custom libraries
 try:
     from gconanpy.iters.filters import Filter
-    from gconanpy.iters import IterableMap, merge
+    from gconanpy.iters import IterableMap
     from gconanpy.meta import DATA_ERRORS
-    from gconanpy.trivial import always_none
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from iters.filters import Filter
-    from iters import IterableMap, merge
+    from iters import IterableMap
     from meta import DATA_ERRORS
-    from trivial import always_none
 
 # Type variables for functions' input argument type hints
-_P = ParamSpec("_P")
-_T = TypeVar("_T")  # for add_to
+_P = ParamSpec("_P")  # for lazyget and lazysetdefault
+_T = TypeVar("_T")  # for add_to, AttrsOf.add_to, lazyget, and lazysetdefault
 
 
 def add_to(an_obj: _T, **attributes: Any) -> _T:
@@ -42,24 +40,25 @@ def get_names(*objects: Any) -> set[str]:
     :param objects: Any, object(s) to return the attribute names of
     :return: set[str], the name of every attribute of all of the `objects`
     """
-    names = set()
+    names = set[str]()
     for each_obj in objects:
 
         # Name some of its own attributes
         names.update(dir(each_obj))
 
         # Name the rest of its own attributes
-        dict_attr = getattr(each_obj, "__dict__", None)
-        if dict_attr:
-            names.update(dict_attr)
+        for meta_attr_name in ("__dict__", "__slots__"):
+            meta_attr = getattr(each_obj, meta_attr_name, None)
+            if meta_attr:
+                names.update(meta_attr)
 
-        # If it's a class, name some attributes of its base class(es)
+        # If it's a class, name the attributes of its base class(es)
         bases = getattr(each_obj, "__bases__", None)
         if bases:
             names.update(get_names(*bases))
 
             # Filter out absent attribute names
-            to_remove = set()
+            to_remove = set[str]()
             for attr_name in names:
                 if not hasattr(each_obj, attr_name):
                     to_remove.add(attr_name)
@@ -154,9 +153,8 @@ def is_read_only(obj: Any, attr_name: str) -> bool:
         return True
 
 
-def lazyget(an_obj: Any, name: str,
-            get_if_absent: Callable[_P, _T] = always_none,
-            exclude: Container = set(), *args: _P.args,
+def lazyget(an_obj: Any, name: str, get_if_absent: Callable[_P, _T],
+            exclude: Container = set[Any](), *args: _P.args,
             **kwargs: _P.kwargs) -> _T | Any:
     """ Return the named attribute of `an_obj` if it exists; else \
         return `get_if_absent(*args, **kwargs)`.
@@ -175,9 +173,8 @@ def lazyget(an_obj: Any, name: str,
         not has(an_obj, name, exclude) else getattr(an_obj, name)
 
 
-def lazysetdefault(an_obj: Any, name: str,
-                   get_if_absent: Callable[_P, _T] = always_none,
-                   exclude: Container = set(), *args: _P.args,
+def lazysetdefault(an_obj: Any, name: str, get_if_absent: Callable[_P, _T],
+                   exclude: Container = set[Any](), *args: _P.args,
                    **kwargs: _P.kwargs) -> _T | Any:
     """ Return the named attribute of `an_obj` if it exists; else set it \
         it to `get_if_absent(*args, **kwargs)` and return that.
@@ -218,8 +215,6 @@ def setdefault(an_obj: Any, name: str, value: Any,
 
 class AttrsOf(IterableMap):
     """ Select/iterate/copy the attributes of any object. """
-    _T = TypeVar("_T")  # Type of object to copy attributes to
-
     _AttrPair = tuple[str, Any]  # name-value pair
 
     # Generator that iterates over attribute name-value pairs
@@ -236,7 +231,7 @@ class AttrsOf(IterableMap):
         :param what: Any, the object to select/iterate/copy attributes of. \
             "Attributes of what?" <==> `attributes.AttrsOf(what)`
         """
-        self.names = get_names(what)  # set(dir(what))
+        self.names = get_names(what)
         self.what = what
 
     def __contains__(self, name: str) -> bool:
@@ -337,6 +332,7 @@ class AttrsOf(IterableMap):
             else self.select(filter_if, exclude)
         return [(name, attr) for name, attr in pair_generator]
 
+    # TODO: @cached_property[Callable] #?
     def methods(self) -> Generator[tuple[str, Callable], None, None]:
         """ Iterate over this object's methods (callable attributes).
 
@@ -360,6 +356,7 @@ class AttrsOf(IterableMap):
             to_return = getattr(to_return, attributes.pop(0), None)
         return to_return
 
+    # TODO: @cached_property[_IterAttrPairs]  # or [list[tuple[str, Any]]]?
     def private(self) -> _IterAttrPairs:
         """ Iterate over this object's private attributes.
 
@@ -368,6 +365,7 @@ class AttrsOf(IterableMap):
         """
         yield from self.select(filter_if=self.IS_PRIVATE)
 
+    # TODO: @cached_property[_IterAttrPairs]  # or [list[tuple[str, Any]]]?
     def public(self) -> _IterAttrPairs:
         """ Iterate over this object's public attributes.
 
@@ -392,6 +390,7 @@ class AttrsOf(IterableMap):
             if filter_if(name, attr) is not exclude:
                 yield name, attr
 
+    # TODO: @cached_property[_IterAttrPairs]  # or [list[tuple[str, Any]]]?
     def slots(self) -> Generator[str, None, None]:
         """
         :yield: Generator[str, None, None], the name of each slot \
@@ -407,6 +406,7 @@ class AttrsOf(IterableMap):
         """
         return {name: getattr(self.what, name) for name in self.names}
 
+    # TODO: @cached_property[_IterAttrPairs]  # or [list[tuple[str, Any]]]?
     def variables(self) -> _IterAttrPairs:
         """ Iterate over this object's variables (non-read-only attributes).
 
@@ -445,7 +445,7 @@ def slotsof(obj: Any) -> tuple[str, ...]:
         except TypeError:
             attr_names = AttrsOf(obj).slots()
 
-        return tuple(attr_names)
+        return tuple[str, ...](attr_names)
 
 
 def varsof(obj: Any) -> dict[str, Any]:

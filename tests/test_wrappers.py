@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2025-11-19
+Updated: 2026-01-26
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Iterable
@@ -133,7 +133,8 @@ class TestStringify(Tester):
         self.add_basics()
         self.check_result(stringify(self.adict, **kwargs), expected)
 
-    def check_ToString(self, actual_result: ToString, expected_result: str) -> None:
+    def check_ToString(self, actual_result: ToString, expected_result: str
+                       ) -> None:
         self.check_result(actual_result, expected_result)
         assert type(actual_result) is ToString
 
@@ -167,8 +168,7 @@ class TestStringify(Tester):
         self.check_ToString(stringify(bytestring), "hello")
 
     def test_capitalize(self) -> None:
-        self.check_ToString(ToString("hello").capitalize(),  # type: ignore
-                            "Hello")  # TODO fix type annotation problem
+        self.check_ToString(ToString("hello").capitalize(), "Hello")
 
     def test_defaults(self) -> None:
         self.check_map("'a': 1, 'b': 2, and 'c': 3")
@@ -219,7 +219,7 @@ class TestStringify(Tester):
 
     def test_join(self) -> None:
         joined = ToString(" ").join(("hello", "world"))
-        self.check_ToString(joined, "hello world")  # type: ignore # TODO
+        self.check_ToString(joined, "hello world")
 
     def test_join_on(self) -> None:
         self.check_map("'a'=1, 'b'=2, and 'c'=3", join_on="=")
@@ -261,20 +261,20 @@ class TestStringify(Tester):
 
     def test_quote_nums(self) -> None:
         self.check_map("'a': '1', 'b': '2', and 'c': '3'", quote_numbers=True)
-        self.check_ToString(stringify(dict(a=2.5), quote_numbers=True),
+        self.check_ToString(stringify({"a": 2.5}, quote_numbers=True),
                             "'a': '2.5'")
 
     def test_removeprefix(self) -> None:
         removed = self.HELLO_WORLD.removeprefix("hello ")
-        self.check_ToString(removed, "world")  # type: ignore # TODO
+        self.check_ToString(removed, "world")
 
     def test_removesuffix(self) -> None:
         removed = self.HELLO_WORLD.removesuffix(" world")
-        self.check_ToString(removed, "hello")  # type: ignore # TODO
+        self.check_ToString(removed, "hello")
 
     def test_replace(self) -> None:
         replaced = self.HELLO_WORLD.replace("world", "there")
-        self.check_ToString(replaced, "hello there")  # type: ignore # TODO
+        self.check_ToString(replaced, "hello there")
 
     def test_replace_all(self) -> None:
         self.add_basics()
@@ -295,8 +295,7 @@ class TestStringify(Tester):
         self.check_map("'a': 1; 'b': 2; and 'c': 3", sep="; ")
 
     def test_upper(self) -> None:
-        self.check_ToString(ToString("hello").upper(),  # type: ignore
-                            "HELLO")  # TODO fix type annotation problem
+        self.check_ToString(ToString("hello").upper(), "HELLO")
 
 
 class TestURL(Tester):
@@ -307,9 +306,9 @@ class TestURL(Tester):
         url = URL.from_parts("docs.google.com", "document",
                              "d", "a1b2c3", "edit",
                              tab="t.abc123", heading="h.def456", key=12345)
-        self.check_result(str(url), self.GDOCS_URL)
+        self.check_result(url, self.GDOCS_URL)
 
     def test_without_params(self):
         url = URL(self.GDOCS_URL)
-        self.check_result(url.without_params(),
+        self.check_result(url.without_params,
                           self.GDOCS_URL.split("?", 1)[0])

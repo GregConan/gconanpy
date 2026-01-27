@@ -4,21 +4,21 @@
 Functions to import/export data from/to remote files/pages/APIs on the Web.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-13
-Updated: 2025-09-18
+Updated: 2026-01-26
 """
 # Import standard libraries
 from collections.abc import Mapping
-from dataclasses import dataclass
 import requests
-from typing import Any
-from typing_extensions import Self
-from urllib.parse import parse_qs, urlparse
+from typing import Any, Self
+from urllib.parse import parse_qs, ParseResult, urlparse
 import urllib.request
 
 # Import local custom libraries
 try:
+    from gconanpy.meta import cached_property
     from gconanpy.wrappers import ToString
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from meta import cached_property
     from wrappers import ToString
 
 
@@ -46,18 +46,7 @@ def read_webpage_at(a_URL: str) -> Any:  # -> urllib.request._UrlopenRet:
     return urllib.request.urlopen(a_URL).read()
 
 
-class URL:
-    """ `urllib.parse.ParseResult` wrapper with extra methods """
-
-    def __init__(self, a_URL: str) -> None:
-        """
-        :param a_URL: str, a valid web URL
-        """
-        self.urlstr = a_URL
-        self.parsed = urlparse(a_URL)
-
-    def __repr__(self) -> str:
-        return self.urlstr
+class URL(ToString):
 
     @classmethod
     def from_parts(cls, *parts: str, **url_params: Any) -> Self:
@@ -70,14 +59,18 @@ class URL:
         """
         url = f"https://{'/'.join(parts)}"
         if url_params:
-            url += ToString.fromMapping(
+            url += cls.fromMapping(
                 url_params, quote=None, join_on="=", prefix="?",
                 suffix=None, sep="&", lastly="")
         return cls(url)
 
-    def get_params(self) -> dict[str, list]:
+    @cached_property[dict[str, list]]
+    def params(self) -> dict[str, list]:
         return parse_qs(self.parsed.query)
 
+    parsed = cached_property[ParseResult](urlparse)
+
+    @cached_property[str]
     def without_params(self) -> str:
         """
         :return: str, URL but without any parameters
@@ -85,17 +78,23 @@ class URL:
         return f"{self.parsed.scheme}://{''.join(self.parsed[1:3])}"
 
 
-@dataclass
 class Link:
-    text: str
-    url: str
+
+    def __init__(self, text: str, url: str) -> None:
+        self.text = text
+        self.url = URL(url)
 
     @classmethod
     def from_markdown(cls, markdown_link_text: str) -> Self:
-        markdown_link_text = markdown_link_text.strip()
-        assert markdown_link_text[0] == "[" and markdown_link_text[-1] == ")"
-        md_link_parts = markdown_link_text[1:-1].split("](")
-        return cls(md_link_parts[0], md_link_parts[1])
+        try:
+            markdown_link_text = markdown_link_text.strip()
+            assert markdown_link_text[0] == "[" \
+                and markdown_link_text[-1] == ")"
+            md_link_parts = markdown_link_text[1:-1].split("](")
+            self = cls(md_link_parts[0], md_link_parts[1])
+        except (AssertionError, IndexError, TypeError) as err:
+            raise ValueError(*err.args)
+        return self
 
     def to_markdown(self) -> str:
         a_string = self.text.replace("[", r"\[").replace("]", r"\]")

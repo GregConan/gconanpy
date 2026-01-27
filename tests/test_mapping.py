@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2025-12-18
+Updated: 2026-01-26
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -495,9 +495,9 @@ class TestAccessor(DictTester):
         assert not timing  # If we're timing, raise err to print results
 
 
-class TestExclutionary(DictTester):
-    CLASSES = tuple[type[Exclutionary], ...]
-    TEST_CLASSES: CLASSES = (Exclutionary, FancyDict, LazyDict, LazyDotDict)
+class TestExcluDict(DictTester):
+    CLASSES = tuple[type[ExcluDict], ...]
+    TEST_CLASSES: CLASSES = (ExcluDict, FancyDict, LazyDict, LazyDotDict)
 
     def test_chain_get(self, classes: CLASSES = TEST_CLASSES) -> None:
         for DictClass in classes:

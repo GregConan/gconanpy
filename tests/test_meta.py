@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-07
-Updated: 2025-11-05
+Updated: 2026-01-26
 """
 # Import standard libraries
 import builtins
@@ -22,7 +22,7 @@ from gconanpy.access import attributes
 from gconanpy.debug import StrictlyTime
 from gconanpy.iters import Combinations
 from gconanpy.mapping.dicts import Cryptionary, CustomDict, DotDict, \
-    Exclutionary, LazyDict, LazyDotDict, Sortionary
+    ExcluDict, LazyDict, LazyDotDict, Sortionary
 from gconanpy.meta import Boolable, name_of, names_of, \
     Recursively, TimeSpec
 # from gconanpy.meta.access import ACCESS, Access
@@ -227,7 +227,7 @@ class TestMetaFunctions(Tester):
 
     def test_metaclass_issubclass(self) -> None:
         self.add_basics()
-        subclasses = (dict, CustomDict, Exclutionary, DotDict)
+        subclasses = (dict, CustomDict, ExcluDict, DotDict)
         not_subclasses = (LazyDict, LazyDotDict, Cryptionary)
 
         class DictTestType(metaclass=MakeMetaclass.for_classes(

@@ -4,7 +4,7 @@
 Classes that wrap other classes, especially builtins, to add functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-11-19
+Updated: 2025-12-31
 """
 # Import standard libraries
 import argparse
@@ -161,9 +161,9 @@ class ToString(str, metaclass=MethodWrappingMeta):
                 encoding: str = sys.getdefaultencoding(),
                 errors: str = "ignore", lastly: str = "and ",
                 iter_kwargs: dict[str, Any] = {}) -> Self:
-        """ Convert an object ToString
+        """ Convert an object `ToString`.
 
-        :param an_obj: Any, object to convert ToString
+        :param an_obj: Any, object to convert `ToString`
         :param max_len: int, size of the longest possible ToString to return \
             without truncation, or None to never truncate; defaults to None
         :param quote: str to add before and after each element of `an_obj`, \
@@ -184,10 +184,11 @@ class ToString(str, metaclass=MethodWrappingMeta):
             the time to include; defaults to "seconds".
         :param replace: Mapping[str, str] of parts (in the result of calling \
             `datetime.*.isoformat` on a `datetime`-typed `an_obj`) to \
-            different strings to replace them with; by default, will replace ":" \
-            with "-" to name files.
-        :param encoding: str,_description_, defaults to sys.getdefaultencoding()
-        :param errors: str,_description_, defaults to "ignore"
+            different strings to replace them with; by default, will replace
+            ":" with "-" to name files.
+        :param encoding: str,_description_, defaults to
+            `sys.getdefaultencoding()`
+        :param errors: str, _description_, defaults to "ignore"
         :param lastly: str to insert after the last `sep` in the returned \
             ToString object `if len(an_obj) > 2`, or None to add no such \
             string; defaults to "and "
@@ -674,15 +675,11 @@ class WrapFunction:  # WrapFunction(partial):
         """
         :return: str, annotated function header describing this WrapFunction.
         """
-        # Put all pre-defined args and kwargs into this instance's str repr
-        if not getattr(self, "stringified", None):
-            self.stringified = ToString.fromCallable(
-                type(self), **self.__dict__)
         return self.stringified
 
     def __setstate__(self, state: _VarsTypes) -> None:
         self.func, self.pre, self.post, keywords = state
-        self.keywords = keywords if keywords else dict()
+        self.keywords = keywords if keywords else {}
 
     def expect(self, output: Any) -> Self:
         """ 
@@ -710,6 +707,14 @@ class WrapFunction:  # WrapFunction(partial):
         """
         for an_obj in objects:
             yield self.func(an_obj, **kwargs)
+
+    @cached_property[ToString]
+    def stringified(self) -> ToString:
+        """
+        :return: ToString, representation of this `WrapFunction` instance 
+            including all of its pre-defined positional and keyword arguments.
+        """
+        return ToString.fromCallable(type(self), **vars(self))
 
 
 # @ClassWrapper(tuple).class_decorator  # TODO?

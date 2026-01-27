@@ -6,7 +6,7 @@ Expanding Python's built-in accessor (getter/setter/deleter/etc) functions \
     for use on more kinds of objects.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-09-11
-Updated: 2025-11-03
+Updated: 2026-01-26
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Hashable, \
@@ -16,9 +16,11 @@ import operator
 from typing import Any, cast, NamedTuple, overload, ParamSpec, TypeVar
 
 try:
+    from gconanpy.mapping.attrmap import AttrMap
     from gconanpy.meta.typeshed import \
         DATA_ERRORS, SupportsGetItem, SupportsItemAccess
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from mapping.attrmap import AttrMap
     from meta.typeshed import DATA_ERRORS, SupportsGetItem, SupportsItemAccess
 
 # TypeVars for (g/s)etdefault and Accessor class methods' input parameters
@@ -405,7 +407,4 @@ class Access:
     attribute = ACCESS_ATTR
 
 
-# TODO REMOVE(?) bc it's slightly slower & using it is less concise?
-# Change to frozendict so it's a global constant (& maybe faster?)
-# https://github.com/Marco-Sulla/python-frozendict/issues/18
-ACCESS = {"item": ACCESS_ITEM, "attribute": ACCESS_ATTR}
+ACCESS = AttrMap[Accessor]({"item": ACCESS_ITEM, "attribute": ACCESS_ATTR})

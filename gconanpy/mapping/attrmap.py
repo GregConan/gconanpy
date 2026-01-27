@@ -2,7 +2,7 @@
 Class that forces type checker to understand dot notation item access.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-11-21
-Updated: 2025-12-05
+Updated: 2026-01-26
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Mapping, MutableMapping
@@ -38,24 +38,28 @@ class AttrMap[T](MutableMapping[str, T]):
         "__str__", "__subclasshook__", "__weakref__", "asdict",
         "clear", "copy", "fromkeys", "get", "items", "keys", "pop", "popitem",
         "setdefault", "update", "values"]
-    _MISC_ATTR = Literal["__base__", "__bases__", "__basicsize__", "__hash__",
-                         "__orig_class__", "__weakref__"]
+    _MISC_ATTR = Literal["__annotations__", "__base__", "__bases__",
+                         "__basicsize__", "__class__", "__hash__",
+                         "__weakref__"]
+    _STR_ATTR = Literal["__doc__", "__module__"]
     _STR_SET = Literal["__mutable__", "__protected_keywords__", "names"]
-    _TUP_ATTR = Literal["__orig_bases__", "__parameters__", "__type_params__"]
-    _TYPE_VAR = Literal["_METHOD", "_MISC_ATTR", "_STR_SET",
+    _TUP_ATTR = Literal["__orig_bases__", "__parameters__", "__slots__",
+                        "__type_params__"]
+    _TYPE_VAR = Literal["_METHOD", "_MISC_ATTR", "_STR_ATTR", "_STR_SET",
                         "_TUP_ATTR", "_TYPE_VAR"]
 
     __dict__: dict[str, T]
     __mutable__: set[str] = {"names", }
     __protected_keywords__: set[str] = {
-        "__dict__", *get_args(_STR_SET), *get_args(_METHOD),
-        *get_args(_MISC_ATTR), *get_args(_TUP_ATTR), *get_args(_TYPE_VAR)}
+        "__dict__", *get_args(_STR_ATTR), *get_args(_STR_SET),
+        *get_args(_METHOD), *get_args(_MISC_ATTR), *get_args(_TUP_ATTR),
+        *get_args(_TYPE_VAR)}
     names: set[str]
 
     def __init__(self, from_map: Mapping[str, T] = {}, **kwargs: T
                  ) -> None:
         self.names = set[str]()
-        kwargs.update(from_map)
+        kwargs = {**from_map, **kwargs}
         for key, value in kwargs.items():
             setattr(self, key, value)
 
@@ -77,6 +81,8 @@ class AttrMap[T](MutableMapping[str, T]):
     @overload
     def __getattribute__(self, name: _METHOD) -> Callable: ...
     @overload
+    def __getattribute__(self, name: _STR_ATTR) -> str: ...
+    @overload
     def __getattribute__(self, name: _STR_SET) -> set[str]: ...
     @overload
     def __getattribute__(self, name: _TUP_ATTR) -> tuple: ...
@@ -87,7 +93,7 @@ class AttrMap[T](MutableMapping[str, T]):
     @overload
     def __getattribute__(self, name: Literal["__weakref__"]) -> Any: ...
     @overload
-    def __getattribute__(self, name: Literal["__orig_class__"]) -> type: ...
+    def __getattribute__(self, name: Literal["__class__"]) -> type: ...
 
     @overload
     def __getattribute__(self, name: Literal["__dict__"]
@@ -101,8 +107,18 @@ class AttrMap[T](MutableMapping[str, T]):
         # checkers won't recognize value types when accessed with dot notation
         return super().__getattribute__(name)
 
+    def __or__(self, other: Self) -> Self:
+        new_map = type(self)()
+        for k in self.names | other.names:
+            try:
+                setattr(new_map, k,  getattr(other, k))
+            except AttributeError:
+                setattr(new_map, k, getattr(self, k))
+        return new_map  # return type(self)(self.asdict() | other.asdict())
+
     def __repr__(self) -> str:
-        return str(self.asdict())
+        return f"{self.__class__.__name__}({self.asdict()})"
+        # return str(self.asdict())
 
     def __setattr__(self, name: str, value: T, /) -> None:
         if name in getattr(self, "__protected_keywords__", ()):
