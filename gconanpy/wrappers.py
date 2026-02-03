@@ -4,7 +4,7 @@
 Classes that wrap other classes, especially builtins, to add functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-12-31
+Updated: 2026-02-02
 """
 # Import standard libraries
 import argparse
@@ -144,11 +144,10 @@ class ToString(str, metaclass=MethodWrappingMeta):
         """
         cls = type(self)
         if format:
-            stringified = cls.fromIterable([cls.fromAny(el, **format)
-                                           for el in iterable])
+            return cls.fromIterable([cls.fromAny(el, **format)
+                                     for el in iterable])
         else:
-            stringified = cls(self.join(cls(el) for el in iterable))
-        return stringified
+            return cls(self.join(cls(el) for el in iterable))
 
     @classmethod
     def fromAny(cls, an_obj: Any, max_len: int | None = None,

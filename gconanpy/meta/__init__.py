@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2025-12-17
+Updated: 2026-01-28
 """
 # Import standard libraries
 import abc
@@ -17,8 +17,7 @@ from math import log10
 import pdb
 # from types import MappingProxyType  # TODO freeze TimeSpec?
 from typing import Any, cast, get_args, Literal, no_type_check, \
-    overload, ParamSpec, SupportsFloat, TypeVar
-from typing_extensions import Self
+    overload, ParamSpec, Self, SupportsFloat, TypeVar
 
 try:
     from gconanpy.meta.typeshed import DATA_ERRORS, Unhashable, \
@@ -577,6 +576,17 @@ class Comparer(IteratorFactory):
                 biggest = item
                 max_size = item_size
         return biggest
+
+
+class NameWrapper:
+    """ Base class for data container wrappers that store names """
+    names: Collection[str]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.names)
+
+    def __len__(self) -> int:
+        return len(self.names)
 
 
 class MethodWrappingMeta(type):

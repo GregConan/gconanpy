@@ -6,7 +6,7 @@ Expanding Python's built-in accessor (getter/setter/deleter/etc) functions \
     for use on more kinds of objects.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-09-11
-Updated: 2026-01-26
+Updated: 2026-01-27
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Hashable, \
@@ -407,4 +407,4 @@ class Access:
     attribute = ACCESS_ATTR
 
 
-ACCESS = AttrMap[Accessor]({"item": ACCESS_ITEM, "attribute": ACCESS_ATTR})
+ACCESS = AttrMap[Accessor](item=ACCESS_ITEM, attribute=ACCESS_ATTR)

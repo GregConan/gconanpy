@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2025-11-03
+Updated: 2026-02-02
 """
 # Import standard libraries
 import abc
@@ -46,7 +46,7 @@ def all_annotations_of(a_class: type) -> dict[str, type]:
     :return: dict[str, type], the `__annotations__` of `a_class` and all of \
         its parent (`__mro__`) classes, prioritizing `a_class`'s annotations
     """
-    return merge([cast(dict, getattr(base, "__annotations__", dict()))
+    return merge([cast(dict, getattr(base, "__annotations__", {}))
                   for base in reversed(a_class.__mro__)])
 
 
@@ -71,8 +71,10 @@ def classes_in_module(module: ModuleType) -> Generator[tuple[str, type],
     :yield: Generator[tuple[str, type], None, None], name-class pairs for \
         every `class` defined in `module`.
     """
+    module_name = name_of(module)
+
     def is_class_from_module(an_obj: Any) -> bool:
-        return inspect.isclass(an_obj) and an_obj.__module__ == name_of(module)
+        return inspect.isclass(an_obj) and an_obj.__module__ == module_name
     yield from inspect.getmembers(module, is_class_from_module)
 
 
@@ -129,7 +131,7 @@ def make_MRO_for_subclass_of(*types: type) -> Iterator[type]:
 def module_classes_to_args_dict(module: ModuleType, *suffixes: str,
                                 ignore: Container[type] = set()
                                 ) -> dict[str, type]:
-    classes = dict()
+    classes = {}
     for class_name, each_class in classes_in_module(module):
         for suffix in suffixes:
             if class_name.endswith(suffix) and each_class not in ignore:
@@ -252,8 +254,7 @@ class WeakDataclassBase:
 def weak_dataclass(a_class: type, *args: inspect.Parameter) -> type:
     all_params = params_for(a_class, *args)
     init_sig = inspect.Signature(all_params, return_annotation=None)
-    WeakDataclass = type(name_of(a_class), (a_class, WeakDataclassBase),
-                         dict())
+    WeakDataclass = type(name_of(a_class), (a_class, WeakDataclassBase), {})
     WeakDataclass.__slots__ = tuple([p.name for p in all_params[1:]
                                      if p.name != "__slots__"])
     WeakDataclass.__init__ = create_function(init_sig, initialize,

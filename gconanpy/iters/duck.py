@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-01
-Updated: 2025-11-14
+Updated: 2026-02-02
 """
 # Import standard libraries
 from copy import copy, deepcopy
@@ -18,7 +18,7 @@ try:
     from gconanpy.mapping import keys_mapped_to
     from gconanpy.meta import DATA_ERRORS, name_of
     from gconanpy.meta.typeshed import AddableSequence, BytesOrStr, \
-        DATA_ERRORS, SupportsAnd, SupportsGetItem, SupportsItemAccess, \
+        DATA_ERRORS, SupportsGetItem, SupportsItemAccess, \
         SupportsRichComparison
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from mapping import keys_mapped_to
@@ -77,17 +77,15 @@ class DuckCollection[T]:
         try:
             match self.ducks, other:
                 case Sequence(), Sequence():
-                    result = True
                     for mine, yours in zip(self.ducks, other):
                         if mine != yours:
-                            result = False
-                            break
+                            return False
+                    return True
                 case _:
                     try:
-                        result = set(self.ducks) == set(other)
+                        return set(self.ducks) == set(other)
                     except DATA_ERRORS:
-                        result = self.ducks == other
-            return result
+                        return self.ducks == other
         except DATA_ERRORS:
             return False
 

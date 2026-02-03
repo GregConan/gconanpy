@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2025-12-12
+Updated: 2026-02-02
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping
@@ -74,7 +74,7 @@ class DifferenceBetween:
         # If objects differ, then discover how; else there's no need
         try:
             self.is_different = not all_equal(self.comparables)
-            self.diffs = self.find() if self.is_different else list()
+            self.diffs = self.find() if self.is_different else []
         except DATA_ERRORS:
             self.diffs = self.find()
             self.is_different = bool(self.diffs)
@@ -200,7 +200,7 @@ class DifferenceBetween:
                 BY, getattr, next(iter(keys)))
 
         # Finally, if no difference was found, return an empty list
-        return diff_attrs if self.difference else list()
+        return diff_attrs if self.difference else []
 
 
 class Peeler(IteratorFactory):

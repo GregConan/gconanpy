@@ -4,21 +4,21 @@
 Functions/classes to access and/or modify the attributes of any object(s).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-02
-Updated: 2026-01-26
+Updated: 2026-02-02
 """
 # Import standard libraries
-from collections.abc import Callable, Container, Generator, Iterable
+from collections.abc import Callable, Container, Generator, Iterable, Iterator
 from typing import Any, ParamSpec, TypeVar
 
 # Import local custom libraries
 try:
     from gconanpy.iters.filters import Filter
     from gconanpy.iters import IterableMap
-    from gconanpy.meta import DATA_ERRORS
+    from gconanpy.meta import DATA_ERRORS, name_of, NameWrapper
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from iters.filters import Filter
     from iters import IterableMap
-    from meta import DATA_ERRORS
+    from meta import DATA_ERRORS, name_of, NameWrapper
 
 # Type variables for functions' input argument type hints
 _P = ParamSpec("_P")  # for lazyget and lazysetdefault
@@ -213,7 +213,7 @@ def setdefault(an_obj: Any, name: str, value: Any,
     return gotten
 
 
-class AttrsOf(IterableMap):
+class AttrsOf(IterableMap, NameWrapper):
     """ Select/iterate/copy the attributes of any object. """
     _AttrPair = tuple[str, Any]  # name-value pair
 
@@ -225,6 +225,10 @@ class AttrsOf(IterableMap):
     IS_PRIVATE = Filter(names_are=is_private)
     IS_PUBLIC = ~IS_PRIVATE
     IS_PUBLIC_METHOD = IS_PUBLIC + IS_METHOD
+
+    # Public instance variables
+    names: set[str]  # All attribute names
+    what: Any  # Object to access attributes of
 
     def __init__(self, what: Any) -> None:
         """
@@ -243,8 +247,8 @@ class AttrsOf(IterableMap):
     def __getitem__(self, name: str) -> Any:
         return getattr(self.what, name)
 
-    def __iter__(self) -> Generator[str, None, None]:
-        yield from self.names
+    def __repr__(self) -> str:
+        return f"{name_of(self)}({self.what})"
 
     def __setitem__(self, name: str, value: Any) -> None:
         setattr(self.what, name, value)

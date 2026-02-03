@@ -2,24 +2,24 @@
 Class that forces type checker to understand dot notation item access.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-11-21
-Updated: 2026-01-26
+Updated: 2026-02-02
 """
 # Import standard libraries
-from collections.abc import Callable, Generator, Mapping, MutableMapping
+from collections.abc import Callable, Mapping, MutableMapping, Iterator
 from typing import Any, get_args, Literal, overload, Self, TypeVar
 
 # Import local custom libraries
 try:
-    from gconanpy.meta import error_changer
+    from gconanpy.meta import error_changer, NameWrapper
 except (ImportError, ModuleNotFoundError):
-    from meta import error_changer
+    from meta import error_changer, NameWrapper
 
 # Wrapper function that takes a method that can raise AttributeError and
 # returns a copy identical except that it can raise KeyError.
 wrap_attr2key = error_changer(AttributeError, KeyError)
 
 
-class AttrMap[T](MutableMapping[str, T]):
+class AttrMap[T](NameWrapper, MutableMapping[str, T]):
     """ Simple `MutableMapping[str, T]` that can store, access, and modify \
         items as attributes using dot notation, in a manner that is \
         recognizable by type checkers. """
@@ -71,12 +71,6 @@ class AttrMap[T](MutableMapping[str, T]):
             raise AttributeError("Cannot delete protected attribute")
         super().__delattr__(name)
         self.names.discard(name)
-
-    def __iter__(self) -> Generator[str, None, None]:
-        yield from self.names
-
-    def __len__(self) -> int:
-        return len(self.names)
 
     @overload
     def __getattribute__(self, name: _METHOD) -> Callable: ...

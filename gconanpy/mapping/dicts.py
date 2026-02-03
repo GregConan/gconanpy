@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2026-01-26
+Updated: 2026-02-02
 """
 # Import standard libraries
 from collections import defaultdict
@@ -248,17 +248,15 @@ class ExcluDict[KT, VT](CustomDict[KT, VT]):
             is not mapped to anything in `exclude`.
         """
         try:  # If we have the key, return True unless its value doesn't count
-            result = self[key] not in exclude
+            return self[key] not in exclude
 
         except KeyError:  # If we don't have the key, return False
-            result = False
+            return False
 
         # `self[key] in exclude` raises TypeError if self[key] isn't Hashable.
         # In that case, self[key] can't be in exclude, so self has key.
         except TypeError:
-            result = True
-
-        return result
+            return True
 
     def has_all(self, keys: Iterable[KT], exclude: Container[VT] = set()
                 ) -> bool:

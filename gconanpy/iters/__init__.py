@@ -5,7 +5,7 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-12-28
+Updated: 2026-02-03
 """
 # Import standard libraries
 import abc
@@ -30,7 +30,7 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from meta.typeshed import Poppable, Updatable
 
 # TypeVars to define type hints for...
-_H = TypeVar("_H", bound=Hashable)      # ...invert & uniqs_in
+_H = TypeVar("_H", bound=Hashable)      # ...uniqs_in & Combinations.of_uniques
 _Map = TypeVar("_Map", bound=Mapping)   # ...Combinations.of_map
 _P = ParamSpec("_P")                    # ...exhaust_wrapper
 _Seq = TypeVar("_Seq", bound=Sequence)  # ...seq_*
@@ -291,12 +291,11 @@ def startswith(an_obj: Any, prefix: Any,  # TODO Move to duck.py ?
     """
     try:
         try:
-            result = an_obj.startswith(prefix)
+            return an_obj.startswith(prefix)
         except AttributeError:  # then an_obj isn't a str, bytes or BytesArray
-            result = seq_startswith(an_obj, prefix)
+            return seq_startswith(an_obj, prefix)
     except TypeError:  # then an_obj isn't a Sequence or prefix isn't
-        result = seq_startswith(stringify(an_obj), stringify(prefix))
-    return result
+        return seq_startswith(stringify(an_obj), stringify(prefix))
 
 
 # TODO Rename to deduplicate_sort?
@@ -347,7 +346,7 @@ class Randoms:
     @staticmethod
     def _int_or_randint(int_or_pair: int | tuple[int, int]) -> int:
         """ Return or randomly generate an int. Defined for use by methods \
-            with parameters to optionally provide OR randomly generate.
+            with int parameters to optionally provide OR randomly generate.
 
         :param int_or_pair: int | tuple[int, int], either the int to return \
             or a (min, max) range to randomly generate an int between.
@@ -435,13 +434,12 @@ class Randoms:
         """
         if of_type is not None:  # "else return None" is implicit
 
-            try:  # Define dict here bc "cls.xyz" has 1 fewer arg than "xyz"
+            try:  # Define dict here bc "cls.mthd" has 1 fewer arg than "mthd"
                 ret = {bool: cls.randbool, float: random.uniform,
                        int: random.randint, str: cls.randstr
                        }[of_type](min_val, max_val)
             except KeyError:
-                if of_type is bytes:
-                    ret = random.randbytes(random.randint(min_val, max_val))
+                ret = random.randbytes(random.randint(min_val, max_val))
             return cast(RANDATUM, ret)
 
     @classmethod
