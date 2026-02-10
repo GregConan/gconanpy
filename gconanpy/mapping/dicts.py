@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2026-02-02
+Updated: 2026-02-09
 """
 # Import standard libraries
 from collections import defaultdict
@@ -46,6 +46,10 @@ FromMap = TypeVar("FromMap", Mapping, MapParts, None)
 # Constants for MathDict: numerical type hint, functools.wraps(assigned=...
 _ASSIGNED = ("__doc__", "__name__", "__qualname__")
 _NUM = int | float | complex
+
+# Constant for DotDict: attribute storing names of protected attributes and
+# methods cannot be overwritten by keys accessible through dot notation.
+PROTECTEDS = "__protected_keywords__"
 
 
 class CustomDict[KT, VT](dict[KT, VT]):
@@ -535,12 +539,6 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
     """
     _D = TypeVar("_D")  # Default option input parameter type hint for lookup
 
-    # Attributes, methods, and other keywords that should not be
-    # mutable/modifiable as items/key-value pairs. Define them all explicitly
-    # so static type checkers can distinguish between using dot notation to
-    # get a named attribute and using it as shorthand to get a value/item.
-    _PROTECTEDS = "__protected_keywords__"
-
     def __init__(self, from_map: FromMap = None, **kwargs: VT) -> None:
         """ 
         :param from_map: Mapping | Iterable[tuple[Hashable, Any]] | None, \
@@ -556,8 +554,7 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
 
         # Ensure that any subclasses' attributes are protected as well;
         # prevent overwriting methods/attributes or treating them like items
-        dict.__setattr__(self, self._PROTECTEDS,
-                         {self._PROTECTEDS}.union(get_attr_names(self)))
+        dict.__setattr__(self, PROTECTEDS, {PROTECTEDS, *get_attr_names(self)})
 
     def __delattr__(self, name: KT) -> None:
         """ Implement `delattr(self, name)`. Same as `del self[name]`.
@@ -627,7 +624,7 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
         :return: bool, True if the attribute is not protected; \
                  else raise error
         """
-        protecteds = getattr(self, self._PROTECTEDS, ())
+        protecteds = getattr(self, PROTECTEDS, ())
         if attr_name in protecteds:
             raise err_type(f"Cannot {alter} read-only '{name_of(self)}' "
                            f"object attribute '{attr_name}'")

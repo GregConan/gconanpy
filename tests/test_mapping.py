@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2026-01-26
+Updated: 2026-02-09
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -97,7 +97,7 @@ class TestAttrMap(Tester):
                    *args: _P.args, **kwargs: _P.kwargs) -> None:
         failed = False
         attrmap = self.basic_attrmap()
-        protecteds = set[str](attrmap.__protected_keywords__)
+        protecteds = set[str](getattr(attrmap, PROTECTEDS))
         if exclude_names:
             protecteds.remove("names")
         for protected_attr_name in protecteds:
@@ -537,7 +537,7 @@ class TestDotDicts(DictTester):
             del dd.b
             self.check_result([v for v in dd.values()], [1, 3])
             self.check_result(len(dd), 2)
-            self.check_result(dd._PROTECTEDS in dd, False)
+            self.check_result(PROTECTEDS in dd, False)
 
     def test_get(self, classes: CLASSES = TEST_CLASSES) -> None:
         for dd in self.get_custom_dicts(classes, DotDict):
@@ -575,7 +575,7 @@ class TestDotDicts(DictTester):
         for LazyDotDictClass in classes:
             ldd = LazyDotDictClass(self.adict)
 
-            protected_attrs: set | Any = getattr(ldd, ldd._PROTECTEDS)
+            protected_attrs: set | Any = getattr(ldd, PROTECTEDS)
             assert self.cannot_alter(ldd, *protected_attrs)
             assert protected_attrs.issuperset({"lazyget", "lazysetdefault",
                                                "__protected_keywords__"})

@@ -3,15 +3,12 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-07
-Updated: 2026-01-26
+Updated: 2026-02-09
 """
 # Import standard libraries
 import builtins
-from collections import defaultdict
 from collections.abc import Iterable, Sequence
 import random
-import string
-from timeit import timeit
 from typing import Any, TypeVar
 
 # Import third-party PyPI libraries
@@ -22,146 +19,13 @@ from gconanpy.access import attributes
 from gconanpy.debug import StrictlyTime
 from gconanpy.iters import Combinations
 from gconanpy.mapping.dicts import Cryptionary, CustomDict, DotDict, \
-    ExcluDict, LazyDict, LazyDotDict, Sortionary
+    ExcluDict, LazyDict, LazyDotDict
 from gconanpy.meta import Boolable, name_of, names_of, \
     Recursively, TimeSpec
 # from gconanpy.meta.access import ACCESS, Access
 from gconanpy.meta.metaclass import MakeMetaclass, name_type_class
 from gconanpy.meta.typeshed import MultiTypeMeta
 from gconanpy.testers import Tester
-
-
-class TestAccessSpeed(Tester):
-    # Remove initial underscore to test_access_speed to view time test
-    def _test_access_speed(self) -> None:
-        self.add_basics()
-        randstr = "".join(random.choices(
-            string.ascii_letters + string.digits, k=100))
-        arbitraries = dict(anint=-1234, atup=(1, 2, 3), alist=self.alist,
-                           adict=self.adict, afloat=-3.14159265358,
-                           astr=f"'{randstr}'")
-        # allattrs = ('anint', 'atup', 'alist', 'adict', 'afloat', 'astr')
-        allattrs = tuple(arbitraries)
-        to_test = ("obj.{}",  # Test default getters
-                   "adict['{}']",
-                   "adict.get('{}')",
-                   "getattr(obj, '{}')",
-                   "hasattr(obj, '{}')",
-                   "operator.getitem(adict, '{}')",
-                   "operator.contains(adict, '{}')",
-                   "dict.__contains__(adict, '{}')",
-                   "'{}' in adict",
-                   "dict.__getitem__(adict, '{}')",
-                   "dict.get(adict, '{}')",
-                   "Mapping.get(adict, '{}')",
-                   "object.__getattribute__(obj, '{}')",
-
-                   # Test custom getters from meta/__init__.py
-                   "getdefault(adict, '{}')",
-                   "method_get(adict, '{}')",
-                   "method_getattribute(obj, '{}')",
-                   "method_getitem(adict, '{}')",
-
-                   # Test custom getters from meta/access.py
-                   "Access.item.get(adict, '{}')",
-                   "Access.item.getdefault(adict, '{}')",
-                   "Access.item.contains(adict, '{}')",
-                   "Access.attribute.get(obj, '{}')",
-                   "Access.attribute.contains(obj, '{}')",
-                   "ACCESS['item'].get(adict, '{}')",
-                   "ACCESS['item'].getdefault(adict, '{}')",
-                   "ACCESS['item'].contains(adict, '{}')",
-                   "ACCESS['attribute'].get(obj, '{}')",
-                   "ACCESS['attribute'].contains(obj, '{}')",
-
-                   # Test default setters
-                   "setattr(obj, '{}', None)",
-                   "object.__setattr__(obj, '{}', None)",
-                   "dict.setdefault(adict, '{}', None)",
-                   "adict.setdefault('{}', None)",
-                   "setdefault(adict, '{}', None)",
-                   "adict['{}'] = None",
-                   "obj.{} = None",
-
-                   # Test custom setters
-                   "method_setattr(obj, '{}', None)",
-                   "method_setitem(adict, '{}', None)",
-                   "attributes.setdefault(obj, '{}', None)",
-                   "Access.item.set_to(adict, '{}', None)",
-                   "Access.attribute.set_to(obj, '{}', None)",
-                   "ACCESS['item'].set_to(adict, '{}', None)",
-                   "ACCESS['attribute'].set_to(obj, '{}', None)")
-
-        SETUP = f"""import operator
-from typing import Mapping
-
-try:
-    from gconanpy import attributes
-    from gconanpy.meta import method
-    from gconanpy.meta.access import ACCESS, Access, getdefault, setdefault
-except (ImportError, ModuleNotFoundError):
-    import attributes
-    from meta import method
-    from meta.access import ACCESS, Access, getdefault, setdefault
-
-
-class BareObject():
-    ''' Bare/empty object to freely add new attributes to. Must be defined in
-        the same file where it is used. '''
-
-
-method_get = method('get')
-method_getattribute = method('__getattribute__')
-method_getitem = method('__getitem__')
-method_setattr = method('__setattr__')
-method_setitem = method('__setitem__')
-
-obj = BareObject()
-obj.anint={arbitraries['anint']}
-obj.atup={arbitraries['atup']}
-obj.alist={arbitraries['alist']}
-obj.adict={arbitraries['adict']}
-obj.afloat={arbitraries['afloat']}
-obj.astr={arbitraries['astr']}
-
-adict={arbitraries}
-allattrs={allattrs}
-"""
-        times = {eachcall: sum([
-            timeit(eachcall.format(ex), setup=SETUP, number=200000)
-            for ex in allattrs]) for eachcall in to_test}  # for _ in range(5)
-        # sumtimes = {x: 0.0 for x in times.keys()}
-        sumtimes = defaultdict(float)
-        keys = defaultdict(set)
-        newkeys = ("dict", "method", "operator", "Mapping", "adict", "access",
-                   "Access", "ACCESS", "attributes")
-        for k in times:
-            new_key = None
-            for new_k in newkeys:
-                if k.startswith(new_k):
-                    new_key = new_k
-                    break
-            if not new_key:
-                new_key = "adict" if k.endswith("adict") \
-                    else "attr" if len(k) > 7 and k[3:7] == "attr" \
-                    else "access" if k[1:10] == "etdefault" else "default"
-            keys[new_key].add(k)
-
-        # Sort each access method, and category average thereof, by time taken
-        for newkey, oldkeys in keys.items():
-            for old in oldkeys:
-                sumtimes[newkey] += times[old]
-            sumtimes[newkey] /= len(oldkeys)
-        to_print = [f"{k} = {round(v * 1000, 3)}" for d in (times, sumtimes)
-                    for k, v in Sortionary(**d).sorted_by("values")]
-
-        # Check how far to the right to justify the printed text so all of the
-        # times line up in the output, then print them
-        indent = max(len(eachline) for eachline in to_print)
-        for eachline in to_print:
-            print(eachline.rjust(indent))
-
-        assert False
 
 
 class TestMetaClasses(Tester):

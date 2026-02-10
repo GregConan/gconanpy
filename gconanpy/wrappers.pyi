@@ -5,16 +5,17 @@ This file forces static type checkers to acknowledge that `ToString` methods
 never return `str` and only return `ToString`, even inherited methods.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-11-19
-Updated: 2025-12-18
+Updated: 2026-02-09
 """
 # Import standard libraries
 import argparse
+from builtins import _FormatMapMapping, _TranslateTable
 from collections.abc import Callable, Collection, Generator, \
     Hashable, Iterable, Mapping
 import datetime as dt
 import sys
 from typing import Any, Concatenate, Literal, NamedTuple, \
-    overload, ParamSpec, Protocol, Self, SupportsIndex, TypeVar
+    overload, ParamSpec, Self, SupportsIndex, TypeVar
 
 # Import third-party PyPI libraries
 import bs4
@@ -29,16 +30,6 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
 
 # Type variables
 _P = ParamSpec("_P")
-
-
-class _FormatMapMapping(Protocol):
-    # Copied verbatim from builtins.pyi for ToString's str methods
-    def __getitem__(self, key: str, /) -> Any: ...
-
-
-class _TranslateTable(Protocol):
-    # Copied verbatim from builtins.pyi for ToString's str methods
-    def __getitem__(self, key: int, /) -> str | int | None: ...
 
 
 class ToString(str, metaclass=MethodWrappingMeta):
