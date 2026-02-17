@@ -4,7 +4,7 @@
 Functions/classes to access and/or modify the attributes of any object(s).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-02
-Updated: 2026-02-02
+Updated: 2026-02-17
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Iterable, Iterator
@@ -14,11 +14,11 @@ from typing import Any, ParamSpec, TypeVar
 try:
     from gconanpy.iters.filters import Filter
     from gconanpy.iters import IterableMap
-    from gconanpy.meta import DATA_ERRORS, name_of, NameWrapper
+    from gconanpy.meta import DATA_ERRORS, name_of
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from iters.filters import Filter
     from iters import IterableMap
-    from meta import DATA_ERRORS, name_of, NameWrapper
+    from meta import DATA_ERRORS, name_of
 
 # Type variables for functions' input argument type hints
 _P = ParamSpec("_P")  # for lazyget and lazysetdefault
@@ -213,7 +213,7 @@ def setdefault(an_obj: Any, name: str, value: Any,
     return gotten
 
 
-class AttrsOf(IterableMap, NameWrapper):
+class AttrsOf(IterableMap):
     """ Select/iterate/copy the attributes of any object. """
     _AttrPair = tuple[str, Any]  # name-value pair
 
@@ -246,6 +246,12 @@ class AttrsOf(IterableMap, NameWrapper):
 
     def __getitem__(self, name: str) -> Any:
         return getattr(self.what, name)
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.names)
+
+    def __len__(self) -> int:
+        return len(self.names)
 
     def __repr__(self) -> str:
         return f"{name_of(self)}({self.what})"
