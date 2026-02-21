@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2026-02-09
+Updated: 2026-02-10
 """
 # Import standard libraries
 from collections.abc import (Callable, Generator, Iterable,
@@ -19,7 +19,7 @@ from typing import Any, Concatenate, ParamSpec, TypeVar
 # Import local custom libraries
 from gconanpy import mapping
 from gconanpy.access import attributes
-from gconanpy.access import ACCESS, Access, Accessor
+from gconanpy.access import ACCESS, Accessor
 from gconanpy.debug import StrictlyTime
 from gconanpy.iters import Combinations, duplicates_in, MapWalker, \
     powers_of_ten, Randoms
@@ -285,7 +285,7 @@ class TestDictFunctions(DictTester):
         self.add_basics()
         a_dict = dict_class(self.adict)
         for k, v in a_dict.items():
-            self.check_result(lazyget(a_dict, k), v)
+            self.check_result(lazyget(a_dict, k, return_self), v)
             for triv_fn, triv_out in self.TRIVIALS.items():
                 for args in list(), tuple(), self.alist:
                     for kwargs in {}, self.adict:
@@ -466,8 +466,8 @@ class TestAccessor(DictTester):
         result = {1, 2, 5, "foo", "bar"}
         # TRIPLETTERS = SimpleNamespace(**self.adict)
 
-        item_funcs = [ACCESS["item"].lazyget, ACCESS["item"].lazysetdefault]
-        # Access.item.lazyget, Access.item.lazysetdefault]  # TODO ?
+        item_funcs = [ACCESS["item"].lazyget, ACCESS["item"].lazysetdefault,
+                      ACCESS.item.lazyget, ACCESS.item.lazysetdefault]
         if not timing:
             lazytest = self.lazytest
 
@@ -488,8 +488,9 @@ class TestAccessor(DictTester):
         for attrfunc in [attributes.lazyget,
                          attributes.lazysetdefault,
                          ACCESS["attribute"].lazyget,
-                         ACCESS["attribute"].lazysetdefault]:
-            # Access.attribute.lazyget, Access.attribute.lazysetdefault]:  # TODO ?
+                         ACCESS["attribute"].lazysetdefault,
+                         ACCESS.attribute.lazyget,
+                         ACCESS.attribute.lazysetdefault]:
             lazytest(attrfunc, result, self.TRIPLETTERS, True, set.union, set(),
                      *getter_args, lazyname=full_name_of(itemfunc))
         assert not timing  # If we're timing, raise err to print results

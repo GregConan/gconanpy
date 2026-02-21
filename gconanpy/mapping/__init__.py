@@ -4,7 +4,7 @@
 Useful/convenient functions for dicts (taken from dicts.py class methods).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2025-11-03
+Updated: 2026-02-20
 """
 # Import standard libraries
 from collections import defaultdict
@@ -19,11 +19,9 @@ from typing import Any, cast, Literal, overload, ParamSpec, TypeVar
 try:
     from gconanpy.iters import SimpleShredder
     from gconanpy.meta.typeshed import DATA_ERRORS, SupportsRichComparison
-    from gconanpy.trivial import always_none
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from iters import SimpleShredder
     from meta.typeshed import DATA_ERRORS, SupportsRichComparison
-    from trivial import always_none
 
 # Type variables for type hints
 _D = TypeVar("_D")
@@ -245,9 +243,9 @@ def keys_mapped_to(a_map: Mapping[_KT, _VT], value: _VT,
 
 
 def lazyget(a_map: Mapping[_KT, _VT], key: _KT,
-            get_if_absent: Callable[_P, _VT] = always_none,
+            get_if_absent: Callable[_P, _D],
             exclude: Container[_VT] = set(),
-            *args: _P.args, **kwargs: _P.kwargs) -> _VT:
+            *args: _P.args, **kwargs: _P.kwargs) -> _VT | _D:
     """ Adapted from `LazyButHonestDict.lazyget` from \
         https://stackoverflow.com/q/17532929
 
@@ -267,7 +265,7 @@ def lazyget(a_map: Mapping[_KT, _VT], key: _KT,
 
 
 def lazysetdefault(a_map: MutableMapping[_KT, _VT], key: _KT,
-                   get_if_absent: Callable[_P, _VT] = always_none,
+                   get_if_absent: Callable[_P, _VT],
                    exclude: Container[_VT] = set(),
                    *args: _P.args, **kwargs: _P.kwargs) -> _VT:
     """ Return the value for key if key is in `a_map` and not in \
@@ -316,6 +314,17 @@ def lookup(a_map: Mapping[_KT, _VT], path: str, sep: str = ".",
     except DATA_ERRORS:
         retrieved = default
     return default if keypath else cast(_VT, retrieved)
+
+
+def many_from_1_mapper_dict(**kwargs: Iterable[_KT]) -> dict[_KT, str]:
+    """ Create dict repeatedly mapping different keys to the same value.
+        Useful for standardizing similar values, e.g. in a Pandas DataFrame.
+
+    :param **kwargs: Iterable[_KT], keys to map to the same string value
+    :return: dict[_KT, str] mapping every value in every element of `kwargs` as
+        a key to the `kwargs` key as a value
+    """
+    return {each_key: k for k, v in kwargs.items() for each_key in v}
 
 
 def missing_keys(a_map: Mapping[_KT, _VT], keys: Iterable[_KT],
