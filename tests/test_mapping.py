@@ -3,11 +3,11 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2026-02-10
+Updated: 2026-02-23
 """
 # Import standard libraries
-from collections.abc import (Callable, Generator, Iterable,
-                             Mapping, MutableMapping)
+from collections.abc import Callable, Container, Generator, Iterable, \
+    Mapping, MutableMapping
 from math import prod
 import pdb
 import operator
@@ -23,7 +23,7 @@ from gconanpy.access import ACCESS, Accessor
 from gconanpy.debug import StrictlyTime
 from gconanpy.iters import Combinations, duplicates_in, MapWalker, \
     powers_of_ten, Randoms
-from gconanpy.mapping.attrmap import AttrMap, DefaultAttrMap
+from gconanpy.mapping.attrmap import *
 from gconanpy.mapping.dicts import *
 from gconanpy.mapping.grids import HashGrid, Locktionary  # GridCryptionary,
 from gconanpy.meta import full_name_of, TimeSpec
@@ -41,6 +41,10 @@ InvertCryptionary = type("InvertCryptionary",
 InvertPromptionary = type("InvertPromptionary",
                           (Promptionary, Invertionary), {})
 SubDotDict = type("SubDotDict", (DotDict, Subsetionary), {})
+
+# Type hint variables
+_P = ParamSpec("_P")  # for TestAttrMap
+_T = TypeVar("_T")  # for TestHashGrid
 
 
 class DictTester(Tester):
@@ -75,10 +79,9 @@ class DictTester(Tester):
 
 
 class TestAttrMap(Tester):
-    _P = ParamSpec("_P")
     CLASSES = tuple[type[AttrMap], ...]
     TEST_CLASSES: CLASSES = (
-        AttrMap, DefaultAttrMap)
+        AttrMap, DefaultAttrMap, ExcludAttrMap, LazyAttrMap, PromptAttrMap)
 
     """
     def get_custom_dicts(self, classes: CLASSES, _base: type[AttrMap]
@@ -86,7 +89,7 @@ class TestAttrMap(Tester):
         self.add_basics()
         for dict_class in classes:
             yield dict_class(self.adict)
-    """  # TODO TEST DefaultAttrMap
+    """  # TODO TEST other AttrMap functions
 
     def basic_attrmap(self) -> AttrMap[int]:
         self.add_basics()
@@ -742,7 +745,6 @@ class TestWalktionary(DictTester):
 
 
 class TestHashGrid(DictTester):
-    _T = TypeVar("_T")
     _Pairs = list[tuple[tuple[_T, ...], _T]]
     _PairGenerator = Generator[tuple[_Pairs, HashGrid]]
     _StrDimsGen = Generator[tuple[list[dict[str, str]], list[str], HashGrid]]
