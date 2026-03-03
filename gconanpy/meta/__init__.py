@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2026-02-17
+Updated: 2026-03-02
 """
 # Import standard libraries
 import abc
@@ -14,7 +14,7 @@ import functools
 from math import log10
 # import operator
 # from operator import attrgetter, methodcaller  # TODO?
-import pdb
+# import pdb
 # from types import MappingProxyType  # TODO freeze TimeSpec?
 from typing import Any, cast, get_args, Literal, no_type_check, \
     overload, ParamSpec, Self, SupportsFloat, TypeVar
@@ -23,7 +23,7 @@ try:
     from gconanpy.meta.typeshed import DATA_ERRORS, Unhashable, \
         SkipException, SupportsItemAccess
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from typeshed import DATA_ERRORS, Unhashable, \
+    from .typeshed import DATA_ERRORS, Unhashable, \
         SkipException, SupportsItemAccess
 
 # TypeVars for class methods' input parameters

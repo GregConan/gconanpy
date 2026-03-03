@@ -5,7 +5,7 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2026-02-03
+Updated: 2026-03-02
 """
 # Import standard libraries
 import abc
@@ -25,9 +25,9 @@ try:
     from gconanpy.meta import divmod_base, method, Traversible, tuplify
     from gconanpy.meta.typeshed import Poppable, Updatable
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from iters.filters import MapSubset
-    from meta import divmod_base, method, Traversible, tuplify
-    from meta.typeshed import Poppable, Updatable
+    from .filters import MapSubset
+    from ..meta import divmod_base, method, Traversible, tuplify
+    from ..meta.typeshed import Poppable, Updatable
 
 # TypeVars to define type hints for...
 _H = TypeVar("_H", bound=Hashable)      # ...uniqs_in & Combinations.of_uniques

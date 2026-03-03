@@ -4,7 +4,7 @@
 Classes that parse strings and text data, especially using Regex.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
-Updated: 2025-11-03
+Updated: 2026-03-02
 """
 # Import standard libraries
 from collections.abc import Container, Generator
@@ -19,7 +19,7 @@ import regex
 try:
     from gconanpy.iters.filters import MapSubset
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from iters.filters import MapSubset
+    from .iters.filters import MapSubset
 
 
 class Abbreviator:

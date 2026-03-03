@@ -4,7 +4,7 @@
 Custom multidimensional dictionaries.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-23
-Updated: 2025-12-28
+Updated: 2026-03-02
 """
 # Import standard libraries
 import abc
@@ -22,12 +22,12 @@ try:
     from gconanpy.meta import name_of
     from gconanpy.meta.typeshed import ComparableHashable
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from bytesify import Bytesifiable, DEFAULT_ENCODING, Encryptor
-    from iters import ColumnNamer
-    from debug import Debuggable
-    from mapping.dicts import CustomDict
-    from meta import name_of
-    from meta.typeshed import ComparableHashable
+    from ..bytesify import Bytesifiable, DEFAULT_ENCODING, Encryptor
+    from ..iters import ColumnNamer
+    from ..debug import Debuggable
+    from .dicts import CustomDict
+    from ..meta import name_of
+    from ..meta.typeshed import ComparableHashable
 
 
 _R = TypeVar("_R")  # BaseHashGrid method return value

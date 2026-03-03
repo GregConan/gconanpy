@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-01
-Updated: 2026-02-02
+Updated: 2026-03-02
 """
 # Import standard libraries
 from copy import copy, deepcopy
@@ -21,9 +21,9 @@ try:
         DATA_ERRORS, SupportsGetItem, SupportsItemAccess, \
         SupportsRichComparison
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from mapping import keys_mapped_to
-    from meta import name_of
-    from meta.typeshed import AddableSequence, BytesOrStr, DATA_ERRORS, \
+    from ..mapping import keys_mapped_to
+    from ..meta import name_of
+    from ..meta.typeshed import AddableSequence, BytesOrStr, DATA_ERRORS, \
         SupportsGetItem, SupportsItemAccess, SupportsRichComparison
 
 

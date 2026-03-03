@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2026-02-23
+Updated: 2026-03-02
 """
 # Import standard libraries
 from collections import defaultdict
@@ -28,15 +28,15 @@ try:
     from gconanpy.meta import name_of, Traversible
     from gconanpy.meta.typeshed import DATA_ERRORS, SupportsRichComparison
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from access.attributes import get_names as get_attr_names
-    from bytesify import Bytesifier
-    from debug import Debuggable
-    from iters import MapWalker, SimpleShredder
-    from iters.filters import MapSubset
-    from mapping.bases import \
+    from ..access.attributes import get_names as get_attr_names
+    from ..bytesify import Bytesifier
+    from ..debug import Debuggable
+    from ..iters import MapWalker, SimpleShredder
+    from ..iters.filters import MapSubset
+    from .bases import \
         ExcluderMap, LazyMap, MathMap, PromptMap, PROTECTEDS, SortMap
-    from meta import name_of, Traversible
-    from meta.typeshed import DATA_ERRORS, SupportsRichComparison
+    from ..meta import name_of, Traversible
+    from ..meta.typeshed import DATA_ERRORS, SupportsRichComparison
 
 # Type variables for .__init__(...) and .update(...) method input parameters
 MapParts = Iterable[tuple[Hashable, Any]]

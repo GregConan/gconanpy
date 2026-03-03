@@ -5,7 +5,7 @@ Classes that can filter objects to only get the elements (or attributes) \
     that match certain specified conditions.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-09-18
-Updated: 2025-12-28
+Updated: 2026-03-02
 """
 # Import standard libraries
 import abc
@@ -16,7 +16,7 @@ from typing import Any, get_args, Literal, overload, Self, TypeVar
 try:
     from gconanpy.meta import tuplify
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from meta import tuplify
+    from ..meta import tuplify
 
 
 class BaseFilter(abc.ABC):

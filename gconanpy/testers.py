@@ -4,7 +4,7 @@
 Base classes for unit tests in ../tests/ dir
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2025-10-02
+Updated: 2026-03-02
 """
 # Import standard libraries
 from abc import ABC
@@ -28,12 +28,12 @@ try:
     from gconanpy.trivial import always_false, always_none, always_true
 except (ImportError, ModuleNotFoundError):
     from . import mapping, ROOT_DIR
-    from access.attributes import AttrsOf
-    from extend import classes_in_module
-    from iters import powers_of_ten
-    from iters.filters import MapSubset
-    from meta import has_method, name_of
-    from trivial import always_false, always_none, always_true
+    from .access.attributes import AttrsOf
+    from .extend import classes_in_module
+    from .iters import powers_of_ten
+    from .iters.filters import MapSubset
+    from .meta import has_method, name_of
+    from .trivial import always_false, always_none, always_true
 
 # Constant: Paragraph about Lorem ipsum to test Regextract &c
 LIPSUM = """Lorem ipsum (/ˌlɔ:.rəm 'ip.səm/ LOR-əm IP-səm) is a dummy or 

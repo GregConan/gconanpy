@@ -2,7 +2,7 @@
 MutableMapping classes resembling dicts that store items as attributes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-11-21
-Updated: 2026-02-23
+Updated: 2026-03-02
 """
 # Import standard libraries
 from collections.abc import Callable, Mapping, MutableMapping, Iterator
@@ -16,10 +16,10 @@ try:
     from gconanpy.meta import error_changer
     from gconanpy.meta.typeshed import SupportsRichComparison
 except (ImportError, ModuleNotFoundError):
-    from mapping.bases import \
+    from .bases import \
         ExcluderMap, LazyMap, MathMap, PromptMap, PROTECTEDS, SortMap
-    from meta import error_changer
-    from meta.typeshed import SupportsRichComparison
+    from ..meta import error_changer
+    from ..meta.typeshed import SupportsRichComparison
 
 # Wrapper function that takes a method that can raise AttributeError and
 # returns a copy identical except that it can raise KeyError.

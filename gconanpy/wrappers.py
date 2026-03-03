@@ -4,7 +4,7 @@
 Classes that wrap other classes, especially builtins, to add functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2026-02-09
+Updated: 2026-03-02
 """
 # Import standard libraries
 import argparse
@@ -33,11 +33,11 @@ try:
         MethodWrappingMeta, name_of, TimeSpec, tuplify
     from gconanpy.meta.typeshed import NonTxtCollection
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from iters import exhaust_wrapper
-    from iters.filters import MapSubset
-    from meta import bool_pair_to_cases, cached_property, \
+    from .iters import exhaust_wrapper
+    from .iters.filters import MapSubset
+    from .meta import bool_pair_to_cases, cached_property, \
         MethodWrappingMeta, name_of, TimeSpec, tuplify
-    from meta.typeshed import NonTxtCollection
+    from .meta.typeshed import NonTxtCollection
 
 # Type variables
 _P = ParamSpec("_P")

@@ -4,7 +4,7 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2025-11-20
+Updated: 2026-03-02
 """
 # Import standard libraries
 import abc
@@ -19,9 +19,9 @@ try:
                                name_of, names_of, tuplify)
     from gconanpy.reg import DunderParser
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from meta import (bool_pair_to_cases, has_method,
-                      name_of, names_of, tuplify)
-    from reg import DunderParser
+    from . import (bool_pair_to_cases, has_method,
+                   name_of, names_of, tuplify)
+    from ..reg import DunderParser
 
 
 # Constant: Conditions Combination (2+ boolean conditions); MatcherBase keys

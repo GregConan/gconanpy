@@ -3,12 +3,12 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2026-02-02
+Updated: 2026-03-02
 """
 # Import standard libraries
 import abc
-from collections.abc import (Callable, Container, Generator,
-                             Iterable, Iterator, Mapping)
+from collections.abc import \
+    Callable, Container, Generator, Iterable, Iterator, Mapping
 import graphlib
 import inspect
 import re
@@ -28,12 +28,12 @@ try:
     from gconanpy.meta.typeshed import HasSlots
     from gconanpy.wrappers import ToString
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from access import attributes
-    from iters import merge
-    from iters.filters import MapSubset
-    from meta import name_of
-    from meta.typeshed import HasSlots
-    from wrappers import ToString
+    from .access import attributes
+    from .iters import merge
+    from .iters.filters import MapSubset
+    from .meta import name_of
+    from .meta.typeshed import HasSlots
+    from .wrappers import ToString
 
 
 # Function wrapper type variable  # TODO DRY (can't import it from metafunc?)

@@ -5,7 +5,7 @@ This file forces static type checkers to acknowledge that `ToString` methods
 never return `str` and only return `ToString`, even inherited methods.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-11-19
-Updated: 2026-02-09
+Updated: 2026-03-02
 """
 # Import standard libraries
 import argparse
@@ -25,8 +25,8 @@ try:
     from gconanpy.iters import exhaust_wrapper
     from gconanpy.meta import cached_property, MethodWrappingMeta, TimeSpec
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from iters import exhaust_wrapper
-    from meta import cached_property, MethodWrappingMeta, TimeSpec
+    from .iters import exhaust_wrapper
+    from .meta import cached_property, MethodWrappingMeta, TimeSpec
 
 # Type variables
 _P = ParamSpec("_P")

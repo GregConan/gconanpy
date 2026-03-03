@@ -4,7 +4,7 @@
 Custom Mapping base classes inherited by classes in dicts.py and attrmap.py
 Greg Conan: gregmconan@gmail.com
 Created: 2026-02-23
-Updated: 2026-02-23
+Updated: 2026-03-02
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Hashable, \
@@ -18,7 +18,7 @@ from typing import cast, Literal, overload, Self, ParamSpec, TypeVar
 try:
     from gconanpy.meta.typeshed import SupportsRichComparison
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from meta.typeshed import SupportsRichComparison
+    from ..meta.typeshed import SupportsRichComparison
 
 # Constants for MathDict: numerical type hint, functools.wraps(assigned=...
 _ASSIGNED = ("__doc__", "__name__", "__qualname__")

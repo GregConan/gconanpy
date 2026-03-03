@@ -4,7 +4,7 @@
 Useful/convenient functions for dicts (taken from dicts.py class methods).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2026-02-20
+Updated: 2026-03-02
 """
 # Import standard libraries
 from collections import defaultdict
@@ -20,8 +20,8 @@ try:
     from gconanpy.iters import SimpleShredder
     from gconanpy.meta.typeshed import DATA_ERRORS, SupportsRichComparison
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from iters import SimpleShredder
-    from meta.typeshed import DATA_ERRORS, SupportsRichComparison
+    from ..iters import SimpleShredder
+    from ..meta.typeshed import DATA_ERRORS, SupportsRichComparison
 
 # Type variables for type hints
 _D = TypeVar("_D")

@@ -4,11 +4,11 @@
 Utility functions and classes to manipulate data using numpy, scipy, & pandas.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2025-12-16
+Updated: 2026-03-02
 """
 # Import standard libraries
 from collections.abc import Hashable, Iterable, Mapping
-from operator import methodcaller
+# from operator import methodcaller
 from pprint import pprint
 import string
 from typing import Any, cast, Literal, TypeVar
@@ -23,9 +23,9 @@ try:
     from gconanpy.meta import tuplify
     from gconanpy.wrappers import ToString
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from iters import merge
-    from meta import tuplify
-    from wrappers import ToString
+    from .iters import merge
+    from .meta import tuplify
+    from .wrappers import ToString
 
 
 # Constants, especially for word frequency counting:

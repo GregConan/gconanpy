@@ -4,7 +4,7 @@
 Functions/classes to access and/or modify the attributes of any object(s).
 Greg Conan: gregmconan@gmail.com
 Created: 2025-06-02
-Updated: 2026-02-17
+Updated: 2026-03-02
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Iterable, Iterator
@@ -16,9 +16,9 @@ try:
     from gconanpy.iters import IterableMap
     from gconanpy.meta import DATA_ERRORS, name_of
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from iters.filters import Filter
-    from iters import IterableMap
-    from meta import DATA_ERRORS, name_of
+    from ..iters.filters import Filter
+    from ..iters import IterableMap
+    from ..meta import DATA_ERRORS, name_of
 
 # Type variables for functions' input argument type hints
 _P = ParamSpec("_P")  # for lazyget and lazysetdefault

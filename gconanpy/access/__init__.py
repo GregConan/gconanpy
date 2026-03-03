@@ -6,7 +6,7 @@ Expanding Python's built-in accessor (getter/setter/deleter/etc) functions
     for use on more kinds of objects.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-09-11
-Updated: 2026-02-20
+Updated: 2026-03-02
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Hashable, \
@@ -20,8 +20,9 @@ try:
     from gconanpy.meta.typeshed import \
         DATA_ERRORS, SupportsGetItem, SupportsItemAccess
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from mapping.attrmap import AttrMap
-    from meta.typeshed import DATA_ERRORS, SupportsGetItem, SupportsItemAccess
+    from ..mapping.attrmap import AttrMap
+    from ..meta.typeshed import \
+        DATA_ERRORS, SupportsGetItem, SupportsItemAccess
 
 # TypeVars for (g/s)etdefault and Accessor class methods' input parameters
 _D = TypeVar("_D")  # "default"

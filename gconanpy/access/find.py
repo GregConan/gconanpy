@@ -5,27 +5,26 @@ Classes and functions that iterate and then break once they find what \
     they're looking for.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-02
-Updated: 2025-11-05
+Updated: 2026-03-02
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping, Sequence
 # from more_itertools import iter_except  # TODO?
 import operator
 import sys
-from typing import Any, TypeVar
-from typing_extensions import Self
+from typing import Any, Self, TypeVar
 
 # Import remote custom libraries
 try:
-    from meta import KeepSkippingExceptions, IgnoreExceptions
-    from meta.typeshed import DATA_ERRORS
-    from trivial import is_not_none, always_none
-    from wrappers import WrapFunction
-except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from gconanpy.meta import KeepSkippingExceptions, IgnoreExceptions
     from gconanpy.meta.typeshed import DATA_ERRORS
     from gconanpy.trivial import is_not_none, always_none
     from gconanpy.wrappers import WrapFunction
+except (ImportError, ModuleNotFoundError):  # TODO DRY?
+    from ..meta import KeepSkippingExceptions, IgnoreExceptions
+    from ..meta.typeshed import DATA_ERRORS
+    from ..trivial import is_not_none, always_none
+    from ..wrappers import WrapFunction
 
 
 # TODO Figure out standard way to centralize, reuse, & document TypeVars?
