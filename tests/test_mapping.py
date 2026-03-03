@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-07
-Updated: 2026-02-23
+Updated: 2026-03-02
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Iterable, \
@@ -29,8 +29,8 @@ from gconanpy.mapping.grids import HashGrid, Locktionary  # GridCryptionary,
 from gconanpy.meta import full_name_of, TimeSpec
 # from tests import test_mapping
 from gconanpy.testers import Tester, TimeTester
-from gconanpy.trivial import (always_false, always_none,
-                              always_true, return_self)
+from gconanpy.trivial import \
+    always_false, always_none, always_true, return_self
 
 
 # Make various combinations of custom dicts to validate them all
@@ -311,7 +311,8 @@ class TestDictFunctions(DictTester):
         for nonkey in (None, 50, "hello", dict, dict_class, 3.14, lazyget):
             for args in Randoms.randintsets(min_n=20, max_n=20):
                 kwargs = Randoms.randict(values=tuple(
-                    Randoms.randints(min_n=0, max_n=5)), value_types=int, key_types=str)
+                    Randoms.randints(min_n=0, max_n=5)),
+                    value_types=int, key_types=str)
 
                 # Verify that lazyget correctly runs the function it's given
                 self.check_result(lazyget(
@@ -414,7 +415,7 @@ class TestAccessor(DictTester):
         randobjs = []
         for _ in Randoms.randcount(max_len=20):
             randicts.append({**Randoms.randict(
-                keys=string.ascii_letters, max_len=10), **self.adict})
+                keys=string.ascii_letters, max_n=10), **self.adict})
             randobjs.append(SimpleNamespace(**randicts[-1]))
         self.randicts = tuple(randicts)
         self.randobjs = tuple(randobjs)

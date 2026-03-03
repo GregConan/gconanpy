@@ -445,7 +445,9 @@ class Randoms:
     @classmethod
     def randict(cls, keys: Sequence[_KT] | None = None,
                 values: Sequence[_VT] | None = None,
-                min_len: int = MIN, max_len: int = MAX,
+                min_n: int = MIN, max_n: int = MAX,
+                min_key: int = MIN, max_key: int = MAX * 10,
+                min_val: int = MIN, max_val: int = MAX * 10,
                 key_types: _TYPES = RANDTYPES,
                 value_types: _TYPES = RANDTYPES) -> dict[_KT, _VT]:
         """ 
@@ -453,17 +455,25 @@ class Randoms:
             returned dict, or None to use random data; defaults to None.
         :param values: Sequence[_VT] | None, possible values to include in \
             the returned dict, or None to use random data; defaults to None.
-        :param min_len: int, length of smallest dict to return, defaults to 1
-        :param min_len: int, length of biggest dict to return, defaults to 100
+        :param min_n: int, length of smallest dict to return, defaults to 1
+        :param max_n: int, length of biggest dict to return, defaults to 100
+        :param min_key: int, the lowest `int` or `float` (or the length of the
+            shortest `bytes` or `str`) key in the dict to return; defaults to 1
+        :param max_key: int, the highest `int` or `float` (or the length of the
+            longest `bytes` or `str`) key in dict to return; defaults to 1000
+        :param min_val: int, the lowest `int` or `float` (or the length of the
+            shortest `bytes` or `str`) value in dict to return; defaults to 1
+        :param max_val: int, the highest `int` or `float` (or the length of the
+            longest `bytes` or `str`) value in dict to return; defaults to 1000
         :param key_types: type | Sequence[type | None], types of random data \
             to use as `keys` if `keys=None`; defaults to `RANDTYPES`
         :param value_types: type | Sequence[type | None], types of random \
             data to use as `values` if `values=None`; defaults to `RANDTYPES`
         :return: dict[_KT, _VT], dict with random size and contents.
         """
-        n = random.randint(min_len, max_len)
-        keys = cls.randtuple(n, keys, key_types)
-        values = cls.randtuple(n, values, value_types)
+        n = random.randint(min_n, max_n)
+        keys = cls.randtuple(n, keys, key_types, min_key, max_key)
+        values = cls.randtuple(n, values, value_types, min_val, max_val)
         return {k: v for k, v in zip(keys, values)}
 
     @classmethod
@@ -494,21 +504,27 @@ class Randoms:
                      cls._int_or_randint(step))
 
     @classmethod
-    def randtuple(cls, length: int, values: Sequence[_VT] | None = None,
-                  value_types: _TYPES = RANDTYPES):
+    def randtuple(cls, n: int, values: Sequence[_VT] | None = None,
+                  value_types: _TYPES = RANDTYPES,
+                  min_val: int = MIN, max_val: int = MAX * 10):
         """
-        :param length: int, number of items in the tuple to return.
+        :param n: int, number of items in the tuple to return.
         :param values: Sequence[_VT] | None, items to randomly select from; \
             if none are provided, randomly generate items 
         :param value_types: type | Sequence[type | None], type of items to \
             randomly generate if no `values` are provided; defaults to \
             `(bool, bytes, float, int, None, str)`
+        :param min_val: int, the lowest `int` or `float` (or the length of the
+            shortest `bytes` or `str`) in the tuple to return; defaults to 1
+        :param max_val: int, the highest `int` or `float` (or the length of the
+            longest `bytes` or `str`) in the tuple to return; defaults to 1000
         :return: _type_, _description_
         """
         if values:
-            ret = random.choices(values, k=length)
+            ret = random.choices(values, k=n)
         else:
-            kwargs: dict[str, Any] = dict(min_n=length, max_n=length)
+            kwargs = dict[str, Any](
+                min_val=min_val, max_val=max_val, min_n=n, max_n=n)
             if value_types:
                 kwargs["dtypes"] = value_types
             ret = cls.randata(**kwargs)

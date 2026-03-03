@@ -27,13 +27,13 @@ import pathvalidate
 
 # Import local custom libraries
 try:
-    from gconanpy.iters import exhaust_wrapper
+    from gconanpy.iters import default_pop, exhaust_wrapper
     from gconanpy.iters.filters import MapSubset
     from gconanpy.meta import bool_pair_to_cases, cached_property, \
         MethodWrappingMeta, name_of, TimeSpec, tuplify
     from gconanpy.meta.typeshed import NonTxtCollection
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from .iters import exhaust_wrapper
+    from .iters import default_pop, exhaust_wrapper
     from .iters.filters import MapSubset
     from .meta import bool_pair_to_cases, cached_property, \
         MethodWrappingMeta, name_of, TimeSpec, tuplify
@@ -464,8 +464,11 @@ class ToString(str, metaclass=MethodWrappingMeta):
     def quotate_all(cls, objects: Iterable, quote: str | None = "'",
                     quote_numbers: bool = False, max_len: int | None = None,
                     kwargs: Mapping[str, Any] = {}) -> list[Self]:
-        return [cls.quotate(an_obj, quote, quote_numbers, max_len=max_len,
-                            **kwargs) for an_obj in objects]
+        kwargs = dict(kwargs)
+        for k, v in {"quote": quote, "quote_numbers": quote_numbers,
+                     "max_len": max_len}.items():
+            kwargs[k] = default_pop(kwargs, k, v)
+        return [cls.quotate(an_obj, **kwargs) for an_obj in objects]
 
     def replace_all(self, replacements: Mapping[str, str], count: int = -1,
                     reverse: bool = False) -> Self:

@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-24
-Updated: 2026-01-26
+Updated: 2026-03-02
 """
 # Import standard libraries
 from collections.abc import Callable, Generator, Iterable
@@ -216,6 +216,13 @@ class TestStringify(Tester):
                      "p": "<p class='test'>", "body": "<body>",
                      "html": "<html lang='en'>"}
         self.check_fromBeautifulSoup(soup, **expecteds)
+
+    def test_iter_kwargs(self) -> None:
+        self.add_basics()
+        LEN_TO_TRUNCATE = 10
+        new_dict = Randoms.randict(min_val=LEN_TO_TRUNCATE, value_types=str)
+        ToString.fromMapping(new_dict, iter_kwargs=dict[str, Any](
+            max_len=LEN_TO_TRUNCATE))  # TypeError: multiple 'max_len' values
 
     def test_join(self) -> None:
         joined = ToString(" ").join(("hello", "world"))
