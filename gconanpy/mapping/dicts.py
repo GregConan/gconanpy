@@ -8,7 +8,8 @@ Updated: 2026-03-02
 """
 # Import standard libraries
 from collections import defaultdict
-from collections.abc import Collection, Generator, Hashable, Iterable, Mapping
+from collections.abc import \
+    Collection, Container, Generator, Hashable, Iterable, Mapping
 from configparser import ConfigParser
 from numbers import Number
 from typing import Any, cast, Literal, overload, Self, TypeVar
@@ -41,6 +42,9 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
 # Type variables for .__init__(...) and .update(...) method input parameters
 MapParts = Iterable[tuple[Hashable, Any]]
 FromMap = TypeVar("FromMap", Mapping, MapParts, None)
+
+# Type variable for ExcluDict.get default parameter
+_D = TypeVar("_D")
 
 
 class CustomDict[KT, VT](dict[KT, VT]):
@@ -117,6 +121,22 @@ class ExcluDict[KT, VT](CustomDict[KT, VT], ExcluderMap[KT, VT]):
         `setdefaults`. `LazyDict` base class. Previous names for this class
         include "Defaultionary" and "Exclutionary".
     """
+    # get method must be defined here (not in bases.py) to override dict.get,
+    # because CustomDict must be inherited before bases.py classes to avoid err
+
+    def get(self, key: KT, default: _D = None,
+            exclude: Container[VT] = set()) -> VT | _D:
+        """ Return the value mapped to `key` in `self`, if any; else return \
+            `default`. Defined to add `exclude` option to `dict.get`.
+
+        :param key: KT: Hashable, key mapped to the value to return
+        :param default: _D: Any, object to return `if not self.has` the key, \
+            i.e. `if key not in self or self[key] in exclude`
+        :param exclude: Container, values to ignore or overwrite. If `self` \
+            maps `key` to one, then return True as if `key is not in self`.
+        :return: VT | _D, value `self` maps to `key` if any; else `default`
+        """
+        return self[key] if self.has(key, exclude) else default
 
 
 class Invertionary(CustomDict):

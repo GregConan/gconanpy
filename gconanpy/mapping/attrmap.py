@@ -5,9 +5,10 @@ Created: 2025-11-21
 Updated: 2026-03-02
 """
 # Import standard libraries
-from collections.abc import Callable, Mapping, MutableMapping, Iterator
+from collections.abc import \
+    Callable, Container, Mapping, MutableMapping, Iterator
 from numbers import Number
-from typing import Any, get_args, Literal, overload, Self
+from typing import Any, get_args, Literal, overload, Self, TypeVar
 
 # Import local custom libraries
 try:
@@ -57,7 +58,11 @@ _STR_SET = Literal["__mutable__", "__protected_keywords__", "names"
 _TUP_ATTR = Literal["__bases__", "__orig_bases__", "__parameters__",
                     "__slots__", "__type_params__"]
 
+# Error message raised when trying to change/delete builtin methods/attributes
 ERR_MSG = "Cannot {} protected attribute {}"
+
+# Type variable for ExcludAttrMap.get default parameter
+_D = TypeVar("_D")
 
 
 class AttrMap[T](MutableMapping[str, T]):
@@ -187,6 +192,23 @@ class ExcludAttrMap[T](AttrMap[T], ExcluderMap[str, T]):
     __mutable__: set[str] = {"names", }
     __protected_keywords__: set[str] = {
         *get_args(_EXCL_METH), *AttrMap.__protected_keywords__}
+    # get method must be defined here (not in bases.py) to override
+    # MutableMapping.get, because AttrMap must be inherited before bases.py
+    # classes to avoid errors
+
+    def get(self, key: str, default: _D = None,
+            exclude: Container[T] = set()) -> T | _D:
+        """ Return the value mapped to `key` in `self`, if any; else return \
+            `default`. Defined to add `exclude` option to `dict.get`.
+
+        :param key: KT: Hashable, key mapped to the value to return
+        :param default: _D: Any, object to return `if not self.has` the key, \
+            i.e. `if key not in self or self[key] in exclude`
+        :param exclude: Container, values to ignore or overwrite. If `self` \
+            maps `key` to one, then return True as if `key is not in self`.
+        :return: VT | _D, value `self` maps to `key` if any; else `default`
+        """
+        return getattr(self, key) if self.has(key, exclude) else default
 
 
 class MathAttrMap[T: Number](AttrMap[T], MathMap[str, T]):
@@ -207,7 +229,7 @@ class SortAttrMap[T: SupportsRichComparison](AttrMap[T], SortMap[str, T]):
         "_BY", "_WHICH", "sorted_by", *AttrMap.__protected_keywords__}
 
 
-class LazyAttrMap[T](AttrMap[T], LazyMap[str, T]):
+class LazyAttrMap[T](ExcludAttrMap[T], LazyMap[str, T]):
     """ `LazyAttrMap` is to `AttrMap` what `LazyDict` is to `dict`. See
         `gconanpy.mapping.bases.LazyMap` and
         `gconanpy.mapping.dicts.LazyDict` """
@@ -216,7 +238,7 @@ class LazyAttrMap[T](AttrMap[T], LazyMap[str, T]):
         *get_args(_LAZY_METH), *ExcludAttrMap.__protected_keywords__}
 
 
-class PromptAttrMap[T](AttrMap[T], PromptMap[str, T]):
+class PromptAttrMap[T](LazyAttrMap[T], PromptMap[str, T]):
     """ `PromptAttrMap` is to `AttrMap` what `Promptionary` is to `dict`. See
         `gconanpy.mapping.bases.PromptMap` and
         `gconanpy.mapping.dicts.Promptionary` """

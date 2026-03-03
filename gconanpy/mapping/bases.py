@@ -56,7 +56,11 @@ class ExcluderMap[KT, VT](MutableMapping[KT, VT]):
         `default=` option, functionality used by various other custom
         `Mapping`s. The `ExcluderMap` can also use `setdefault` on many 
         different elements at once via `setdefaults`.
-        `ExcluderMap` and `LazyDict` base class.
+
+        `ExcluDict`, `LazyDict`, `ExcludAttrMap`, & `LazyAttrMap` base class.
+
+        All subclasses inheriting this must define a custom `get` method with
+        the `exclude` parameter.
     """
 
     def chain_get(self, keys: Sequence[KT], default: _D = None,
@@ -78,20 +82,6 @@ class ExcluderMap[KT, VT](MutableMapping[KT, VT]):
             if self.has(key, exclude):
                 return self[key]
         return default
-
-    def get(self, key: KT, default: _D = None,
-            exclude: Container[VT] = set()) -> VT | _D:
-        """ Return the value mapped to `key` in `self`, if any; else return \
-            `default`. Defined to add `exclude` option to `dict.get`.
-
-        :param key: KT: Hashable, key mapped to the value to return
-        :param default: _D: Any, object to return `if not self.has` the key, \
-            i.e. `if key not in self or self[key] in exclude`
-        :param exclude: Container, values to ignore or overwrite. If `self` \
-            maps `key` to one, then return True as if `key is not in self`.
-        :return: VT | _D, value `self` maps to `key` if any; else `default`
-        """
-        return self[key] if self.has(key, exclude) else default
 
     def has(self, key: KT, exclude: Container[VT] = set()) -> bool:
         """
