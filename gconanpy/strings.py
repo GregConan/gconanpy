@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Classes that wrap builtin str class to add string functionality.
+FancyString class wraps builtin str class to add extra string functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
 Updated: 2026-03-05
@@ -22,16 +22,13 @@ import pathvalidate
 
 # Import local custom libraries
 try:
-    from gconanpy.iters.filters import MapSubset
     from gconanpy.meta import bool_pair_to_cases, cached_property, \
         MethodWrappingMeta, name_of, TimeSpec
     from gconanpy.meta.typeshed import NonTxtCollection
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from .iters.filters import MapSubset
     from .meta import bool_pair_to_cases, cached_property, \
         MethodWrappingMeta, name_of, TimeSpec
     from .meta.typeshed import NonTxtCollection
-
 
 # Type variables
 _P = ParamSpec("_P")
@@ -67,11 +64,6 @@ DELIM_CASES: dict[StrCase, DelimitedCase] = {
 class FancyString(str, metaclass=MethodWrappingMeta):
     # The metaclass wraps every str method that returns str so it returns
     # a FancyString instance instead.
-
-    # Filter to call fromIterable in quotate method using the recursive
-    # iter_kwargs input parameter without adding a parameter exclusive to
-    # fromMapping method (and not fromIterable)
-    _ITER_SUBSET = MapSubset(keys_arent="join_on")
 
     def __add__(self, value: str | None) -> Self:
         """ Append `value` to the end of `self`. Implements `self + value`.
@@ -546,12 +538,14 @@ class FancyString(str, metaclass=MethodWrappingMeta):
                 case Callable():
                     quoted = cls.fromCallable(an_obj)
                 case NonTxtCollection():
-                    # without_join = cls._ITER_SUBSET.of(iter_kwargs)
+                    # use the recursive iter_kwargs input parameter without
+                    # adding a parameter exclusive to fromMapping method
+                    iter_kwargs = {k: v for k, v in iter_kwargs.items()
+                                   if k != "join_on"}
+
                     quoted = cls.fromIterable(
                         an_obj,  # type: ignore  # TODO FIX NonTxtCollection
-                        quote, quote_numbers=quote_numbers,
-                        # iter_kwargs=iter_kwargs,
-                        **cls._ITER_SUBSET.of(iter_kwargs))
+                        quote, quote_numbers=quote_numbers, **iter_kwargs)
                 case Number():
                     quoted = cls(an_obj).enclosed_by(quote) \
                         if quote_numbers else cls(an_obj)
