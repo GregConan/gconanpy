@@ -4,7 +4,7 @@
 Functions to import/export data from/to remote files/pages/APIs on the Web.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-13
-Updated: 2026-03-02
+Updated: 2026-03-04
 """
 # Import standard libraries
 from collections.abc import Mapping
@@ -16,10 +16,10 @@ import urllib.request
 # Import local custom libraries
 try:
     from gconanpy.meta import cached_property
-    from gconanpy.wrappers import ToString
+    from gconanpy.strings import FancyString
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from ..meta import cached_property
-    from ..wrappers import ToString
+    from ..strings import FancyString
 
 
 def download_GET(path_URL: str, headers: Mapping[str, Any]) -> Any:
@@ -46,15 +46,15 @@ def read_webpage_at(a_URL: str) -> Any:  # -> urllib.request._UrlopenRet:
     return urllib.request.urlopen(a_URL).read()
 
 
-class URL(ToString):
+class URL(FancyString):
 
     @classmethod
     def from_parts(cls, *parts: str, **url_params: Any) -> Self:
         """ Reusable convenience function to build HTTPS URL strings.
 
         :param parts: Iterable[str] of slash-separated URL path parts
-        :param url_params: Mapping[str, Any] of variable names and their values \
-                        to pass to the API endpoint as parameters
+        :param url_params: Mapping[str, Any] of variable names and their values
+            to pass to the API endpoint as parameters
         :return: URL, full HTTPS URL built from parts & url_params
         """
         url = f"https://{'/'.join(parts)}"

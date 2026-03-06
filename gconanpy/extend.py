@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2026-03-02
+Updated: 2026-03-05
 """
 # Import standard libraries
 import abc
@@ -26,14 +26,14 @@ try:
     from gconanpy.iters.filters import MapSubset
     from gconanpy.meta import name_of
     from gconanpy.meta.typeshed import HasSlots
-    from gconanpy.wrappers import ToString
+    from gconanpy.strings import FancyString
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from .access import attributes
     from .iters import merge
     from .iters.filters import MapSubset
     from .meta import name_of
     from .meta.typeshed import HasSlots
-    from .wrappers import ToString
+    from .strings import FancyString
 
 
 # Function wrapper type variable  # TODO DRY (can't import it from metafunc?)
@@ -242,7 +242,7 @@ class WeakDataclassBase:
     __slots__: tuple
 
     def __repr__(self) -> str:
-        return ToString.fromCallable(type(self), **{
+        return FancyString.fromCallable(type(self), **{
             x: getattr(self, x) for x in self.__slots__}, max_len=100)
 
     def __eq__(self, other) -> bool:

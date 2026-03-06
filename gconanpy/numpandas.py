@@ -4,7 +4,7 @@
 Utility functions and classes to manipulate data using numpy, scipy, & pandas.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2026-03-02
+Updated: 2026-03-05
 """
 # Import standard libraries
 from collections.abc import Hashable, Iterable, Mapping
@@ -21,11 +21,11 @@ import pandas as pd
 try:
     from gconanpy.iters import merge
     from gconanpy.meta import tuplify
-    from gconanpy.wrappers import ToString
+    from gconanpy.strings import FancyString
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from .iters import merge
     from .meta import tuplify
-    from .wrappers import ToString
+    from .strings import FancyString
 
 
 # Constants, especially for word frequency counting:
@@ -121,7 +121,7 @@ def nan_rows_in(a_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def print_df_with_title(df: pd.DataFrame, title: str) -> None:
-    df_str = ToString(df)
+    df_str = FancyString(df)
     print(title.center(df_str.width))
     print(df_str)
 
@@ -262,24 +262,24 @@ def try_filter_df(df: pd.DataFrame, filters:
         if n_rows == 1:
             return new_df
         elif n_rows == 0:
-            '''
-            raise ValueError("Value not found in DataFrame")
-            if prev_df.shape[0] == 0:
-                pdb.set_trace()
-                pass
-            '''
             new_df = prev_df
-        else:
-            prev_df = new_df
-            new_df = cast(pd.DataFrame, new_df.loc[new_df[col_name].isin(
-                tuplify(acceptable_values))
-            ])
-    if new_df.shape[0] > 1:
-        for col_name, acceptable_values in filters.items():
-            for val in acceptable_values:
-                new_df = cast(pd.DataFrame, new_df.loc[
-                    new_df[col_name].str.contains(val)])
-                if new_df.shape[0] == 1:
-                    return new_df
+        prev_df = new_df
 
-    return new_df if new_df.shape[0] > 0 else df
+        new_df = cast(pd.DataFrame, new_df.loc[new_df[col_name].isin(
+            tuplify(acceptable_values))
+        ])
+
+    # if new_df.shape[0] > 1:
+    for col_name, acceptable_values in filters.items():
+        for val in acceptable_values:
+            n_rows = new_df.shape[0]
+            if n_rows == 1:
+                return new_df
+            elif n_rows == 0:
+                new_df = prev_df
+
+            prev_df = new_df
+            new_df = cast(pd.DataFrame, new_df.loc[
+                new_df[col_name].str.contains(val)])
+
+    return new_df if new_df.shape[0] > 0 else prev_df

@@ -5,7 +5,7 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2026-03-02
+Updated: 2026-03-05
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping
@@ -21,8 +21,9 @@ try:
     from gconanpy.meta import Comparer, has_method, \
         IgnoreExceptions, IteratorFactory, name_of
     from gconanpy.meta.typeshed import DATA_ERRORS
+    from gconanpy.strings import stringify, stringify_iter
     from gconanpy.trivial import get_key_set
-    from gconanpy.wrappers import Sets, stringify, stringify_iter
+    from gconanpy.wrappers import Sets
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from ..debug import Debuggable
     from ..iters import SimpleShredder, uniqs_in
@@ -31,7 +32,8 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
         IgnoreExceptions, IteratorFactory, name_of
     from ..meta.typeshed import DATA_ERRORS
     from ..trivial import get_key_set
-    from ..wrappers import Sets, stringify, stringify_iter
+    from ..strings import stringify, stringify_iter
+    from ..wrappers import Sets
 
 
 class DifferenceBetween:
