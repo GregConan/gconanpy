@@ -4,7 +4,7 @@
 FancyString class wraps builtin str class to add extra string functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2026-03-05
+Updated: 2026-03-06
 """
 # Import standard libraries
 # from collections import UserString  # TODO?
@@ -18,6 +18,7 @@ from typing import Any, cast, Literal, ParamSpec, Self, SupportsIndex
 
 # Import third-party PyPI libraries
 import bs4
+import inflection  # TODO
 import pathvalidate
 
 # Import local custom libraries
@@ -474,7 +475,7 @@ class FancyString(str, metaclass=MethodWrappingMeta):
             else:  # Handle code cases: camel, kebab, macro, pascal, & snake
 
                 # Code cases must start with a letter and have no whitespace
-                if first_char.isdigit() or len(self.split()) > 1:
+                if first_char.isdigit() or re.match(r"\s", self):
                     return False
 
                 try:  # Verify camelCase and PascalCase by checking the first
@@ -486,13 +487,11 @@ class FancyString(str, metaclass=MethodWrappingMeta):
                     pass
 
                 # Only snake_case & MACRO_CASE should have underscores
-                under_split = self.split("_")
-                if str_case not in {"macro", "snake"} and len(under_split) > 1:
+                if str_case not in {"macro", "snake"} and "_" in self:
                     return False
 
                 # Only kebab-case & TRAIN-CASE should have dashes
-                dash_split = self.split("-")
-                if str_case not in {"kebab", "train"} and len(dash_split) > 1:
+                if str_case not in {"kebab", "train"} and "-" in self:
                     return False
 
                 # Verify lowercase (if kebab or snake) else uppercase
@@ -667,12 +666,12 @@ class FancyString(str, metaclass=MethodWrappingMeta):
             'macro', 'pascal', 'snake', 'title', 'train', 'upper']
         :return: Self, this string converted to the specified case (`str_case`)
         """
-        try:  # Defaults: Capitalized case, Title Case, lower case, UPPER CASE
-            result = {"capitalize": self.capitalize, "lower": self.lower,
-                      "title": self.title, "upper": self.upper}[str_case]()
+        convert_case = getattr(self, str_case, None)
+        if convert_case is not None:
+            result = convert_case()
 
         # Code cases: camelCase, kebab-case, MACRO_CASE, PascalCase, snake_case
-        except KeyError:
+        else:
             # Code cases must start with a letter
             result = self
             while result and not result[0].isalpha():

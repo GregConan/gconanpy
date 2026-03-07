@@ -3,28 +3,25 @@
 
 """
 Functions/classes to import/export data from/to files on the local filesystem.
-Overlaps significantly with:
-    audit-ABCC/src/utilities.py, \
-    abcd-bids-tfmri-pipeline/src/pipeline_utilities.py, etc.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-26
-Updated: 2025-07-15
+Updated: 2026-03-06
 """
 # Import standard libraries
 from collections.abc import Generator
 from glob import glob
 import json
 import os
-import pdb
+from pathlib import Path
 import shutil
 from string import Formatter, Template
-from typing import Any
+from typing import Any, Self
 
 
 # NOTE All classes and functions below are in alphabetical order.
 
 
-def extract_from_json(json_path: str) -> dict:
+def extract_from_json(json_path: str | Path) -> dict:
     """
     :param json_path: str, a valid path to a real readable .json file
     :return: dict, the contents of the file at json_path
@@ -33,7 +30,7 @@ def extract_from_json(json_path: str) -> dict:
         return json.load(infile)
 
 
-def glob_and_copy(dest_dirpath: str, *path_parts_to_glob: str) -> None:
+def glob_and_copy(dest_dirpath: str | Path, *path_parts_to_glob: str) -> None:
     """
     Collect all files matching a glob string, then copy those files
     :param dest_dirpath: String, a valid path of a directory to copy files into
@@ -67,7 +64,7 @@ class LoadedTemplate(Template):
                 cls.parse(template_str) if field_name is not None}
 
     @classmethod
-    def from_file_at(cls, txt_file_path: str) -> "LoadedTemplate":
+    def from_file_at(cls, txt_file_path: str | Path) -> Self:
         """
         :param txt_file_path: str, valid path to readable .txt file
         :return: LoadedTemplate loaded from the file at txt_file_path
@@ -76,7 +73,7 @@ class LoadedTemplate(Template):
             return cls(infile.read())
 
 
-def save_to_json(contents: Any, json_path: str) -> None:
+def save_to_json(contents: Any, json_path: str | Path) -> None:
     """
     :param json_path: str, a valid path to save a .json file at
     """
@@ -84,7 +81,7 @@ def save_to_json(contents: Any, json_path: str) -> None:
         json.dump(contents, outfile)
 
 
-def walk_dir(dir_path: str, ext: str | None = None
+def walk_dir(dir_path: str | Path, ext: str | None = None
              ) -> Generator[str, None, None]:
     for subdir_path, _, files in os.walk(dir_path):
         for eachfile in files:
