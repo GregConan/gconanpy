@@ -4,9 +4,10 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2026-03-02
+Updated: 2026-03-09
 """
 # Import standard libraries
+from argparse import ArgumentParser
 from collections import defaultdict
 from collections.abc import \
     Collection, Container, Generator, Hashable, Iterable, Mapping
@@ -432,6 +433,17 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
                            f"object attribute '{attr_name}'")
         else:
             return bool(protecteds)
+
+    @classmethod
+    def fromArgumentParser(cls, parser: ArgumentParser) -> Self:
+        """ Parse command-line arguments using `parser` and return the result 
+            as an instance of this class.
+
+        :param parser: argparse.ArgumentParser specifying how to parse
+            command-line input arguments passed into the script on execution.
+        :return: Self containing all of the parsed arguments.
+        """
+        return cls(vars(parser.parse_args()))
 
     @classmethod
     def fromConfigParser(cls, config: ConfigParser) -> Self:

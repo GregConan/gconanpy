@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-21
-Updated: 2026-03-05
+Updated: 2026-03-09
 """
 # Import standard libraries
 import abc
@@ -246,9 +246,14 @@ class WeakDataclassBase:
             x: getattr(self, x) for x in self.__slots__}, max_len=100)
 
     def __eq__(self, other) -> bool:
-        return self.__slots__ == other.__slots__ and \
-            all([getattr(self, x) == getattr(other, x)
-                for x in self.__slots__])
+        my_slots = self.__slots__
+        if my_slots != other.__slots__:
+            return False
+
+        for slot in my_slots:
+            if getattr(self, slot) != getattr(other, slot):
+                return False
+        return True
 
 
 def weak_dataclass(a_class: type, *args: inspect.Parameter) -> type:
