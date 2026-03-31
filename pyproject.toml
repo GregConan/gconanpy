@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gconanpy"
-version = "0.28.3"
+version = "0.28.4"
 description = "Basic Python tools reused by Greg Conan across multiple projects."
 
 authors = ["Greg Conan <gregmconan@gmail.com>"]
@@ -19,6 +19,9 @@ bs4 = "^0.0.2"
 makefun = "^1.15.6"
 inflection = "^0.5.1"
 more-itertools = "^10.7.0"
+pydantic = "^2.12.5"
+pydantic-argparse = "^0.10.0"
+html-to-markdown = "^3.0.0"
 
 [tool.pytest.ini_options]
 pythonpath = [

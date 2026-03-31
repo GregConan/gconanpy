@@ -4,7 +4,7 @@
 FancyString class wraps builtin str class to add extra string functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2026-03-06
+Updated: 2026-03-30
 """
 # Import standard libraries
 # from collections import UserString  # TODO?
@@ -505,6 +505,19 @@ class FancyString(str, metaclass=MethodWrappingMeta):
                         return False
 
                 return True
+
+    def is_enclosed_in(self, prefix: str | None, suffix: str | None) -> bool:
+        """ 
+        :param prefix: str | None, str to check `startswith` or None not to
+        :param suffix: str | None, str to check `endswith` or None not to
+        :return: bool, True if `self` starts with `prefix` (if any) and ends
+            with `suffix` (if any), else False
+        """
+        if prefix and not self.startswith(prefix):
+            return False
+        if suffix and not self.endswith(suffix):
+            return False
+        return True
 
     @classmethod
     def quotate(cls, an_obj: Any, quote: str | None = "'",

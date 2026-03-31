@@ -4,7 +4,7 @@
 Classes that parse strings and text data, especially using Regex.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
-Updated: 2026-03-02
+Updated: 2026-03-30
 """
 # Import standard libraries
 from collections.abc import Container, Generator
@@ -20,6 +20,23 @@ try:
     from gconanpy.iters.filters import MapSubset
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from .iters.filters import MapSubset
+
+
+# Constants for compress function
+MULTI_LINE = re.compile(r"(\n(?:\s*)\n)+")  # Multiple lines to trim
+MULTI_SPACE = re.compile(r"([^\n\S]){2,}")  # Multiple spaces to trim
+
+
+def compress(a_str: str) -> str:
+    """ Trim `a_str` internally by removing its redundant whitespace chars.
+
+    :param a_str: str
+    :return: str, `a_str` but with all of its repeated line breaks replaced
+        by exactly 2 line breaks and all of its repeated whitespace characters
+        replaced by exactly 1 of those white space characters.
+    """
+    a_str = MULTI_LINE.sub("\n\n", a_str)
+    return MULTI_SPACE.sub(r"\1", a_str)
 
 
 class Abbreviator:
@@ -97,6 +114,15 @@ class Regextract:
         :return: bool, _description_
         """
         return regex.match(cls.INVALID_PY_REPR, astr) is not None
+
+    @classmethod
+    def lines_in(cls, txt: str) -> list[str]:
+        """ 
+        :param txt: str to split into its constitutive lines
+        :return: list[str], `txt` split by lines, grouping consecutive newlines
+            so that the result contains zero empty strings
+        """
+        return regex.split(r"\n+", txt)
 
     @classmethod
     def iter_numbers(cls, txt: str) -> Generator[float, None, None]:
