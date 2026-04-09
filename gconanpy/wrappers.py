@@ -4,34 +4,35 @@
 Classes that wrap other classes, especially builtins, to add functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2026-03-05
+Updated: 2026-04-08
 """
 # Import standard libraries
-import argparse
-# from collections import UserString  # TODO?
 from collections.abc import Callable, Generator, \
     Hashable, Iterable, Sequence
 import functools  # from functools import reduce, wraps
 from more_itertools import all_equal
-import os
 from typing import Any, cast, Concatenate, NamedTuple, \
     overload, ParamSpec, Self, SupportsIndex, TypeVar
 
 # Import third-party PyPI libraries
 import bs4
+import html_to_markdown as html2md
 
 # Import local custom libraries
 try:
     from gconanpy.iters import exhaust_wrapper
     from gconanpy.meta import cached_property, tuplify
+    from gconanpy.reg import compress, Regextract
     from gconanpy.strings import FancyString
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from .iters import exhaust_wrapper
     from .meta import cached_property, tuplify
+    from .reg import compress, Regextract
     from .strings import FancyString
 
 # Type variables
 _P = ParamSpec("_P")
+_R = TypeVar("_R")
 
 
 class Branches(NamedTuple):
@@ -209,44 +210,74 @@ class WrapFunction:  # WrapFunction(partial):
 
 
 # @ClassWrapper(tuple).class_decorator  # TODO?
-class Sets[T: Hashable](tuple[set[T], ...]):
-    """ Wrapper class to centralize methods comparing/using multiple sets. """
-    _R = TypeVar("_R")  # for _zip_sets method
+class ObjecTuple[T](tuple[T, ...]):
+    """ Wrapper class to centralize methods operating on multiple objects. """
+    are_same = all_equal  # Check whether iterables have the same elements
 
-    are_same = all_equal  # Check whether sets have the same elements
+    def __add__(self, others: Iterable[T]) -> Self:
+        """ Concatenates `others` to the end of this `ObjecTuple`.
 
-    def __add__(self, others: Iterable[set[T]]) -> Self:
-        """ Concatenates `others` to these `Sets`.
+        Returns `self + value`. Defined to return an `ObjecTuple` instance. 
 
-        Returns `self + value`. Defined to return a `Sets` instance. 
-
-        :param others: Iterable[set[T], ...], other sets to append to this
-            `Sets` tuple
-        :return: Self, a `Sets` instance with `others` concatenated to the end
+        :param others: Iterable[T], other iterables to append to
+            this `ObjecTuple`.
+        :return: Self, an `ObjecTuple` instance with `others` added to the end.
         """
-        return type(self)(super().__add__(tuple(others)))
+        return type(self)(super().__add__(tuple[T, ...](others)))
 
     @overload
-    def __getitem__(self, key: SupportsIndex, /) -> set[T]: ...
+    def __getitem__(self, key: SupportsIndex, /) -> T: ...
     @overload
     def __getitem__(self, key: slice, /) -> Self: ...
 
     def __getitem__(self, key):
-        """ Returns `self[key]`. Defined so slicing returns a `Sets` instance.
+        """ Returns `self[key]`.
 
-        :return: slice | set[T], `self[key]`
+        Defined explicitly so that slicing returns an instance of this class.
+
+        :return: slice | T, `self[key]`
         """
         gotten = super().__getitem__(key)
         if isinstance(key, slice):  # if isinstance(gotten, tuple):
             gotten = type(self)(gotten)
         return gotten
 
+    def append(self, *others: T) -> Self:
+        """ Appends `others` to these objects. Same as `concat`, but accepts
+            an individual object instance as an argument.
+
+        :param others: Iterable[T], other objects to append to this ObjecTuple
+        :return: Self, an `ObjecTuple` with `others` concatenated to the end
+        """
+        return self + others
+
+    def apply(self, func: Callable[Concatenate[T, _P], _R],
+              *args: _P.args, **kwargs: _P.kwargs
+              ) -> Generator[_R, None, None]:
+        return (func(s, *args, **kwargs) for s in self)
+
+    concat = extend = __add__  # Synonymous method aliases
+
+
+# @ClassWrapper(tuple).class_decorator  # TODO?
+class IterTuple[T: Iterable](ObjecTuple[T]):
+    """ Wrapper class to centralize methods comparing/using 
+        multiple iterables. """
+
+    def filter_on(self, func: Callable[[T], Any]
+                  ) -> Generator[filter, None, None]:
+        return (filter(func, s) for s in self)
+
+
+class Sets[T: Hashable](IterTuple[set[T]]):
+    """ Wrapper class to centralize methods comparing/using multiple sets. """
+
     def __new__(cls, iterables: Iterable[Iterable[T]] = ()) -> Self:
         """ 
         :param iterables: Iterable[Iterable[T]] to convert into `Sets`
         :return: Self, a tuple of all input `iterables` as `Sets`
         """
-        return super().__new__(cls, (set(x) for x in iterables))
+        return super().__new__(cls, (set[T](x) for x in iterables))
 
     @staticmethod
     def _reduce_set_method(func: Callable[[set[T], Iterable[T]], set[T]]
@@ -281,27 +312,10 @@ class Sets[T: Hashable](tuple[set[T], ...]):
     intersection = overlap = _reduce_set_method(set.intersection)
     unique = uniques = _reduce_set_method(set.symmetric_difference)
 
-    concat = extend = __add__  # More synonymous method aliases
-
     # Operations to perform on each set in these Sets and the corresponding
     # set in a different Sequence of sets
     union_each = _zip_sets(set.union)
     update_each = exhaust_wrapper(_zip_sets(set.update))
-
-    def append(self, *others: set[T]) -> Self:
-        """ Appends `others` to these `Sets`. Same as `concat`, but accepts
-            an individual `set` instance as an argument.
-
-        :param others: Iterable[set[T], ...], other sets to append to this
-            `Sets` tuple
-        :return: Self, a `Sets` instance with `others` concatenated to the end
-        """
-        return self + others
-
-    def apply(self, func: Callable[Concatenate[set[T], _P], _R],
-              *args: _P.args, **kwargs: _P.kwargs
-              ) -> Generator[_R, None, None]:
-        return (func(s, *args, **kwargs) for s in self)
 
     def differentiate(self) -> Generator[set[T], None, None]:
         """ Return a copy of the sets without any shared elements. Each will
@@ -312,143 +326,3 @@ class Sets[T: Hashable](tuple[set[T], ...]):
         """
         return (self[i].difference((self[:i] + self[i+1:]).union()
                                    ) for i in range(len(self)))
-
-    def filter(self, func: Callable[[T], Any]
-               ) -> Generator[filter, None, None]:
-        return (filter(func, s) for s in self)
-
-
-class Valid:
-    """ Tools to validate command-line input arguments. """
-    # Type hints for _validate method
-    _F = TypeVar("_F")  # Reformatted validated input object
-    _T = TypeVar("_T")  # Input object to validate
-
-    # Predefined validator functions (with default parameter values)
-    dir_made = WrapFunction(os.makedirs, exist_ok=True)  # Dir exists
-    readable = WrapFunction(os.access, mode=os.R_OK)  # Can read existing obj
-    writable = WrapFunction(os.access, mode=os.W_OK)  # Can write existing obj
-
-    @overload
-    @staticmethod
-    def _validate(to_validate: _T, *conditions: Callable[[_T], bool],
-                  err_msg: str,
-                  first_ensure: Callable[[_T], Any] | None = None,
-                  final_format: Callable[[_T], _F]) -> _F: ...
-
-    @overload
-    @staticmethod
-    def _validate(to_validate: _T, *conditions: Callable[[_T], bool],
-                  err_msg: str,
-                  first_ensure: Callable[[_T], Any] | None = None) -> _T: ...
-
-    @staticmethod
-    def _validate(to_validate: _T, *conditions: Callable[[_T], bool],
-                  # conditions: Iterable[Callable] = list(),
-                  err_msg: str = "`{}` is invalid.",
-                  first_ensure: Callable[[_T], Any] | None = None,
-                  final_format: Callable[[_T], _F] | None = None):
-        """ Parent/base function used by different type validation functions.
-
-        :param to_validate: _T: Any, object to validate
-        :param conditions: Iterable[Callable[[_T], bool]] that each accept
-            `to_validate` and returns True if and only if `to_validate`
-            passes some specific condition, otherwise returning False
-        :param final_format: Callable[[_T], _F: Any] that accepts
-            `to_validate` and returns it after fully validating it
-        :param err_msg: str to show to user to tell them what is invalid
-        :param first_ensure: Callable[[_T], Any] to run on `to_validate` to
-            prepare/ready it for validation
-        :raise: argparse.ArgumentTypeError if `to_validate` is somehow invalid
-        :return: _T | _F, `to_validate` but fully validated
-        """
-        try:
-            if first_ensure:
-                first_ensure(to_validate)
-            '''
-            for prepare in first_ensure:
-                prepare(to_validate)
-            '''
-            for is_valid in conditions:
-                assert is_valid(to_validate)
-            return final_format(to_validate) if final_format else to_validate
-        except (argparse.ArgumentTypeError, AssertionError, OSError,
-                TypeError, ValueError):
-            raise argparse.ArgumentTypeError(err_msg.format(to_validate))
-
-    @classmethod
-    def output_dir(cls, path: Any) -> str:
-        """ Try to make or access a directory for new files at `path`.
-
-        :param path: str, valid (not necessarily real) directory path
-        :raise: argparse.ArgumentTypeError if directory path is not writable
-        :return: str, validated absolute path to real writable folder
-        """
-        return cls._validate(path, os.path.isdir, cls.writable,
-                             err_msg="Cannot create directory at `{}`",
-                             first_ensure=cls.dir_made,  # [cls.dir_made],
-                             final_format=os.path.abspath)
-
-    @classmethod
-    def readable_dir(cls, path: Any) -> str:
-        """ Verify that `path` is a valid directory path.
-
-        :param path: Any, object that should be a valid directory path
-        :return: str representing a valid directory path
-        """
-        return cls._validate(path, os.path.isdir, cls.readable,
-                             err_msg="Cannot read directory at `{}`",
-                             final_format=os.path.abspath)
-
-    @classmethod
-    def readable_file(cls, path: Any) -> str:
-        """ Use this instead of `argparse.FileType('r')` because the latter
-            leaves an open file handle.
-
-        :param path: Any, object that should be a valid file (or dir) path.
-        :raise: argparse.ArgumentTypeError if `path` isn't a path to a valid
-            readable file (or directory).
-        :return: str representing a valid file (or directory) path.
-        """
-        return cls._validate(path, cls.readable,
-                             err_msg="Cannot read file at `{}`",
-                             final_format=os.path.abspath)
-
-    @classmethod
-    def whole_number(cls, to_validate: Any) -> int:
-        """ Throw argparse exception unless to_validate is a positive integer
-
-        :param to_validate: Any, obj to test whether it is a positive integer
-        :return: int, to_validate if it is a positive integer
-        """
-        return cls._validate(to_validate, lambda x: int(x) >= 0,
-                             err_msg="{} is not a positive integer",
-                             final_format=int)
-
-
-class ArgParser(argparse.ArgumentParser):
-    """ Extends `argparse.ArgumentParser` to include default values that I
-        tend to re-use. Purely for convenience. """
-
-    def add_new_out_dir_arg(self, name: str, **kwargs: Any) -> None:
-        """ Specifies argparse.ArgumentParser.add_argument for a valid path
-            to an output directory that must either exist or be created.
-
-        :param name: str naming the directory to access (and create if needed)
-        :param kwargs: Mapping[str, Any], keyword arguments for the method
-            `argparse.ArgumentParser.add_argument`
-        """
-        if not kwargs.get("default"):
-            kwargs["default"] = os.path.join(os.getcwd(), name)
-        if not kwargs.get("dest"):
-            kwargs["dest"] = name
-        if not kwargs.get("help"):
-            kwargs["help"] = "Valid path to local directory to save " \
-                f"{name} files into. If no directory exists at this path " \
-                "yet, then one will be created. By default, this script " \
-                "will save output files into a directory at this path: " \
-                + kwargs["default"]
-        self.add_argument(
-            f"-{name[0]}", f"-{name}", f"--{name}", f"--{name}-dir",
-            f"--{name}-dir-path", type=Valid.output_dir, **kwargs
-        )

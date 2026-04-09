@@ -57,7 +57,9 @@ class TestSets(Tester):
 
     def test_filter(self) -> None:
         sets = Sets[int](((1, 2, 3), (3, 4, 5, 6), (1, 9, 10)))
-        self.check_result(Sets[int](sets.filter(lambda x: x > 5)),
+        filtered = sets.filter_on(  # TODO Fix whatever's bothering the linter
+            lambda x: x > 5)  # pyright: ignore[reportOperatorIssue]
+        self.check_result(Sets[int](filtered),
                           Sets[int]((tuple(), (6, ), (9, 10))))
 
     def test_intersection(self) -> None:

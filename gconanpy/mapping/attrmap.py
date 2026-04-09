@@ -6,9 +6,9 @@ Updated: 2026-03-02
 """
 # Import standard libraries
 from collections.abc import \
-    Callable, Container, Mapping, MutableMapping, Iterator
+    Callable, Collection, Container, Mapping, MutableMapping, Iterator
 from numbers import Number
-from typing import Any, get_args, Literal, overload, Self, TypeVar
+from typing import Any, cast, get_args, Literal, overload, Self, TypeVar
 
 # Import local custom libraries
 try:
@@ -63,6 +63,32 @@ ERR_MSG = "Cannot {} protected attribute {}"
 
 # Type variable for ExcludAttrMap.get default parameter
 _D = TypeVar("_D")
+
+
+# TODO AttrMap and new OrderedAttrMap(names: list[str]) should subclass this
+class BaseAttrMap(MutableMapping[str, Any]):
+    __dict__: dict[str, Any]
+    __mutable__: set[str] = {"names", }
+    __protected_keywords__: set[str] = {
+        "__dict__", *get_args(_STR_ATTR), *get_args(_STR_SET),
+        *get_args(_METHOD), *get_args(_MISC_ATTR), *get_args(_TUP_ATTR)}
+    # names: Collection[str]
+    # names_type: type[Collection[str]]
+
+    def __init__(self, m: Mapping[str, Any] = {}, /, **kwargs: Any) -> None:
+        # self.names = self.names_type()
+        # self.names = type(self.names)()
+        for each_map in (m, kwargs):
+            for key, value in each_map.items():
+                setattr(self, key, value)
+
+    def __contains__(self, key: str, /) -> bool:
+        return hasattr(self, key)
+
+    # __contains__ = cast(Callable[[Self, Any], bool], hasattr)
+    __delitem__ = wrap_attr2key(delattr)
+    __getitem__ = wrap_attr2key(getattr)
+    __setitem__ = wrap_attr2key(setattr)
 
 
 class AttrMap[T](MutableMapping[str, T]):

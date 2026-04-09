@@ -5,7 +5,7 @@ This file forces static type checkers to acknowledge that `FancyString` methods
 never return `str` and only return `FancyString`, even inherited `str` methods.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-11-19
-Updated: 2026-03-30
+Updated: 2026-04-08
 """
 # Import standard libraries
 from builtins import _FormatMapMapping, _TranslateTable
@@ -90,6 +90,7 @@ class FancyString(str, metaclass=MethodWrappingMeta):
                     iter_kwargs: Mapping[str, Any] = {}) -> Self: ...
 
     def is_case(self, str_case: StrCase) -> bool: ...
+    def is_enclosed_by(self, affix: str | None) -> bool: ...
     def is_enclosed_in(self, prefix: str | None,
                        suffix: str | None) -> bool: ...
 

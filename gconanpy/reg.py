@@ -4,7 +4,7 @@
 Classes that parse strings and text data, especially using Regex.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
-Updated: 2026-03-30
+Updated: 2026-04-07
 """
 # Import standard libraries
 from collections.abc import Container, Generator
@@ -77,6 +77,8 @@ class Regextract:
         \sobject\sat\s\dx\w{12}))
         >""", regex.X)
 
+    LINES = regex.compile(r"\n+")
+
     # Get a floating-point/decimal number from inside a string.
     FLOAT = regex.compile(
         r"""(?:  # 1st case: dot followed by digits; ".1" -> 0.1
@@ -115,14 +117,7 @@ class Regextract:
         """
         return regex.match(cls.INVALID_PY_REPR, astr) is not None
 
-    @classmethod
-    def lines_in(cls, txt: str) -> list[str]:
-        """ 
-        :param txt: str to split into its constitutive lines
-        :return: list[str], `txt` split by lines, grouping consecutive newlines
-            so that the result contains zero empty strings
-        """
-        return regex.split(r"\n+", txt)
+    lines_in = LINES.split
 
     @classmethod
     def iter_numbers(cls, txt: str) -> Generator[float, None, None]:

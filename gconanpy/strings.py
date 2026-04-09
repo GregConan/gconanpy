@@ -4,7 +4,7 @@
 FancyString class wraps builtin str class to add extra string functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2026-03-30
+Updated: 2026-04-08
 """
 # Import standard libraries
 # from collections import UserString  # TODO?
@@ -18,7 +18,7 @@ from typing import Any, cast, Literal, ParamSpec, Self, SupportsIndex
 
 # Import third-party PyPI libraries
 import bs4
-import inflection  # TODO
+import inflection  # TODO Use this for more standardized case conversion
 import pathvalidate
 
 # Import local custom libraries
@@ -45,8 +45,8 @@ class DelimitedCase:
     Represents the following text cases used frequently in code:
     `kebab-case`, `MACRO_CASE`, `snake_case`, and `TRAIN-CASE`. """
     sep: str
-    is_case: Callable[[str], bool]
-    to_case: Callable[[str], str]
+    is_case: Callable[[str], bool]  # TODO Handle entire case check here?
+    to_case: Callable[[str], str]  # TODO Handle entire case conversion here?
 
     def __init__(self, sep: str, upper: bool) -> None:
         self.sep = sep
@@ -505,6 +505,15 @@ class FancyString(str, metaclass=MethodWrappingMeta):
                         return False
 
                 return True
+
+    def is_enclosed_by(self, affix: str | None) -> bool:
+        """ 
+        :param affix: str | None, str to check the beginning and end of this
+            FancyString for; or None to return True
+        :return: bool, True if `self` starts with AND ends with `affix`, or
+            `if not affix`; otherwise False
+        """
+        return (not affix) or (self.startswith(affix) and self.endswith(affix))
 
     def is_enclosed_in(self, prefix: str | None, suffix: str | None) -> bool:
         """ 
