@@ -2,7 +2,7 @@
 MutableMapping classes resembling dicts that store items as attributes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-11-21
-Updated: 2026-03-02
+Updated: 2026-04-10
 """
 # Import standard libraries
 from collections.abc import \
@@ -12,15 +12,18 @@ from typing import Any, cast, get_args, Literal, overload, Self, TypeVar
 
 # Import local custom libraries
 try:
+    from gconanpy import polymorphic
     from gconanpy.mapping.bases import \
         ExcluderMap, LazyMap, MathMap, PromptMap, PROTECTEDS, SortMap
     from gconanpy.meta import error_changer
     from gconanpy.meta.typeshed import SupportsRichComparison
 except (ImportError, ModuleNotFoundError):
+    from .. import polymorphic
     from .bases import \
         ExcluderMap, LazyMap, MathMap, PromptMap, PROTECTEDS, SortMap
     from ..meta import error_changer
     from ..meta.typeshed import SupportsRichComparison
+
 
 # Wrapper function that takes a method that can raise AttributeError and
 # returns a copy identical except that it can raise KeyError.
@@ -49,7 +52,7 @@ _METHOD = Literal[  # collections.abc.MutableMapping method names
     "clear", "copy", "fromkeys", "get", "items", "keys", "pop", "popitem",
     "setdefault", "update", "values"]
 _MISC_ATTR = Literal["__annotations__", "__base__", "__basicsize__",
-                     "__class__", "__hash__", "__weakref__"]  # , "__orig_class__"
+                     "__hash__", "__weakref__"]  # "__class__", "__orig_class__"
 _PROMPT_METH = Literal[  # gconanpy.mapping.bases.PromptMap method names
     "get_or_prompt_for", "setdefault_or_prompt_for"]
 _STR_ATTR = Literal["__doc__", "__module__"]
@@ -57,38 +60,18 @@ _STR_SET = Literal["__mutable__", "__protected_keywords__", "names"
                    ]  # restate PROTECTEDS bc can't use var in Literal
 _TUP_ATTR = Literal["__bases__", "__orig_bases__", "__parameters__",
                     "__slots__", "__type_params__"]
+_TYPE_ATTR = Literal["__class__", "__orig_class__"]
 
 # Error message raised when trying to change/delete builtin methods/attributes
 ERR_MSG = "Cannot {} protected attribute {}"
 
+# Basic protected attribute names
+PROTECTED_NAMES = {
+    "__dict__", *get_args(_STR_ATTR), *get_args(_STR_SET), *get_args(_METHOD),
+    *get_args(_MISC_ATTR), *get_args(_TUP_ATTR), *get_args(_TYPE_ATTR)}
+
 # Type variable for ExcludAttrMap.get default parameter
 _D = TypeVar("_D")
-
-
-# TODO AttrMap and new OrderedAttrMap(names: list[str]) should subclass this
-class BaseAttrMap(MutableMapping[str, Any]):
-    __dict__: dict[str, Any]
-    __mutable__: set[str] = {"names", }
-    __protected_keywords__: set[str] = {
-        "__dict__", *get_args(_STR_ATTR), *get_args(_STR_SET),
-        *get_args(_METHOD), *get_args(_MISC_ATTR), *get_args(_TUP_ATTR)}
-    # names: Collection[str]
-    # names_type: type[Collection[str]]
-
-    def __init__(self, m: Mapping[str, Any] = {}, /, **kwargs: Any) -> None:
-        # self.names = self.names_type()
-        # self.names = type(self.names)()
-        for each_map in (m, kwargs):
-            for key, value in each_map.items():
-                setattr(self, key, value)
-
-    def __contains__(self, key: str, /) -> bool:
-        return hasattr(self, key)
-
-    # __contains__ = cast(Callable[[Self, Any], bool], hasattr)
-    __delitem__ = wrap_attr2key(delattr)
-    __getitem__ = wrap_attr2key(getattr)
-    __setitem__ = wrap_attr2key(setattr)
 
 
 class AttrMap[T](MutableMapping[str, T]):
@@ -98,14 +81,13 @@ class AttrMap[T](MutableMapping[str, T]):
 
     __dict__: dict[str, T]
     __mutable__: set[str] = {"names", }
-    __protected_keywords__: set[str] = {
-        "__dict__", *get_args(_STR_ATTR), *get_args(_STR_SET),
-        *get_args(_METHOD), *get_args(_MISC_ATTR), *get_args(_TUP_ATTR)}
+    __protected_keywords__: set[str] = {*PROTECTED_NAMES}
 
-    names: set[str]  # mutable attribute names; "keys"
+    names: set[str] | list[str]  # mutable attribute names; "keys"
 
-    def __init__(self, from_map: Mapping[str, T] = {}, **kwargs: T) -> None:
-        self.names = set[str]()
+    def __init__(self, from_map: Mapping[str, T] = {}, /,
+                 ordered: bool = False, **kwargs: T) -> None:
+        self.names = list[str]() if ordered else set[str]()
         for each_map in (from_map, kwargs):
             for key, value in each_map.items():
                 setattr(self, key, value)
@@ -117,7 +99,8 @@ class AttrMap[T](MutableMapping[str, T]):
         if name in getattr(self, PROTECTEDS, ()):
             raise AttributeError(ERR_MSG.format("delete", name))
         super().__delattr__(name)
-        self.names.discard(name)
+        polymorphic.discard(self.names, name)
+        # self.names.discard(name)
 
     @overload
     def __getattribute__(self, name: _METHOD) -> Callable: ...
@@ -128,13 +111,13 @@ class AttrMap[T](MutableMapping[str, T]):
     @overload
     def __getattribute__(self, name: _TUP_ATTR) -> tuple: ...
     @overload
+    def __getattribute__(self, name: _TYPE_ATTR) -> type: ...
+    @overload
     def __getattribute__(self, name: Literal["__dict__"]) -> dict[str, T]: ...
     @overload
     def __getattribute__(self, name: Literal["__hash__"]) -> None: ...
     @overload
     def __getattribute__(self, name: Literal["__weakref__"]) -> Any: ...
-    @overload
-    def __getattribute__(self, name: Literal["__class__"]) -> type: ...
     @overload
     def __getattribute__(self, name: str) -> T: ...
 
@@ -151,7 +134,8 @@ class AttrMap[T](MutableMapping[str, T]):
 
     def __or__(self, other: Self) -> Self:
         new_map = type(self)()
-        for k in self.names | other.names:
+        # for k in self.names | other.names:
+        for k in polymorphic.union(self.names, other.names):
             try:
                 setattr(new_map, k,  getattr(other, k))
             except AttributeError:
@@ -167,7 +151,8 @@ class AttrMap[T](MutableMapping[str, T]):
                 raise AttributeError(ERR_MSG.format(
                     "set", f"{name} to {value}"))
         else:
-            self.names.add(name)
+            polymorphic.append(self.names, name)
+            # self.names.add(name)
         super().__setattr__(name, value)
 
     # The (g/s)etitem and delitem methods are identical to their respective
@@ -191,13 +176,13 @@ class DefaultAttrMap[T](AttrMap[T]):
     """ `DefaultAttrMap` is to `AttrMap` what `defaultdict` is to `dict`. """
 
     __mutable__: set[str] = {"_default_factory", "names"}
-    __protected_keywords__: set[str] = {"_default_factory",
-                                        *AttrMap.__protected_keywords__}
+    __protected_keywords__: set[str] = {"_default_factory", *PROTECTED_NAMES}
 
     def __init__(self, default_factory: Callable[[str], T],
-                 from_map: Mapping[str, T] = {}, **kwargs: T) -> None:
+                 from_map: Mapping[str, T] = {},
+                 ordered: bool = False, **kwargs: T) -> None:
         self._default_factory = default_factory
-        super().__init__(from_map, **kwargs)
+        super().__init__(from_map, ordered, **kwargs)
 
     def __getattr__(self, name: str):
         try:
@@ -216,8 +201,8 @@ class ExcludAttrMap[T](AttrMap[T], ExcluderMap[str, T]):
         `gconanpy.mapping.bases.ExcluderMap` and
         `gconanpy.mapping.dicts.ExcluDict` """
     __mutable__: set[str] = {"names", }
-    __protected_keywords__: set[str] = {
-        *get_args(_EXCL_METH), *AttrMap.__protected_keywords__}
+    __protected_keywords__: set[str] = {*get_args(_EXCL_METH),
+                                        *PROTECTED_NAMES}
     # get method must be defined here (not in bases.py) to override
     # MutableMapping.get, because AttrMap must be inherited before bases.py
     # classes to avoid errors
@@ -237,13 +222,13 @@ class ExcludAttrMap[T](AttrMap[T], ExcluderMap[str, T]):
         return getattr(self, key) if self.has(key, exclude) else default
 
 
-class MathAttrMap[T: Number](AttrMap[T], MathMap[str, T]):
+class MathAttrMap[T: int | float | complex](AttrMap[T], MathMap[str, T]):
     """ `MathAttrMap` is to `AttrMap` what `MathDict` is to `dict`. See
         `gconanpy.mapping.bases.MathMap` and
         `gconanpy.mapping.dicts.MathDict` """
     __mutable__: set[str] = {"names", }
-    __protected_keywords__: set[str] = {
-        "_ZERO", *get_args(_MATH_METH), *AttrMap.__protected_keywords__}
+    __protected_keywords__: set[str] = {"_ZERO", *get_args(_MATH_METH),
+                                        *PROTECTED_NAMES}
 
 
 class SortAttrMap[T: SupportsRichComparison](AttrMap[T], SortMap[str, T]):
@@ -252,7 +237,7 @@ class SortAttrMap[T: SupportsRichComparison](AttrMap[T], SortMap[str, T]):
         `gconanpy.mapping.dicts.Sortionary` """
     __mutable__: set[str] = {"names", }
     __protected_keywords__: set[str] = {
-        "_BY", "_WHICH", "sorted_by", *AttrMap.__protected_keywords__}
+        "_BY", "_WHICH", "sorted_by", *PROTECTED_NAMES}
 
 
 class LazyAttrMap[T](ExcludAttrMap[T], LazyMap[str, T]):

@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2026-03-25
-Updated: 2026-04-08
+Updated: 2026-04-10
 """
 # Import standard libraries
 import argparse
@@ -23,14 +23,14 @@ class Arg:
     """ Very simple data container representing 1 argparse parameter. """
     _option_slots = ("action", "nargs", "const", "default", "type", "choices",
                      "required", "help", "metavar", "version")
-    _DEFAULT = object()  # Represents excluding an option that may be None
+    _EXCLUDE = object()  # Represents excluding an option that may be None
 
     def __init__(
         self, dest: str, *option_strings: str,
         action: str | type[argparse.Action] | None = None,
         nargs: int | str | None = None,
-        const: Any = _DEFAULT,
-        default: Any = _DEFAULT,
+        const: Any = _EXCLUDE,
+        default: Any = _EXCLUDE,
         dtype: type | Callable[[str], Any] |
             argparse.FileType | str | None = None,
         choices: Iterable | None = None,
@@ -48,9 +48,9 @@ class Arg:
         if choices is not None:
             self.choices = choices
 
-        if const is not self._DEFAULT:
+        if const is not self._EXCLUDE:
             self.const = const
-        if default is not self._DEFAULT:
+        if default is not self._EXCLUDE:
             self.default = default
 
         if dtype is not None:
@@ -191,13 +191,13 @@ class Valid:
 
 class ArgumentParser(argparse.ArgumentParser):
     """ ArgumentParser subclass with a method to automatically import every
-        Field in a Pydantic Model as its own argparse argument/parameter.
+    Field in a Pydantic Model as its own argparse argument/parameter.
 
     Also includes pre-defined input args I tend to reuse for convenience. """
 
     def add_new_out_dir_arg(self, name: str, **kwargs: Any) -> None:
         """ Specifies argparse.ArgumentParser.add_argument for a valid path
-            to an output directory that must either exist or be created.
+        to an output directory that must either exist or be created.
 
         :param name: str naming the directory to access (and create if needed)
         :param kwargs: Mapping[str, Any], keyword arguments for the method
@@ -220,9 +220,10 @@ class ArgumentParser(argparse.ArgumentParser):
 
     def parse_model_args(self, model: type[PydanticModelT], *args: str
                          ) -> PydanticModelT:
-        """ Load arguments defined in a Pydantic Model into this
-            `ArgumentParser`, parse them from the command line, and then load
-            the results into an instance of that Pydantic Model.
+        """ After defining argparse arguments as fields in a Pydantic Model,
+        load them into this `ArgumentParser`, parse their values from the
+        command line, and then load the results into an instance of that
+        Pydantic Model.
 
         :param model: type[PydanticModelT], Pydantic Model to parse args into.
         :param *args: str, arguments for this `ArgumentParser` to accept as if

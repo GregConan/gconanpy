@@ -4,7 +4,7 @@
 Base classes for unit tests in ../tests/ dir
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-28
-Updated: 2026-03-02
+Updated: 2026-04-10
 """
 # Import standard libraries
 from abc import ABC
@@ -124,7 +124,7 @@ class Tester(ABC):
         """ Assert that `actual_result == expected_result`. If that's False, \
             then print a statement saying so. """
         if actual_result != expected_result:
-            print(f"Result `{actual_result}` != expected"
+            print(f"Result `{actual_result}` != expected "
                   f"`{expected_result}`")
             raise AssertionError
 

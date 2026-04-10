@@ -3,15 +3,18 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2025-08-01
-Updated: 2026-03-02
+Updated: 2026-04-09
 """
 # Import standard libraries
+import abc
 from copy import copy, deepcopy
-from collections.abc import Collection, Hashable, Iterable, Iterator, \
-    MutableSet, MutableMapping, MutableSequence, Reversible, Sequence
+from collections.abc import Callable, Collection, Hashable, Iterable, \
+    Iterator, MutableSet, MutableMapping, MutableSequence, Reversible, Sequence
+import functools
 from more_itertools import all_equal
 import sys
-from typing import Any, Mapping, cast, overload, Self, TypeVar
+from typing import Any, Mapping, NamedTuple, cast, overload, \
+    Protocol, Self, TypeVar
 
 # Import local custom libraries
 try:

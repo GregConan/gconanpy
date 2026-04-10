@@ -4,13 +4,13 @@
 Custom Mapping base classes inherited by classes in dicts.py and attrmap.py
 Greg Conan: gregmconan@gmail.com
 Created: 2026-02-23
-Updated: 2026-03-02
+Updated: 2026-04-10
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Hashable, \
     Iterable, Mapping, MutableMapping, Sequence
 import functools
-from numbers import Number
+# from numbers import Number  # TODO
 import operator
 from typing import cast, Literal, overload, Self, ParamSpec, TypeVar
 
@@ -212,7 +212,8 @@ class LazyMap[KT, VT](ExcluderMap[KT, VT]):
         return self[key]
 
 
-class MathMap[KT: Hashable, VT: Number](InitMutableMap[KT, VT]):
+# TODO Why does `VT: Number` make MathMap[Hashable, int] raise warnings?
+class MathMap[KT: Hashable, VT: int | float | complex](InitMutableMap[KT, VT]):
     """ `dict` that can perform math operations on its items. For example:
 
     ```
