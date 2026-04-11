@@ -154,7 +154,6 @@ def _(self: Sequence[_T], other: Iterable[_T], /) -> bool:
     self_set = set[_T](self)  # TODO OPTIMIZE?
     for el in other:
         if el not in self_set:
-            print(f"{el} not in {self_set}")
             return False
     return True
 
@@ -174,7 +173,6 @@ symmetric_difference_update.register(set, set.symmetric_difference_update)
 @symmetric_difference_update.register(list)
 def _(self: list[_T], other: Iterable[_T], /) -> None:
     interset = set[_T](self).intersection(other)
-    print(f"Interset: {interset}")
     for el in interset:
         self.remove(el)
     for el in other:  # TODO OPTIMIZE?
