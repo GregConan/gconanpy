@@ -272,4 +272,5 @@ class ArgumentParser(argparse.ArgumentParser):
             field_arg: Arg = field.metadata[-1]
             self.add_argument(*field_arg.option_strings, dest=field_arg.dest,
                               **field_arg.options())
-        return model(**vars(self.parse_args(args)))
+        parsed = self.parse_args(args) if args else self.parse_args()
+        return model(**vars(parsed))
