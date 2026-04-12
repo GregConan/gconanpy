@@ -156,7 +156,7 @@ class TestDuckCollection(Tester):
             self.check_result(len(ducks), old_len - 1)
 
 
-class TestDuckFunctions(Tester):
+class TestPolymorphicFunctions(Tester):
     _NESTED_INTS = tuple[tuple[int, ...], ...]
 
     def example_ints(self, inputs2output: Mapping[tuple[int, ...], _T],

@@ -4,7 +4,7 @@
 Docstrings and type hints for the Collection accessor and mutator functions.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-10
-Updated: 2026-04-10
+Updated: 2026-04-11
 """
 # Import standard libraries
 from collections.abc import Collection, Iterable
@@ -14,11 +14,21 @@ _C = TypeVar("_C", bound=Collection)
 _T = TypeVar("_T")
 
 
-def add(self: Collection[_T], element: _T) -> None:
+def add(self: Collection[_T], element: _T, /) -> None:
     """ Append object to the end of the list, or add an element to a set.
 
     :param self: Collection[_T], list or set to add/append `duck` to.
     :param element: _T, element to add/append to `self`.
+    """
+
+
+def delete(self: Collection[_T], element: _T, /) -> None:
+    """ Remove an element from this Collection; it must be a member.
+
+    If the element is not a member, raise a KeyError.
+
+    :param self: Collection[_T] to remove `element` from.
+    :param element: _T to remove from `self`.
     """
 
 
@@ -31,7 +41,12 @@ def difference(self: _C, *others: Iterable) -> _C:
     """
 
 
-def difference_update(self: _C, *others: Iterable) -> _C: ...
+def difference_update(self: Collection[_T], *others: Iterable[_T]) -> None:
+    """ Remove all elements of (an)other Collection(s) from this Collection.
+
+    :param self: Collection[_T] to remove all elements of `others` from
+    :param *others: Iterable, elements to remove from `self`. 
+    """
 
 
 def discard(self: Collection[_T], element: _T, /) -> None:
@@ -104,13 +119,28 @@ def symmetric_difference(self: _C, other: Iterable, /) -> _C:
     """
 
 
-def symmetric_difference_update(  # TODO ADD DOCSTRING
-    self: Collection[_T], other: Iterable[_T], /) -> None: ...
+def symmetric_difference_update(self: Collection[_T], other: Iterable[_T], /
+                                ) -> None:
+    """ Set `self` to the symmetric difference between itself and another
+    `Iterable`. Afterwards, `self` will only contain elements that were either
+    in `self` or in `other` but not in both.
+
+    :param self: Collection[_T] to set to the symmetric difference with `other`
+    :param other: Iterable[_T]
+    """
 
 
-def union(self: _C, *others: Collection) -> _C: ...  # TODO ADD DOCSTRING
+def union(self: _C, *others: Iterable) -> _C:
+    """ Return the combination of `self` and `others` as a new `Collection`. 
+    The result has all elements that are in `self` or any of the `others`.
+
+    :param self: _C, elements to add to the resultant Collection
+    :param *others: Iterable[_T], elements to add to the resultant Collection
+    :return: _C, _description_
+    """
 
 
 append = add
+remove = delete
 update = extend
 xor = symmetric_difference
