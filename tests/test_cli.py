@@ -3,7 +3,7 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2026-04-08
-Updated: 2026-04-08
+Updated: 2026-04-12
 """
 # Import standard libraries
 from typing import Annotated, get_args, Literal
@@ -12,7 +12,7 @@ from typing import Annotated, get_args, Literal
 import pydantic
 
 # Import local custom libraries
-from gconanpy.cli import Arg, ArgumentParser, Valid
+from gconanpy.cli import Arg, ArgumentParser, OutputDirArg, Valid
 from gconanpy.testers import Tester
 
 # Type variables for command-line input argument parsing
@@ -44,14 +44,15 @@ class CLIArgs(pydantic.BaseModel):  # NOTE: Dummy/test class
         help_msg=("Include this flag to enter interactive debugging mode."))]
     how_many: Annotated[int | None, pydantic.Field(ge=0), Arg(
         "how_many", "-n", help_msg="Number of items to fetch.")]
-    # output: str
+
+    output: Annotated[str, pydantic.Field(), OutputDirArg()]
     # password: str
 
 
 def get_cli_args(*args: str) -> CLIArgs:
     # Collect and parse command-line input arguments
     parser = ArgumentParser("Python script tester.")
-    return parser.parse_model_args(CLIArgs, *args)
+    return parser.parse_args_to_model(CLIArgs, *args)
 
 
 class TestArgumentParser(Tester):
