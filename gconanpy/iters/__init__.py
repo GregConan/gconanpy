@@ -5,7 +5,7 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2026-03-02
+Updated: 2026-04-14
 """
 # Import standard libraries
 import abc
@@ -449,7 +449,8 @@ class Randoms:
                 min_key: int = MIN, max_key: int = MAX * 10,
                 min_val: int = MIN, max_val: int = MAX * 10,
                 key_types: _TYPES = RANDTYPES,
-                value_types: _TYPES = RANDTYPES) -> dict[_KT, _VT]:
+                value_types: _TYPES = RANDTYPES, replace: bool = True
+                ) -> dict[_KT, _VT]:
         """ 
         :param keys: Sequence[_KT] | None, possible keys to use in the \
             returned dict, or None to use random data; defaults to None.
@@ -469,11 +470,16 @@ class Randoms:
             to use as `keys` if `keys=None`; defaults to `RANDTYPES`
         :param value_types: type | Sequence[type | None], types of random \
             data to use as `values` if `values=None`; defaults to `RANDTYPES`
+        :param replace: bool, True to randomly select `values` WITH replacement
+            (allowing duplicates); or False to select WITHOUT replacement (so
+            all values are unique); defaults to True. If `replace=False`, then
+            `max_n` must be less than or equal to the length of `values`.
         :return: dict[_KT, _VT], dict with random size and contents.
         """
         n = random.randint(min_n, max_n)
-        keys = cls.randtuple(n, keys, key_types, min_key, max_key)
-        values = cls.randtuple(n, values, value_types, min_val, max_val)
+        keys = cls.randtuple(n, keys, key_types, min_key, max_key, False)
+        values = cls.randtuple(
+            n, values, value_types, min_val, max_val, replace)
         return {k: v for k, v in zip(keys, values)}
 
     @classmethod
@@ -506,7 +512,8 @@ class Randoms:
     @classmethod
     def randtuple(cls, n: int, values: Sequence[_VT] | None = None,
                   value_types: _TYPES = RANDTYPES,
-                  min_val: int = MIN, max_val: int = MAX * 10):
+                  min_val: int = MIN, max_val: int = MAX * 10,
+                  replace: bool = True) -> tuple:
         """
         :param n: int, number of items in the tuple to return.
         :param values: Sequence[_VT] | None, items to randomly select from; \
@@ -518,10 +525,15 @@ class Randoms:
             shortest `bytes` or `str`) in the tuple to return; defaults to 1
         :param max_val: int, the highest `int` or `float` (or the length of the
             longest `bytes` or `str`) in the tuple to return; defaults to 1000
-        :return: _type_, _description_
+        :param replace: bool, True to randomly select `values` WITH replacement
+            (allowing duplicates); or False to select WITHOUT replacement (so
+            all values are unique); defaults to True. If `replace=False`, then
+            `n` must be less than or equal to the length of `values`.
+        :return: tuple, _description_
         """
         if values:
-            ret = random.choices(values, k=n)
+            select = random.choices if replace else random.sample
+            ret = select(values, k=n)
         else:
             kwargs = dict[str, Any](
                 min_val=min_val, max_val=max_val, min_n=n, max_n=n)
@@ -533,8 +545,8 @@ class Randoms:
     @classmethod
     def randtuples(cls, values: Sequence[_VT] | None = None, min_n: int = MIN,
                    max_n: int = MAX, min_len: int = MIN, max_len: int = MAX,
-                   same_len: bool = False, unique: bool = False
-                   ) -> list[tuple[_VT, ...]]:
+                   same_len: bool = False, unique: bool = False,
+                   replace: bool = True) -> list[tuple[_VT, ...]]:
         """
         :param values: Sequence[_VT] | None, items to randomly select and \
             place into the returned tuples, or None to include random values \
@@ -549,6 +561,10 @@ class Randoms:
         :param unique: bool, True to return a list of unique tuples; else \
             False to return a list of tuples potentially including \
             duplicates; defaults to False
+        :param replace: bool, True to randomly select `values` WITH replacement
+            (allowing duplicates); or False to select WITHOUT replacement (so
+            all values are unique); defaults to True. If `replace=False`, then
+            `max_len` must be less than or equal to the length of `values`.
         :return: list[tuple[_VT, ...]], list of randomly generated tuples
         """
         tuples = []  # to return
@@ -562,9 +578,10 @@ class Randoms:
                 tup_len = random.randint(min_len, max_len)
 
             # Make them unique if specified
-            a_tup = cls.randtuple(tup_len, values)
+            # TODO: Combine unique and replace into one input parameter
+            a_tup = cls.randtuple(tup_len, values, replace=replace)
             while unique and (a_tup in tuples):
-                a_tup = cls.randtuple(tup_len, values)
+                a_tup = cls.randtuple(tup_len, values, replace=replace)
 
             tuples.append(a_tup)
         return tuples

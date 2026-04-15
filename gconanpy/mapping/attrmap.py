@@ -2,25 +2,25 @@
 MutableMapping classes resembling dicts that store items as attributes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-11-21
-Updated: 2026-04-10
+Updated: 2026-04-14
 """
 # Import standard libraries
 from collections.abc import \
     Callable, Collection, Container, Mapping, MutableMapping, Iterator
-from numbers import Number
+# from numbers import Number
 from typing import Any, cast, get_args, Literal, overload, Self, TypeVar
 
 # Import local custom libraries
 try:
     from gconanpy import polymorphic
-    from gconanpy.mapping.bases import \
-        ExcluderMap, LazyMap, MathMap, PromptMap, PROTECTEDS, SortMap
+    from gconanpy.mapping.bases import ComparableMathMap, ExcluderMap, \
+        LazyMap, MathMap, PromptMap, PROTECTEDS, SortMap
     from gconanpy.meta import error_changer
     from gconanpy.meta.typeshed import SupportsRichComparison
 except (ImportError, ModuleNotFoundError):
     from .. import polymorphic
-    from .bases import \
-        ExcluderMap, LazyMap, MathMap, PromptMap, PROTECTEDS, SortMap
+    from .bases import ComparableMathMap, ExcluderMap, \
+        LazyMap, MathMap, PromptMap, PROTECTEDS, SortMap
     from ..meta import error_changer
     from ..meta.typeshed import SupportsRichComparison
 
@@ -222,7 +222,8 @@ class ExcludAttrMap[T](AttrMap[T], ExcluderMap[str, T]):
         return getattr(self, key) if self.has(key, exclude) else default
 
 
-class MathAttrMap[T: int | float | complex](AttrMap[T], MathMap[str, T]):
+class MathAttrMap[T: int | float](ComparableMathMap[str, T],
+                                  AttrMap[T], MathMap[str, T]):
     """ `MathAttrMap` is to `AttrMap` what `MathDict` is to `dict`. See
         `gconanpy.mapping.bases.MathMap` and
         `gconanpy.mapping.dicts.MathDict` """

@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
 """
-Custom Mapping base classes inherited by classes in dicts.py and attrmap.py
+Type annotations for custom Mapping base classes in bases.py
 Greg Conan: gregmconan@gmail.com
-Created: 2026-02-23
+Created: 2026-04-14
 Updated: 2026-04-14
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, Hashable, \
     Iterable, Mapping, MutableMapping, Sequence
 import functools
-# from numbers import Number  # TODO
+# from numbers import Number
 import operator
 from typing import Any, cast, Literal, overload, Self, ParamSpec, TypeVar
 
@@ -20,15 +20,13 @@ try:
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from ..meta.typeshed import SupportsRichComparison
 
-# Constants for MathDict: numerical type hint, functools.wraps(assigned=...
-_ASSIGNED = ("__doc__", "__name__", "__qualname__")
-REALNUM = int | float
-NUMBER = REALNUM | complex
-
 # Name of attribute storing names of protected attributes that cannot be
 # overwritten by keys accessible through dot notation. Used by
 # mapping.dicts.DotDict, mapping.attrmap.AttrMap, and their subclasses.
 PROTECTEDS = "__protected_keywords__"
+
+REALNUM = int | float
+NUMBER = REALNUM | complex
 
 # Type hint variables
 _D = TypeVar("_D")  # for ExcluderMap "default" parameter
@@ -37,10 +35,7 @@ _P = ParamSpec("_P")  # for LazyMap lazy getter functions
 
 class InitMutableMap[KT, VT](MutableMapping[KT, VT]):
     def __init__(self, from_map: Mapping[KT, VT] | Iterable[tuple[KT, VT]]
-                 | None = None, **kwargs: VT) -> None:
-        for each_map in (from_map, cast(Mapping[KT, VT], kwargs)):
-            if each_map:
-                self.update(each_map)
+                 | None = None, **kwargs: VT) -> None: ...
 
     def copy(self) -> Self:
         """ `D.copy()` -> a shallow copy of `D`. 
@@ -48,7 +43,6 @@ class InitMutableMap[KT, VT](MutableMapping[KT, VT]):
         :return: Self, another instance of this same type of custom \
             dictionary with the same contents.
         """
-        return self.__class__(self)
 
 
 class ExcluderMap[KT, VT](MutableMapping[KT, VT]):
@@ -80,10 +74,6 @@ class ExcluderMap[KT, VT](MutableMapping[KT, VT]):
         :return: Any, value mapped to the first key (of `keys`) in this mapping
             if any; otherwise `default` if no `keys` are in this mapping.
         """
-        for key in keys:
-            if self.has(key, exclude):
-                return self[key]
-        return default
 
     def has(self, key: KT, exclude: Container[VT] = set()) -> bool:
         """
@@ -94,16 +84,6 @@ class ExcluderMap[KT, VT](MutableMapping[KT, VT]):
         :return: bool, True if `key` is mapped to a value in `self` and \
             is not mapped to anything in `exclude`.
         """
-        try:  # If we have the key, return True unless its value doesn't count
-            return self[key] not in exclude
-
-        except KeyError:  # If we don't have the key, return False
-            return False
-
-        # `self[key] in exclude` raises TypeError if self[key] isn't Hashable.
-        # In that case, self[key] can't be in exclude, so self has key.
-        except TypeError:
-            return True
 
     def has_all(self, keys: Iterable[KT], exclude: Container[VT] = set()
                 ) -> bool:
@@ -115,11 +95,6 @@ class ExcluderMap[KT, VT](MutableMapping[KT, VT]):
         :return: bool, True if every key in `keys` is mapped to a value that
             is not in `exclude`; else False.
         """
-        try:
-            next(self.missing_keys(keys, exclude))
-            return False
-        except StopIteration:
-            return True
 
     def missing_keys(self, keys: Iterable[KT], exclude: Container[VT] = set()
                      ) -> Generator[KT, None, None]:
@@ -131,14 +106,6 @@ class ExcluderMap[KT, VT](MutableMapping[KT, VT]):
         :yield: Generator[KT, None, None], all `keys` that either are not in \
             this `ExcluderMap` or are mapped to a value in `exclude`.
         """
-        if exclude:
-            for key in keys:
-                if not self.has(key, exclude):
-                    yield key
-        else:
-            for key in keys:
-                if key not in self:
-                    yield key
 
     @overload
     def setdefaults(self, **kwargs: VT) -> None: ...
@@ -156,8 +123,6 @@ class ExcluderMap[KT, VT](MutableMapping[KT, VT]):
             same key in `kwargs`, as if `key is not in self`.
         :param kwargs: Mapping[str, Any] of values to add to self if needed.
         """
-        for key in self.missing_keys(cast(Iterable[KT], kwargs), exclude):
-            self[key] = kwargs[cast(str, key)]
 
 
 class LazyMap[KT, VT](ExcluderMap[KT, VT]):
@@ -186,8 +151,6 @@ class LazyMap[KT, VT](ExcluderMap[KT, VT]):
         :return: VT, the value that this dict maps to `key`, if that value \
             isn't in `exclude`; else `return get_if_absent(*args, **kwargs)`
         """
-        return self[key] if self.has(key, exclude) else \
-            get_if_absent(*args, **kwargs)
 
     def lazysetdefault(self, key: KT, get_if_absent: Callable[_P, VT],
                        exclude: Container[VT] = set(),
@@ -209,12 +172,10 @@ class LazyMap[KT, VT](ExcluderMap[KT, VT]):
         :return: VT, the value that this dict maps to `key`, if that value \
             isn't in `exclude`; else `return get_if_absent(*args, **kwargs)`
         """
-        if not self.has(key, exclude):
-            self[key] = get_if_absent(*args, **kwargs)
-        return self[key]
 
 
-class MathMap(InitMutableMap):
+# TODO Why does `VT: numbers.Number` make MathMap[str, int] raise warnings?
+class MathMap[KT, VT: NUMBER](InitMutableMap[KT, VT]):
     """ `dict` that can perform math operations on its items. For example:
 
     ```
@@ -246,69 +207,21 @@ class MathMap(InitMutableMap):
        divide-by-zero errors.
     """
 
-    @staticmethod
-    def _math_meth_1_arg(func: Callable[[REALNUM], REALNUM]):
-        """ Given a basic math operation, return a `MathDict` dunder method
-            that does that operation on every value in this `MathDict`.
+    def __abs__(self) -> Self: ...
+    def __add__(self, other: VT | Mapping[KT, VT]) -> Self: ...
+    def __div__(self, other: VT | Mapping[KT, VT]) -> Self: ...
+    def __floordiv__(self, other: VT | Mapping[KT, VT]) -> Self: ...
+    def __lshift__(self, other: VT | Mapping[KT, VT]) -> Self: ...
+    def __mod__(self, other: VT | Mapping[KT, VT]) -> Self: ...
+    def __mul__(self, other: VT | Mapping[KT, VT]) -> Self: ...
+    def __neg__(self) -> Self: ...
+    def __pos__(self) -> Self: ...
+    def __pow__(self, other: VT | Mapping[KT, VT]) -> Self: ...
+    def __rshift__(self, other: VT | Mapping[KT, VT]) -> Self: ...
+    def __sub__(self, other: VT | Mapping[KT, VT]) -> Self: ...
+    def __truediv__(self, other: VT | Mapping[KT, VT]) -> Self: ...
 
-        :param func: Callable[[VT: Number], VT], a function that accepts
-            one number, does a basic math operation on it, and returns
-            another number (the result of that operation).
-        :return: Callable[[Self], Self], a (dunder) method to run
-            `func` on for every value in this `MathDict`.
-        """
-        @functools.wraps(func, assigned=_ASSIGNED)
-        def wrapper(self: Self) -> Self:
-            return type(self)({k: func(v) for k, v in self.items()})
-        return wrapper
-
-    @staticmethod
-    def _math_meth_2_args(func: Callable[[REALNUM, REALNUM], REALNUM],
-                          default_self: REALNUM = 0,
-                          default_other: REALNUM = 0):
-        # No return type hint because it'd include unparsable Self type
-        """ Given a basic math operation, return a `MathDict` dunder method
-            that does that operation on every value in this `MathDict`.
-
-        :param func: Callable[[VT: Number, VT], VT], a function that accepts
-            two numbers, does a basic math operation using them, and returns
-            one number (the result of that operation).
-        :param default_self: VT, the first argument to run `func` with when
-            the value is in the other `Mapping`(s) but missing from `self`.
-        :param default_other: VT, the second argument to run `func` with when
-            the value is in `self` but missing from the other `Mapping`(s).
-        :return: Callable[[Self, VT | Mapping[KT, VT]], Self], a (dunder) 
-            method to run `func` on for every value in this `MathDict`.
-        """
-        @functools.wraps(func, assigned=_ASSIGNED)
-        def wrapper(self: Self, other: REALNUM | Mapping[Any, REALNUM]) -> Self:
-            newMD = type(self)()
-            if isinstance(other, Mapping):
-                for k in self.keys() | other.keys():
-                    newMD[k] = func(self.get(k, default_self),
-                                    other.get(k, default_other))
-            else:
-                for k, v in self.items():
-                    newMD[k] = func(v, other)
-            return newMD
-        return wrapper
-
-    __abs__ = _math_meth_1_arg(operator.abs)
-    __add__ = _math_meth_2_args(operator.add)
-    __div__ = __truediv__ = _math_meth_2_args(operator.truediv, 0, 1)
-    # __eq__ = _compare_meth(operator.eq)  # Unneeded; default dict method
-    __floordiv__ = _math_meth_2_args(operator.floordiv, 0, 1)
-    __lshift__ = _math_meth_2_args(operator.lshift)
-    __mod__ = _math_meth_2_args(operator.mod, 0, 1)
-    __mul__ = _math_meth_2_args(operator.mul)
-    # __ne__ = _compare_meth(operator.ne)  # Unneeded; default dict method
-    __neg__ = _math_meth_1_arg(operator.neg)
-    __pos__ = _math_meth_1_arg(operator.pos)
-    __pow__ = _math_meth_2_args(operator.pow, 0, 1)
-    __rshift__ = _math_meth_2_args(operator.rshift)
-    __sub__ = _math_meth_2_args(operator.sub)
-
-    def avg(self, *others: REALNUM | Mapping[Any, REALNUM]) -> Self:
+    def avg(self, *others: VT | Mapping[KT, VT]) -> Self:
         """ Take the average of (every value in) this `MathDict` with 
             other values and/or with (every value in) other `MathDict`s.
 
@@ -321,41 +234,11 @@ class MathMap(InitMutableMap):
                                 ) / (len(others) + 1)
 
 
-class ComparableMathMap(InitMutableMap):
-
-    @staticmethod
-    def _compare_meth(func: Callable[[REALNUM, REALNUM], bool]):
-        # No return type hint because it'd include unparsable Self type
-        """ Given a basic math operation, return a `MathDict` dunder method
-            that does that operation on every value in this `MathDict`.
-
-        :param func: Callable[[VT: Number, VT], VT], a function that accepts
-            two numbers, does a basic math operation using them, and returns
-            one number (the result of that operation).
-        :param default_self: VT, the first argument to run `func` with when
-            the value is in the other `Mapping`(s) but missing from `self`.
-        :param default_other: VT, the second argument to run `func` with when
-            the value is in `self` but missing from the other `Mapping`(s).
-        :return: Callable[[Self, VT | Mapping[KT, VT]], Self], a (dunder) 
-            method to run `func` on for every value in this `MathDict`.
-        """
-        @functools.wraps(func, assigned=_ASSIGNED)
-        def wrapper(self: Self, other: REALNUM | Mapping[Any, REALNUM]
-                    ) -> bool:
-            if isinstance(other, Mapping):
-                for k in self.keys() | other.keys():
-                    if not func(self[k], other[k]):
-                        return False
-            else:
-                for k, v in self.items():
-                    if not func(v, other):
-                        return False
-            return True
-        return wrapper
-    __ge__ = _compare_meth(operator.ge)
-    __gt__ = _compare_meth(operator.gt)
-    __le__ = _compare_meth(operator.le)
-    __lt__ = _compare_meth(operator.lt)
+class ComparableMathMap[KT, VT: REALNUM](Mapping[KT, VT]):
+    def __ge__(self, other: VT | Mapping[KT, VT]) -> dict[KT, bool]: ...
+    def __gt__(self, other: VT | Mapping[KT, VT]) -> dict[KT, bool]: ...
+    def __le__(self, other: VT | Mapping[KT, VT]) -> dict[KT, bool]: ...
+    def __lt__(self, other: VT | Mapping[KT, VT]) -> dict[KT, bool]: ...
 
 
 class PromptMap[KT, VT](LazyMap[KT, VT]):
@@ -379,7 +262,6 @@ class PromptMap[KT, VT](LazyMap[KT, VT]):
         :return: Any, the value mapped to `key` if one exists, else the \
                  value that the user interactively provided
         """
-        return self.lazyget(key, prompt_fn, exclude, prompt)
 
     def setdefault_or_prompt_for(self, key: KT, prompt: str,
                                  prompt_fn: Callable[[str], VT] = input,
@@ -397,7 +279,6 @@ class PromptMap[KT, VT](LazyMap[KT, VT]):
         :return: Any, the value mapped to key if one exists, else the value \
                  that the user interactively provided
         """
-        return self.lazysetdefault(key, prompt_fn, exclude, prompt)
 
 
 class SortMap[KT: SupportsRichComparison, VT: SupportsRichComparison
@@ -421,6 +302,3 @@ class SortMap[KT: SupportsRichComparison, VT: SupportsRichComparison
             in this Sortionary as a tuple, sorted `by` keys or values in \
             ascending or `descending` order
         """
-        for k, v in sorted(self.items(), key=self._WHICH[by],
-                           reverse=descending):
-            yield (k, v)

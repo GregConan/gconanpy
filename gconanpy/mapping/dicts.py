@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2026-03-09
+Updated: 2026-04-14
 """
 # Import standard libraries
 from argparse import ArgumentParser
@@ -12,7 +12,7 @@ from collections import defaultdict
 from collections.abc import \
     Collection, Container, Generator, Hashable, Iterable, Mapping
 from configparser import ConfigParser
-from numbers import Number
+# from numbers import Number  # TODO
 from typing import Any, cast, Literal, overload, Self, TypeVar
 
 # Import third-party PyPI libraries
@@ -25,8 +25,8 @@ try:
     from gconanpy.debug import Debuggable
     from gconanpy.iters import MapWalker, SimpleShredder
     from gconanpy.iters.filters import MapSubset
-    from gconanpy.mapping.bases import \
-        ExcluderMap, LazyMap, MathMap, PromptMap, PROTECTEDS, SortMap
+    from gconanpy.mapping.bases import ComparableMathMap, ExcluderMap, \
+        LazyMap, MathMap, PromptMap, PROTECTEDS, SortMap
     from gconanpy.meta import name_of, Traversible
     from gconanpy.meta.typeshed import DATA_ERRORS, SupportsRichComparison
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
@@ -35,8 +35,8 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from ..debug import Debuggable
     from ..iters import MapWalker, SimpleShredder
     from ..iters.filters import MapSubset
-    from .bases import \
-        ExcluderMap, LazyMap, MathMap, PromptMap, PROTECTEDS, SortMap
+    from .bases import ComparableMathMap, ExcluderMap, \
+        LazyMap, MathMap, PromptMap, PROTECTEDS, SortMap
     from ..meta import name_of, Traversible
     from ..meta.typeshed import DATA_ERRORS, SupportsRichComparison
 
@@ -46,6 +46,10 @@ FromMap = TypeVar("FromMap", Mapping, MapParts, None)
 
 # Type variable for ExcluDict.get default parameter
 _D = TypeVar("_D")
+
+# TODO: Use numbers.Number instead, after figuring out why that raises warnings
+# NUMBER = int | float | complex
+REALNUM = int | float
 
 
 class CustomDict[KT, VT](dict[KT, VT]):
@@ -78,39 +82,6 @@ class CustomDict[KT, VT](dict[KT, VT]):
             dictionary with the same contents.
         """
         return self.__class__(self)
-
-
-class MathDict[KT: Hashable, VT: Number](CustomDict[KT, VT], MathMap[KT, VT]):
-    """ `dict` that can perform math operations on its items. For example:
-
-    ```
-    MathDict(a=4, b=3) + MathDict(a=2, b=1) = MathDict(a=6, b=4)
-    MathDict(a=4, b=3) - MathDict(a=2, b=0) = MathDict(a=2, b=3)
-    MathDict(a=4, b=3) * MathDict(a=2, b=3) = MathDict(a=8, b=9)
-    MathDict(a=4, b=3) / MathDict(a=2, b=3) = MathDict(a=2, b=1)
-    ```
-
-    Etc. All basic operations are supported:
-
-    - Basic arithmetic: add (`+`), divide (`/`), multiply (`*`), subtract (`-`)
-    - Bit shifting: left (`<<`) and right (`>>`)
-    - Comparison: equal (`==`), greater or equal (`>=`), greater (`>`), less
-        or equal (`<=`), less (`<`), and unequal (`!=`)
-    - Division precisely: floor (`//`), modulo (`%`)
-    - Exponentiation: power (`**`)
-    - Sign: absolute value (`abs`), negative (`-`), positive (`+`)
-
-    Additional operations currently include: averaging (`avg`) 
-
-    Missing items are treated as `0` or `1`, whichever is least affected by 
-    the operation. If any item is missing from `self` or from the other
-    `Mapping`(s), then by default,
-
-    - `add`, `avg`, `lshift`, `mul`, `rshift`, and `sub` will always use `0`.
-    - `div`, `floordiv`, `mod`, and `pow` will use `0` for values missing from
-      `self` and `1` for values missing from `other`, partly to prevent
-       divide-by-zero errors.
-    """
 
 
 class ExcluDict[KT, VT](CustomDict[KT, VT], ExcluderMap[KT, VT]):
@@ -288,6 +259,51 @@ class Updationary[KT, VT](CustomDict[KT, VT]):
         if copy:
             return updated
 
+    @classmethod
+    def fromArgumentParser(cls, parser: ArgumentParser) -> Self:
+        """ Parse command-line arguments using `parser` and return the result 
+            as an instance of this class.
+
+        :param parser: argparse.ArgumentParser specifying how to parse
+            command-line input arguments passed into the script on execution.
+        :return: Self containing all of the parsed arguments.
+        """
+        return cls(vars(parser.parse_args()))
+
+
+class MathDict[KT: Hashable, VT: REALNUM](
+        ComparableMathMap[KT, VT], Updationary[KT, VT], MathMap[KT, VT]):
+    """ `dict` that can perform math operations on its items. For example:
+
+    ```
+    MathDict(a=4, b=3) + MathDict(a=2, b=1) = MathDict(a=6, b=4)
+    MathDict(a=4, b=3) - MathDict(a=2, b=0) = MathDict(a=2, b=3)
+    MathDict(a=4, b=3) * MathDict(a=2, b=3) = MathDict(a=8, b=9)
+    MathDict(a=4, b=3) / MathDict(a=2, b=3) = MathDict(a=2, b=1)
+    ```
+
+    Etc. All basic operations are supported:
+
+    - Basic arithmetic: add (`+`), divide (`/`), multiply (`*`), subtract (`-`)
+    - Bit shifting: left (`<<`) and right (`>>`)
+    - Comparison: equal (`==`), greater or equal (`>=`), greater (`>`), less
+        or equal (`<=`), less (`<`), and unequal (`!=`)
+    - Division precisely: floor (`//`), modulo (`%`)
+    - Exponentiation: power (`**`)
+    - Sign: absolute value (`abs`), negative (`-`), positive (`+`)
+
+    Additional operations currently include: averaging (`avg`) 
+
+    Missing items are treated as `0` or `1`, whichever is least affected by 
+    the operation. If any item is missing from `self` or from the other
+    `Mapping`(s), then by default,
+
+    - `add`, `avg`, `lshift`, `mul`, `rshift`, and `sub` will always use `0`.
+    - `div`, `floordiv`, `mod`, and `pow` will use `0` for values missing from
+      `self` and `1` for values missing from `other`, partly to prevent
+       divide-by-zero errors.
+    """
+
 
 class Walktionary[KT, VT](CustomDict[KT, VT]):
     def walk(self, only_yield_maps: bool = True) -> MapWalker:
@@ -433,17 +449,6 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
                            f"object attribute '{attr_name}'")
         else:
             return bool(protecteds)
-
-    @classmethod
-    def fromArgumentParser(cls, parser: ArgumentParser) -> Self:
-        """ Parse command-line arguments using `parser` and return the result 
-            as an instance of this class.
-
-        :param parser: argparse.ArgumentParser specifying how to parse
-            command-line input arguments passed into the script on execution.
-        :return: Self containing all of the parsed arguments.
-        """
-        return cls(vars(parser.parse_args()))
 
     @classmethod
     def fromConfigParser(cls, config: ConfigParser) -> Self:

@@ -666,6 +666,95 @@ class TestLazyDict(DictTester):
                 DictClass.lazyget, DictClass)
 
 
+class TestMathDict(DictTester):
+    _M = TypeVar("_M", bound=MutableMapping)
+    CLASSES = tuple[type[_M], ...]
+    TEST_CLASSES: CLASSES = (MathDict[str, int], MathAttrMap[int])
+
+    def get_custom_dict_pairs(self, classes: CLASSES = TEST_CLASSES
+                              ) -> Generator[tuple[_M, _M, type[_M]
+                                                   ], None, None]:
+        for MathClass in classes:
+            math_a4b3 = MathClass(a=4, b=3)
+            math_a2b1 = MathClass(a=2, b=1)
+            class_name = MathClass.__name__
+            print(f"{math_a4b3}=={class_name}[str, int](a=4, b=3)")
+            print(f"{math_a2b1}=={class_name}[str, int](a=2, b=1)")
+            yield math_a4b3, math_a2b1, MathClass
+
+    def test_abs_pos_neg(self) -> None:
+        # Test absolute value, positive, and negative 1-arg operations
+        for math_a4b3, _, _ in self.get_custom_dict_pairs():
+            neg_math_a4b3 = MathDict[str, int](a=-4, b=-3)
+            self.check_result(-math_a4b3, neg_math_a4b3)      # neg
+            self.check_result(+math_a4b3, math_a4b3)          # pos
+            self.check_result(+neg_math_a4b3, neg_math_a4b3)  # pos
+            self.check_result(abs(math_a4b3), math_a4b3)      # abs
+            self.check_result(abs(neg_math_a4b3), math_a4b3)  # abs
+
+    def test_add_sub_mul(self) -> None:
+        # Test basic operations: +, -, *
+        for math_a4b3, math_a2b1, MathClass in self.get_custom_dict_pairs():
+            self.check_result(math_a4b3 + math_a2b1, MathClass(a=6, b=4))
+            self.check_result(math_a4b3 - math_a2b1, MathClass(a=2, b=2))
+            self.check_result(math_a4b3 * math_a2b1, MathClass(a=8, b=3))
+
+    """ # TODO 
+    def test_avg(self, n_tests: int = 10) -> None:
+        for math_a4b3, math_a2b1, MathClass in self.get_custom_dict_pairs():
+            for _ in range(n_tests):
+                randicts = [Randoms.randict(
+                    keys=("a", "b"), min_n=2, max_n=2,
+                    value_types=(int, float), replace=False
+                ) for _ in Randoms.randcount(1, 3)]
+                print(randicts)
+                all_maps = (math_a4b3, math_a2b1, *randicts)
+                solution = MathClass({
+                    k: sum(m[k] for m in all_maps)/len(all_maps)
+                    for k in math_a4b3})
+                self.check_result(math_a4b3.avg(
+                    math_a2b1, *all_maps), solution)
+    """
+
+    def test_compare(self) -> None:
+        # Test comparison operations, except equal / not equal
+        for math_a4b3, math_a2b1, _ in self.get_custom_dict_pairs():
+
+            # Bigger values map before smaller values map
+            self.check_result(math_a4b3 > math_a2b1, True)
+            self.check_result(math_a4b3 >= math_a2b1, True)
+            self.check_result(math_a4b3 < math_a2b1, False)
+            self.check_result(math_a4b3 <= math_a2b1, False)
+
+            # Same map twice
+            self.check_result(math_a4b3 > math_a4b3, False)
+            self.check_result(math_a4b3 >= math_a4b3, True)
+            self.check_result(math_a4b3 < math_a4b3, False)
+            self.check_result(math_a4b3 <= math_a4b3, True)
+
+            # Smaller values map before bigger values map
+            self.check_result(math_a2b1 > math_a4b3, False)
+            self.check_result(math_a2b1 >= math_a4b3, False)
+            self.check_result(math_a2b1 < math_a4b3, True)
+            self.check_result(math_a2b1 <= math_a4b3, True)
+
+    def test_div(self) -> None:
+        # Test division operations
+        for math_a4b3, math_a2b1, MathClass in self.get_custom_dict_pairs():
+            math_a0b0 = MathClass(a=0, b=0)
+
+            # Whole number division
+            self.check_result(math_a4b3 / math_a2b1, MathClass(a=2, b=3))
+            self.check_result(math_a4b3 // math_a2b1, MathClass(a=2, b=3))
+            self.check_result(math_a4b3 % math_a2b1, math_a0b0)
+
+            # Fractional division
+            self.check_result(
+                math_a2b1 / math_a4b3, MathDict[str, float](a=0.5, b=1/3))
+            self.check_result(math_a2b1 // math_a4b3, math_a0b0)
+            self.check_result(math_a2b1 % math_a4b3, math_a2b1)
+
+
 class TestSortionary(DictTester):
     CLASSES = tuple[type[Sortionary], ...]
     TEST_CLASSES: CLASSES = (FancyDict, Sortionary)
