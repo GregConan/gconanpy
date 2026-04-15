@@ -37,7 +37,7 @@ _P = ParamSpec("_P")  # for LazyMap lazy getter functions
 
 class InitMutableMap[KT, VT](MutableMapping[KT, VT]):
     def __init__(self, from_map: Mapping[KT, VT] | Iterable[tuple[KT, VT]]
-                 | None = None, **kwargs: VT) -> None:
+                 | None = None, /, **kwargs: VT) -> None:
         for each_map in (from_map, cast(Mapping[KT, VT], kwargs)):
             if each_map:
                 self.update(each_map)
@@ -259,7 +259,13 @@ class MathMap(InitMutableMap):
         """
         @functools.wraps(func, assigned=_ASSIGNED)
         def wrapper(self: Self) -> Self:
-            return type(self)({k: func(v) for k, v in self.items()})
+            new_dict = {k: func(v) for k, v in self.items()}
+
+            try:  # Initialize new MathMap flexibly wrt subclasses' __init__
+                new_map = type(self)(new_dict)
+            except TypeError:
+                new_map = type(self)(**new_dict)
+            return new_map
         return wrapper
 
     @staticmethod
@@ -282,15 +288,20 @@ class MathMap(InitMutableMap):
         """
         @functools.wraps(func, assigned=_ASSIGNED)
         def wrapper(self: Self, other: REALNUM | Mapping[Any, REALNUM]) -> Self:
-            newMD = type(self)()
+            new_dict = {}
             if isinstance(other, Mapping):
                 for k in self.keys() | other.keys():
-                    newMD[k] = func(self.get(k, default_self),
-                                    other.get(k, default_other))
+                    new_dict[k] = func(self.get(k, default_self),
+                                       other.get(k, default_other))
             else:
                 for k, v in self.items():
-                    newMD[k] = func(v, other)
-            return newMD
+                    new_dict[k] = func(v, other)
+
+            try:  # Initialize new MathMap flexibly wrt subclasses' __init__
+                new_map = type(self)(new_dict)
+            except TypeError:
+                new_map = type(self)(**new_dict)
+            return new_map
         return wrapper
 
     __abs__ = _math_meth_1_arg(operator.abs)
