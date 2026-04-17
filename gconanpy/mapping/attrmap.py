@@ -2,7 +2,7 @@
 MutableMapping classes resembling dicts that store items as attributes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-11-21
-Updated: 2026-04-14
+Updated: 2026-04-17
 """
 # Import standard libraries
 from collections.abc import \
@@ -12,13 +12,13 @@ from typing import Any, cast, get_args, Literal, overload, Self, TypeVar
 
 # Import local custom libraries
 try:
-    from gconanpy import polymorphic
+    from gconanpy import collection
     from gconanpy.mapping.bases import ComparableMathMap, ExcluderMap, \
         LazyMap, MathMap, PromptMap, PROTECTEDS, SortMap
     from gconanpy.meta import error_changer
     from gconanpy.meta.typeshed import SupportsRichComparison
 except (ImportError, ModuleNotFoundError):
-    from .. import polymorphic
+    from .. import collection
     from .bases import ComparableMathMap, ExcluderMap, \
         LazyMap, MathMap, PromptMap, PROTECTEDS, SortMap
     from ..meta import error_changer
@@ -99,7 +99,7 @@ class AttrMap[T](MutableMapping[str, T]):
         if name in getattr(self, PROTECTEDS, ()):
             raise AttributeError(ERR_MSG.format("delete", name))
         super().__delattr__(name)
-        polymorphic.discard(self.names, name)
+        collection.discard(self.names, name)
         # self.names.discard(name)
 
     @overload
@@ -135,7 +135,7 @@ class AttrMap[T](MutableMapping[str, T]):
     def __or__(self, other: Self) -> Self:
         new_map = type(self)()
         # for k in self.names | other.names:
-        for k in polymorphic.union(self.names, other.names):
+        for k in collection.union(self.names, other.names):
             try:
                 setattr(new_map, k,  getattr(other, k))
             except AttributeError:
@@ -151,7 +151,7 @@ class AttrMap[T](MutableMapping[str, T]):
                 raise AttributeError(ERR_MSG.format(
                     "set", f"{name} to {value}"))
         else:
-            polymorphic.append(self.names, name)
+            collection.append(self.names, name)
             # self.names.add(name)
         super().__setattr__(name, value)
 

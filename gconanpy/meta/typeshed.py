@@ -62,6 +62,18 @@ class SupportsRichComparison(Protocol):
 
 
 @runtime_checkable
+class CollectionFromIterable[T](Collection[T], Protocol):
+    """
+    If no argument is given, the constructor creates a new empty list.
+    The argument must be an iterable if specified.
+    """
+    @overload
+    def __init__(self) -> None: ...
+    @overload
+    def __init__(self, iterable: Iterable[T], /) -> None: ...
+
+
+@runtime_checkable
 class ComparableHashable(SupportsRichComparison, Hashable, Protocol):
     ...
 

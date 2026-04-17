@@ -4,13 +4,12 @@
 Docstrings and type hints for the Collection accessor and mutator functions.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-10
-Updated: 2026-04-11
+Updated: 2026-04-17
 """
 # Import standard libraries
 from collections.abc import Collection, Iterable
 from typing import TypeVar
 
-_C = TypeVar("_C", bound=Collection)
 _T = TypeVar("_T")
 
 
@@ -19,6 +18,15 @@ def add(self: Collection[_T], element: _T, /) -> None:
 
     :param self: Collection[_T], list or set to add/append `duck` to.
     :param element: _T, element to add/append to `self`.
+    """
+
+
+def combine(self: Collection[_T], *others: Iterable[_T]) -> Collection[_T]:
+    """ Return the combination of `self` and `others` as a new `Collection`. 
+
+    :param self: Collection[_T], elements to add to the resultant Collection
+    :param *others: Iterable[_T], elements to add to the resultant Collection
+    :return: Collection[_T], all elements in `self` or any of the `others`
     """
 
 
@@ -32,17 +40,17 @@ def delete(self: Collection[_T], element: _T, /) -> None:
     """
 
 
-def difference(self: _C, *others: Iterable) -> _C:
-    """ Return the difference of two or more Collections as a new Collection.
+def difference(self: Collection[_T], *others: Iterable[_T]) -> Collection[_T]:
+    """ Make a copy of a Collection without any elements in other Iterables.
 
-    :param self: Collection
-    :param *others: Collection, each containing elements to remove from `self`
-    :return: Collection, elements in `self` that are not in any `others`
+    :param self: Collection[_T]
+    :param *others: Iterable[_T], each with elements to remove from `self`
+    :return: Collection[_T], elements in `self` that are not in any `others`
     """
 
 
 def difference_update(self: Collection[_T], *others: Iterable[_T]) -> None:
-    """ Remove all elements of (an)other Collection(s) from this Collection.
+    """ Remove all elements of other iterables from this Collection.
 
     :param self: Collection[_T] to remove all elements of `others` from
     :param *others: Iterable, elements to remove from `self`. 
@@ -61,24 +69,39 @@ def discard(self: Collection[_T], element: _T, /) -> None:
 
 
 def extend(self: Collection[_T], other: Iterable[_T], /) -> None:
-    """ Extend list by appending elements from the iterable, or update a set 
-    with the union of itself and others. 
+    """ Add all elements of `other` to `self`.
 
-    :param self: Collection[_T], list or set to extend or update
+    :param self: Collection[_T], to extend or update
     :param other: Iterable[_T], elements to add to `self`
     """
 
 
-def intersection(self: _C, *others: Iterable) -> _C:
-    """ Return the intersection of two `Collection`s as a new `Collection`.
+def intersect(self: Collection[_T], *others: Iterable[_T]
+              ) -> set[_T] | list[_T]:
+    """ Get a `Collection` of all elements shared by `self` and all `others`.
+    Return it as a set if possible, or otherwise as a list. Used by other
+    polymorphic `collection` functions in this module.
 
-    :param self: _C, a Collection of elements.
-    :return: _C, every element that is in `self` and in all of the `others`.
+    :param self: Collection[_T], to intersect with `others`
+    :param *others: Iterable[_T], to intersect `self` with
+    :return: set[_T] | list[_T], every element of `self` in all of the `others`
+    """
+
+
+def intersection(self: Collection[_T], *others: Iterable[_T]
+                 ) -> Collection[_T]:
+    """ Return the intersection of a `Collection` and various `Iterable`s as a
+    new `Collection`.
+
+    :param self: Collection[_T], to intersect with `others`
+    :param *others: Iterable[_T], to intersect `self` with
+    :return: Collection[_T], every element of `self` in all of the `others`.
     """
 
 
 def intersection_update(self: Collection[_T], *others: Iterable[_T]) -> None:
-    """ Update a Collection with the intersection of itself and another. 
+    """ Remove any item from `self` not in all of the `others`.
+
     :param self: Collection[_T], _description_
     :param *others: Iterable[_T], _description_
     """
@@ -109,8 +132,10 @@ def issuperset(self: Collection[_T], other: Iterable[_T], /) -> bool:
     """
 
 
-def symmetric_difference(self: _C, other: Iterable, /) -> _C:
-    """ Return the symmetric difference of two Collections as a new Collection.
+def symmetric_difference(self: Collection[_T], other: Iterable[_T], /
+                         ) -> Collection[_T]:
+    """ Return the symmetric difference of a `Collection` and an `Iterable` as 
+    a new `Collection`.
 
     (i.e. all elements that are in exactly one of the sets.) 
     :param self: _C, Collection of elements to return if they aren't in `other`
@@ -130,17 +155,9 @@ def symmetric_difference_update(self: Collection[_T], other: Iterable[_T], /
     """
 
 
-def union(self: _C, *others: Iterable) -> _C:
-    """ Return the combination of `self` and `others` as a new `Collection`. 
-    The result has all elements that are in `self` or any of the `others`.
-
-    :param self: _C, elements to add to the resultant Collection
-    :param *others: Iterable[_T], elements to add to the resultant Collection
-    :return: _C, _description_
-    """
-
-
+# Aliases
 append = add
+merge = union = combine
 remove = delete
 update = extend
 xor = symmetric_difference

@@ -5,7 +5,7 @@ Unified interface for Collection accessor and mutator functions.
 Accessor/mutator functions that work on lists and sets agnostically.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-04-09
-Updated: 2026-04-11
+Updated: 2026-04-17
 """
 # Import standard libraries
 from collections.abc import Collection, Hashable, Iterable, Mapping, \
@@ -14,24 +14,17 @@ import functools
 import itertools
 from typing import Any, cast, TypeVar
 
-_C = TypeVar("_C", bound=Collection)
-_T = TypeVar("_T")
+# Type variables for annotations
 _KT = TypeVar("_KT", bound=Hashable)
-_MM = TypeVar("_MM")
-
-
-# TOSORT: '__and__', '__delitem__', '__getitem__', '__iadd__', '__iand__', '__imul__', '__ior__', '__isub__', '__ixor__', '__mul__', '__or__', '__rand__', '__rmul__', '__ror__', '__rsub__', '__rxor__', '__setitem__', '__sub__',
-# N/A:  '__add__', '__reversed__', 'count', 'index', 'insert', 'reverse', 'sort',
-# TODO:
-# DONE: '__xor__', 'add', 'append', 'difference', 'difference_update', 'discard', 'extend', 'intersection', 'intersection_update', 'isdisjoint', 'issubset', 'issuperset', 'symmetric_difference', 'symmetric_difference_update', 'union', 'update'
+_T = TypeVar("_T")
 
 
 @functools.singledispatch
 def add(self: Collection[_T], element: _T) -> None: ...
 @functools.singledispatch
-def delete(self: Collection[_T], element: _T, /) -> None: ...
+def combine(self: Collection[_T], *others: Iterable[_T]) -> Collection[_T]: ...
 @functools.singledispatch
-def difference(self: _C, *others: Iterable) -> _C: ...
+def delete(self: Collection[_T], element: _T, /) -> None: ...
 @functools.singledispatch
 def difference_update(self: Collection[_T], *others: Iterable[_T]) -> None: ...
 @functools.singledispatch
@@ -39,17 +32,26 @@ def discard(self: Collection[_T], element: _T, /) -> None: ...
 @functools.singledispatch
 def extend(self: Collection[_T], other: Iterable[_T], /) -> None: ...
 @functools.singledispatch
-def intersection(self: _C, *others: Iterable) -> _C: ...
-@functools.singledispatch
 def isdisjoint(self: Collection[_T], other: Iterable[_T], /) -> bool: ...
 @functools.singledispatch
 def issubset(self: Collection[_T], other: Iterable[_T], /) -> bool: ...
 @functools.singledispatch
 def issuperset(self: Collection[_T], other: Iterable[_T], /) -> bool: ...
+
+
 @functools.singledispatch
-def symmetric_difference(self: _C, other: Iterable, /) -> _C: ...
+def difference(self: Collection[_T], *others: Iterable[_T]
+               ) -> Collection[_T]: ...
+
+
 @functools.singledispatch
-def union(self: _C, *others: Iterable) -> _C: ...
+def intersection(self: Collection[_T], *others: Iterable[_T]
+                 ) -> Collection[_T]: ...
+
+
+@functools.singledispatch
+def symmetric_difference(
+    self: Collection[_T], other: Iterable[_T], /) -> Collection[_T]: ...
 
 
 @functools.singledispatch
@@ -73,20 +75,39 @@ def _(self: MutableMapping[_KT, _T], key: _KT, value: _T = None, /) -> None:
     self[key] = value
 
 
-append = add
+combine.register(set, set.union)
+
+
+@combine.register(MutableSequence)
+def _(self: MutableSequence[_T], *others: Collection[_T]) -> list[_T]:
+    return [el for el in itertools.chain.from_iterable((self, *others))]
+
+
+@combine.register(MutableMapping)
+def _(self: MutableMapping[_KT, _T], *others: MutableMapping[_KT, _T]
+      ) -> dict[_KT, _T]:
+    return {**self, **{k: v for other in others
+                       for k, v in other.items()}}  # TODO OPTIMIZE?
+
 
 delete.register(MutableSet, MutableSet.remove)
 delete.register(MutableSequence, MutableSequence.remove)
 delete.register(MutableMapping, MutableMapping.__delitem__)
+
 
 difference.register(set, set.difference)
 
 
 @difference.register(Sequence)
 def _(self: Sequence[_T], *others: Iterable[_T]) -> list[_T]:
-    excludables = set()
-    excludables.update(*others)
+    excludables = combine(*others)
     return [el for el in self if el not in excludables]
+
+
+@difference.register(Mapping)
+def _(self: Mapping[_KT, _T], *others: Iterable[_KT]) -> dict[_KT, _T]:
+    excludables = combine(*others)
+    return {k: v for k, v in self.items() if k not in excludables}
 
 
 difference_update.register(set, set.difference_update)
@@ -125,21 +146,34 @@ extend.register(set, set.update)
 extend.register(MutableMapping, MutableMapping.update)
 
 
+def intersect(self: Collection[_T], *others: Iterable[_T]
+              ) -> set[_T] | list[_T]:
+    try:
+        ret = set[_T](*self)
+        ret.intersection_update(*others)
+    except TypeError:  # If some items in others are unhashable
+        ret = [*self]
+        for el in self:
+            for other in others:
+                if el not in other:
+                    ret.remove(el)
+                    break
+    return ret
+
+
 # TODO define `and_` function as alias for `intersection`, or vice versa?
 intersection.register(set, set.intersection)
 
 
 @intersection.register(Sequence)
 def _(self: Sequence[_T], *others: Iterable[_T]) -> list[_T]:
-    interset = set[_T](self)
-    interset.intersection_update(*others)
+    interset = intersect(self, *others)
     return [el for el in self if el in interset]  # TODO OPTIMIZE?
 
 
 @intersection.register(Mapping)
 def _(self: Mapping[_KT, _T], *others: Iterable[_KT]) -> dict[_KT, _T]:
-    interset = set[_KT](self)
-    interset.intersection_update(*others)
+    interset = intersect(self, *others)
     return {k: v for k, v in self.items() if k in interset}  # TODO OPTIMIZE?
 
 
@@ -148,34 +182,36 @@ intersection_update.register(set, set.intersection_update)
 
 @intersection_update.register(MutableSequence)
 def _(self: MutableSequence[_T], *others: Iterable[_T]) -> None:
-    # Get a set of all elements to return by intersecting all input Collections
-    if others:
-        interset = set[_T](self)
-        interset.intersection_update(*others)
-
-        # Remove the elements in others that aren't in all input Collections
-        excludables = set[_T](self).union(*others) - interset
-        for exclude in excludables:  # Yes, declaring set(self) twice is needed
-            discard(self, exclude)
+    # Remove the elements in others that aren't in all input Collections
+    interset = intersect(self, *others)
+    to_remove = [el for el in self if el not in interset]
+    for el in to_remove:  # TODO OPTIMIZE
+        self.remove(el)
 
 
 @intersection_update.register(MutableMapping)
-def _(self: MutableMapping[_KT, _T], *others: Iterable[_T]) -> None:
+def _(self: MutableMapping[_KT, _T], *others: Collection[_T]) -> None:
     # Get a set of all elements to return by intersecting all input Collections
     if others:
-        interset = set[_KT](self)
+        interset = set[_KT](self)  # All Mapping keys are hashable
         interset.intersection_update(*others)
 
         # Remove the elements in others that aren't in all input Collections
+        # Yes, declaring set[_KT](self) twice is needed to keep them separate
         excludables = set[_KT](self).union(*others) - interset
-        for exclude in excludables:  # Yes, declaring set(self) twice is needed
+        for exclude in excludables:
             discard(self, exclude)
 
+        # Set each kept element's value to its value in the last other Mapping
+        # in which it appears to ensure that later Mappings overrides earliers
         for k in interset:
-            try:
-                self[k] = cast(Mapping, others[-1])[k]
-            except (IndexError, KeyError):
-                pass
+            for other in reversed(others):
+                if k in other:
+                    try:
+                        self[k] = cast(Mapping, other)[k]
+                        break
+                    except (IndexError, KeyError):
+                        pass
 
 
 isdisjoint.register(MutableSet, MutableSet.isdisjoint)
@@ -208,11 +244,11 @@ def _(self: Sequence[_T], other: Iterable[_T], /) -> bool:
 def _(self: Mapping[_KT, Any], other: Iterable[_KT], /) -> bool:
     _EXCLUDE = object()
     try:
-        other_set = set[_KT](self)  # TODO OPTIMIZE?
+        self_set = set[_KT](self)  # TODO OPTIMIZE?
     except TypeError:  # If other includes unhashables
-        other_set = self
+        self_set = self
     for k, v in self.items():
-        if k not in other_set:
+        if k not in self_set:
             return False
         try:
             if cast(Mapping, other).get(k, _EXCLUDE) != v:
@@ -274,7 +310,7 @@ symmetric_difference_update.register(set, set.symmetric_difference_update)
 
 @symmetric_difference_update.register(MutableSequence)
 def _(self: MutableSequence[_T], other: Iterable[_T], /) -> None:
-    interset = set[_T](self).intersection(other)
+    interset = intersect(self, other)
     for el in interset:
         self.remove(el)
     for el in other:  # TODO OPTIMIZE?
@@ -284,7 +320,7 @@ def _(self: MutableSequence[_T], other: Iterable[_T], /) -> None:
 
 @symmetric_difference_update.register(MutableMapping)
 def _(self: MutableMapping[_KT, _T], other: Mapping[_KT, _T], /) -> None:
-    interset = set[_KT](self).intersection(other)
+    interset = intersect(self, other)
     for el in interset:
         delete(self, el)  # self.pop(el)
 
@@ -294,24 +330,9 @@ def _(self: MutableMapping[_KT, _T], other: Mapping[_KT, _T], /) -> None:
             ret[k] = other[k]
 
 
-union.register(set, set.union)
-
-
-@union.register(MutableSequence)
-def _(self: MutableSequence[_T], *others: Collection[_T]) -> list[_T]:
-    others_set = set[_T]()
-    others_set.update(*others)
-    to_add = others_set - set[_T](self)
-    return [*self, *to_add]  # TODO OPTIMIZE?
-    # return self + list[_T](to_add)
-
-
-@union.register(MutableMapping)
-def _(self: MutableMapping[_KT, _T], other: MutableMapping[_KT, _T]
-      ) -> dict[_KT, _T]:
-    return {**self, **other}  # TODO OPTIMIZE?
-
-
+# Aliases
+append = add
+merge = union = combine
 remove = delete
 update = extend
 xor = symmetric_difference

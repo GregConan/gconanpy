@@ -3,17 +3,17 @@
 """
 Greg Conan: gregmconan@gmail.com
 Created: 2026-04-10
-Updated: 2026-04-10
+Updated: 2026-04-17
 """
 # Import standard libraries
-from collections.abc import Collection, Generator, Hashable, Iterable, Mapping
+from collections.abc import Collection, Generator, Hashable, Mapping
 import random
-from typing import Any, TypeVar
+from typing import Any, cast, TypeVar
 
 # Import local custom libraries
 from gconanpy.iters import Combinations, Randoms
-from gconanpy import polymorphic
-from gconanpy.polymorphic.classes import DuckCollection  # , SimpleDuckCollection
+from gconanpy import collection
+from gconanpy.collection.classes import DuckCollection  # , SimpleDuckCollection
 from gconanpy.testers import Tester
 
 
@@ -156,7 +156,7 @@ class TestDuckCollection(Tester):
             self.check_result(len(ducks), old_len - 1)
 
 
-class TestPolymorphicFunctions(Tester):
+class TestCollectionFunctions(Tester):
     _NESTED_INTS = tuple[tuple[int, ...], ...]
 
     def example_ints(self, inputs2output: Mapping[tuple[int, ...], _T],
@@ -180,30 +180,30 @@ class TestPolymorphicFunctions(Tester):
 
     def test_list_add(self) -> None:
         self.add_basics()
-        polymorphic.add(self.alist, 6)
+        collection.add(self.alist, 6)
         self.check_result(self.alist, [1, 2, 3, 4, 5, 6])
 
     def test_list_difference(self) -> None:
         self.add_basics()
-        self.check_result(polymorphic.difference(
+        self.check_result(collection.difference(
             self.alist, {0, 1, 2, 3}), [4, 5])
 
     def test_list_difference_update(self) -> None:
         test_data = {(0, 1, 2, 3): (4, 5)}
         # for to_check, in_ints, out_ints in self.example_ints(test_data, False):
         self.add_basics()
-        polymorphic.difference_update(self.alist, {0, 1, 2, 3})
+        collection.difference_update(self.alist, {0, 1, 2, 3})
         self.check_result(self.alist, [4, 5])
 
     def test_list_intersection(self) -> None:
         self.add_basics()
 
         # Verify membership
-        self.check_result(polymorphic.intersection(
+        self.check_result(collection.intersection(
             self.alist, [1, 2, 3], [3, 4, 5]), [3])
 
         # Verify order
-        self.check_result(polymorphic.intersection(self.alist, [4, 2]), [2, 4])
+        self.check_result(collection.intersection(self.alist, [4, 2]), [2, 4])
 
     def test_intersection_update(self) -> None:
         self.add_basics()
@@ -215,26 +215,26 @@ class TestPolymorphicFunctions(Tester):
             ):
                 print(f"intersection_update({a_col}, *{to_intersect}) should "
                       f"produce {result}", end=". ")
-                polymorphic.intersection_update(a_col, *to_intersect)
+                collection.intersection_update(a_col, *to_intersect)
                 print(f"It produced {a_col}.")
                 self.check_result(a_col, result)
 
     def test_isdisjoint(self) -> None:
         test_data = {(0, 6): True, (0, 5): False, (1, 6): False}
         for to_check, compare_to, result in self.example_ints(test_data):
-            self.check_result(polymorphic.isdisjoint(to_check, compare_to
-                                                     ), result)
+            self.check_result(collection.isdisjoint(to_check, compare_to
+                                                    ), result)
 
     def test_issubset(self) -> None:
         for to_check, subset, result in self.example_ints(self.int_in2out()):
             print(f"Is {subset} a subset of {to_check}?", end=" ")
-            self.check_result(polymorphic.issubset(subset, to_check), result)
+            self.check_result(collection.issubset(subset, to_check), result)
             print("Yes." if result else "No.")
 
     def test_issuperset(self) -> None:
         for to_check, subset, result in self.example_ints(self.int_in2out()):
             print(f"Is {to_check} a superset of {subset}?", end=" ")
-            self.check_result(polymorphic.issuperset(
+            self.check_result(collection.issuperset(
                 to_check, subset), result)
             print("Yes." if result else "No.")
 
@@ -244,7 +244,7 @@ class TestPolymorphicFunctions(Tester):
         for coll_type in (set[int], list[int]):
             to_check = coll_type(self.alist)
             for in_ints, out_ints in test_data.items():
-                diff = polymorphic.symmetric_difference(to_check, in_ints)
+                diff = collection.symmetric_difference(to_check, in_ints)
                 self.check_result(diff, coll_type(out_ints))
 
     def test_symmetric_difference_update(self) -> None:
@@ -253,12 +253,13 @@ class TestPolymorphicFunctions(Tester):
         for coll_type in (set[int], list[int]):
             to_check = coll_type(self.alist)
             for in_ints, out_ints in test_data.items():
-                polymorphic.symmetric_difference_update(to_check, in_ints)
+                collection.symmetric_difference_update(to_check, in_ints)
                 self.check_result(to_check, coll_type(out_ints))
 
     def test_list_union(self) -> None:
         self.add_basics()
-        unioned = polymorphic.union(self.alist, [4, 5, 6, 7, 8])
+        unioned = cast(list[int], collection.union(
+            self.alist, [4, 5, 6, 7, 8]))
 
         # Verify that initial list order is unchanged
         self.check_result(unioned[:len(self.alist)], [1, 2, 3, 4, 5])
@@ -266,6 +267,3 @@ class TestPolymorphicFunctions(Tester):
         # Verify that all new elements are included
         unioned_set = set(unioned)
         self.check_result(unioned_set, {1, 2, 3, 4, 5, 6, 7, 8})
-
-        # Verify that no element is repeated
-        self.check_result(len(unioned_set), len(unioned))

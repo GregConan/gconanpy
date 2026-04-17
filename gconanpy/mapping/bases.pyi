@@ -35,7 +35,7 @@ _P = ParamSpec("_P")  # for LazyMap lazy getter functions
 
 class InitMutableMap[KT, VT](MutableMapping[KT, VT]):
     def __init__(self, from_map: Mapping[KT, VT] | Iterable[tuple[KT, VT]]
-                 | None = None, **kwargs: VT) -> None: ...
+                 | None = None, /, **kwargs: VT) -> None: ...
 
     def copy(self) -> Self:
         """ `D.copy()` -> a shallow copy of `D`. 
