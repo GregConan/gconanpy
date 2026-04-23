@@ -108,13 +108,21 @@ class TestFancyString(Tester):
                 each_example[code_case][normal_case] = \
                     normal_case == code2normal
 
-        print(each_example)
+        # print(each_example)
 
         for code_case, answers in each_example.items():
             example = EXAMPLES[code_case]
+
+            print(example.to_case(code_case), end=" is ")
+            assert example.to_case(code_case).is_case(code_case)
+            print(code_case + " case.")
+
             for other_case, is_other_case in answers.items():
+                print(f"{example} is " + ("" if is_other_case else "not ")
+                        + other_case, end=" case")
                 assert example.is_case(other_case) is is_other_case
-                assert example.to_case(code_case).is_case(code_case)
+                print(".")
+                
 
     def test_capitalize(self) -> None:
         self.check_ToString(FancyString("hello").capitalize(), "Hello")

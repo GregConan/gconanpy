@@ -1,15 +1,12 @@
 # Meta
 
-Low-level utilities, custom types, and metaclass functionality.
-
 ## Overview
 
-The `meta` module provides utilities for object introspection, creating custom metaclasses, and implementing advanced type checking mechanisms.
+Low-level utilities, custom types, and metaclass functionality. The `meta` module provides utilities for object introspection, creating custom metaclasses, and implementing advanced type checking mechanisms.
 
 ## Dependencies
 
-- Standard library modules: `abc`, `collections.abc`, `typing`, `typing_extensions`
-- No external dependencies required
+This module has no third-party dependencies.
 
 ## Modules
 
@@ -17,39 +14,114 @@ The `meta` module provides utilities for object introspection, creating custom m
 
 Core utilities, as well as meta-programming and type checking functionality.
 
-#### Key Functions
+#### Functions
 
-- **`areinstances`**: Check if objects are instances of specified types
-- **`bool_pair_to_cases`**: Convert boolean pair to case number
-- **`count_digits_of`**: Count digits in a number
-- **`divmod_base`**: Create divmod function for specific base
-- **`full_name_of`**: Get full qualified name of object
-- **`geteverything`**: Get all local variables
-- **`has_method`**: Check if object has specific method
-- **`hashable`**: Check if object is hashable
-- **`method`**: Create method callable
-- **`name_of`**: Get name of object (class, module, etc.)
-- **`names_of`**: Get names of multiple objects
-- **`tuplify`**: Convert object to tuple
-- **`which_of`**: Find which conditions are true
+- `areinstances`: Check if all objects are instances of specified types.
+- `bool_pair_to_cases`: Convert a boolean pair to a case number (0-3) to represent multiplying two binary conditions together: (False, False), (True, False), (False, True), and (True, True).
+- `error_changer`: Create a wrapper to change which exception a `Callable` raises.
+- `count_digits_of`: Count digits in a number.
+- `divmod_base`: Create a `divmod` function for a specific numerical base.
+- `full_name_of`: Get the fully qualified name of an object (module + name).
+- `geteverything`: Get all local, global, and built-in variables.
+- `has_method`: Check if an object has a specific callable attribute (method).
+- `hashable`: Check if an object is hashable.
+- `method`: Create a callable that retrieves and calls a named method of its first argument.
+- `name_of`: Get the name of an object or of its type/class.
+- `names_of`: Get names of multiple objects.
+- `tuplify`: Convert an object to a tuple or place it into a tuple.
+- `which_of`: Find which conditions are true, returning their indices.
 
-#### Utility Classes
+#### Key Classes
 
-- **`HumanBytes`** defines methods for human-readable byte formatting. 
-- **`TimeSpec`** calculates time specification conversion factors, especially to support `datetime` library operations.
+- `Boolable`: Any object that you can call `bool()` on is a `Boolable`.
+- `cached_property`: Parameterized property that is only computed once per instance and then replaces itself with an ordinary attribute.
+- `Comparer`: Base class providing value comparison methods to find the biggest or smallest item in an iterable.
+- `ErrCatcher`: Base exception catcher class.
+- `IgnoreExceptions`: Context manager for ignoring specified exceptions.
+- `IteratorFactory`: Base class providing iterator creation methods (`first_element_of`, `iterate`).
+- `KeepSkippingExceptions`: Base class for retrying until success.
+- `KeepTryingUntilNoErrors`: Context manager that tries code blocks in sequence until one succeeds without raising specified errors.
+- `MethodWrappingMeta`: Metaclass to wrap all instance methods of a class so methods returning the superclass type return the subclass type instead.
+- `Recursively`: Static methods for recursive item and attribute access (`getitem`, `getattribute`, `setitem`).
+- `TimeSpec`: Calculates time specification conversion factors, especially to support `datetime` library operations.
+- `Traversible`: Base class for recursive iterators that can visit all items in a nested container data structure.
 
-#### Exception Logic Classes
+### `metaclass.py`
+
+Metaclass creation utilities and advanced type checking.
+
+#### Functions
+
+- `combinations_of_conditions`: Generate a `dict` mapping all combinations of named boolean conditions to values.
+- `name_type_class`: Generate a descriptive name for a type-checking metaclass.
+
+#### Classes
+
+- `MakeMetaclass`: Factory for creating custom metaclasses with configurable `__instancecheck__` and `__subclasscheck__` methods.
+- `MatcherBase`: Base class for mapping boolean condition combinations to values.
+- `NonIterable`: Metaclass-based type for objects that lack an `__iter__` method.
+- `PrivateAttrNameMeta`: Metaclass for `PrivateAttrName`, which identifies strings starting with `__`.
+- `PrivateAttrName`: A `str` subclass whose `isinstance` check returns True for strings starting with `__`.
+- `TypeFactory`: Factory for creating type-checking metaclasses based on method presence/absence.
+
+### `typeshed.py`
+
+Custom type classes, especially protocols and abstract base classes, to support type hinting. Many of them already exist in Python's builtin `_typeshed` library, but that cannot be imported at runtime, so I defined them here. Most of the classes in `typeshed.py` are defined only for type-checking to indicate that an object has a specific method or attribute:
+
+- `Boolable` means "supports `bool(x)`"
+- `BytesOrStr` means "`bytes | str | bytearray`"
+- `HasClass` means "has a `__class__` attribute"
+- `HasSlots` means "has a `__slots__` attribute"
+- `Poppable` means "supports `x.pop(...)`"
+- `SupportsAdd`means "supports `+` (`__add__`)"
+- `SupportsAnd`means "supports `&` (`__and__`)"
+- `SupportsContains`means "supports `x in obj`"
+- `SupportsGetItem`means "supports `obj[key]`"
+- `SupportsGetSlice`means "supports both index and slice access."
+- `SupportsRichComparison`means "supports all six comparison operators."
+- `Updatable` means "supports `x.update(...)`"
+
+Some combine multiple Protocols:
+
+- `ComparableHashable` combines `SupportsRichComparison` and `Hashable`.
+- `CollectionFromIterable` combines `Collection` and an `__init__` method allowing construction from an `Iterable`.
+- `ProtoSequence` combines `Iterable`, `SupportsLenAndGetSlice`, and `SupportsContains` with `.count()` and `index(...)` support to expose the full `Sequence` interface except for `__reversed__`.
+- `SupportsLenAndGetItem` combines `SupportsGetItem` with `len()` support.
+- `SupportsLenAndGetSlice` combines `SupportsGetSlice` with `__len__` support.
+- `SupportsHashAndGetItem` combines `SupportsGetSlice` with `Hashable`.
+- `SupportsItemAccess` combines `SupportsContains` and `SupportsGetItem` with `__delitem__` and `__setitem__` support.
+
+Some `Protocol` classes *exclude* certain types or functionality:
+
+- `Unhashable`: Metaclass-based type for unhashable objects.
+
+A few more complicated examples exclude existing types and subclass others. They specify that an object "is an X, but not a Y":
+
+- `PureIterable` means "`Iterable`, but not `str`, `bytes`, or `Mapping`."
+- `NonTxtCollection` means "`Collection`, but not `str` or `bytes`."
+
+Some are metaclasses to implement other classes or `Protocol`s:
+
+- `BytesOrStrMeta`: Metaclass for `BytesOrStr`.
+- `MultiTypeMeta`: Abstract metaclass supporting combined type checking (is-a AND is-not-a).
+- `NonTxtColMeta`: Metaclass for `NonTxtCollection`.
+- `PureIterableMeta`: Metaclass for `PureIterable`.
+
+Others combine class-checking and method-checking:
+
+- `HashableSequence` means `Sequence`s that are `Hashable` (support `hash`).
+- `AddableSequence` means "`Sequence` that supports `+` (`__add__`)"
+
+Finally, others are custom exceptions or groups of exceptions:
+
+- `DATA_ERRORS` is simply a tuple of common data-related exception types `(AttributeError, IndexError, KeyError, TypeError, ValueError)` that are occasionally useful to catch and handle simultaneously.
+- `SkipException` is raised by `ErrCatcher` subclasses to skip a block of code.
+
+## Usage Examples
+
+### Exception Logic Patterns
 
 In some cases, it can be useful to write patterns that apply `if-then` logic or iterative `for`/`while` logic to exception handling. One example is, "If code block 1 raises an exception, then try code block 2; if block 2 raises an exception, then try block 3; ... then try block `n`." The following classes support this pattern: 
-
-- **`SkipException`**: Custom exception for skipping operations
-- **`ErrCatcher`**: Base exception catcher
-- **`IgnoreExceptions`**: Context manager for ignoring exceptions
-- **`SkipOrNot`**: Abstract base for skip/don't skip logic
-- **`Skip`**: Skip exceptions in context
-- **`DontSkip`**: Don't skip exceptions in context
-- **`KeepSkippingExceptions`**: Keep trying until no errors
-- **`KeepTryingUntilNoErrors`**: Retry operations until success
 
 Only two of these classes should be necessary in practice: `IgnoreExceptions` and `KeepTryingUntilNoErrors`. Applying the pattern is simple and (in my opinion) intuitive:
 
@@ -68,8 +140,6 @@ Python will execute the code blocks in sequence until one of them works (i.e., d
 
 Unlike repeated nested `try`/`except` blocks, the `KeepTryingUntilNoErrors` class does not require increasing the indentation level once per case.
 
-Typically, there are better ways to implement (or avoid) this and similar patterns. However, *if* it is needed, then I like having a easy and concise-but-readable way to write it in a pinch.
-
 The `IgnoreExceptions` class functions as shorthand for `try`/`except` blocks like this:
 
 ```python
@@ -79,36 +149,7 @@ except ERR_TYPES:
     pass
 ```
 
-The equivalent would be a code block nested under the line `with IgnoreExceptions(ERR_TYPES):`. I may rename the class, because it doesn't truly *ignore* exceptions; it skips the code blocks that raise them.
-
-#### Iterator and Comparison Base Classes
-
-These classes provide general reusable functionality used later by the `Corer` class in `gconanpy/dissectors.py`.
-
-- **`IteratorFactory`** is a base class providing iterator creation methods.
-- **`Comparer`** is a base class providing value comparison methods.
-
-### `typeshed.py`
-
-`meta/typeshed.py` includes custom type classes, especially protocols and abstract base classes, to support type hinting. Many of them are defined only for type hints to indicate that an object has a specific method or attribute.
-
-- `Boolable` means "supports `bool(x)`"
-- `BytesOrStr` means "`bytes | str | bytearray`"
-- `Poppable` means "supports `x.pop()`"
-- `Updatable` means "supports `x.update(...)`"
-- `HasClass` means "has a `__class__` attribute"
-- `HasSlots` means "has a `__slots__` attribute"
-
-A few more complicated examples subclass existing types, but *exclude* others. They specify that an object "is an X, but not a Y."
-
-- `PureIterable` means "`Iterable`, but not `str`, `bytes`, or `Mapping`."
-- `NonTxtCollection` means "`Collection`, but not `str` or `bytes`."
-
-Others combine class-checking and method-checking:
-
-- `AddableSequence` means "`Sequence` that supports `+` (`__add__`)"
-
-#### Usage Examples
+The equivalent would be a code block nested under the line `with IgnoreExceptions(ERR_TYPES):`. I may rename the class, because it doesn't *ignore* exceptions per se; it skips the code blocks that raise them.
 
 ```python
 from gconanpy.meta import has_method, HumanBytes, IgnoreExceptions, name_of
@@ -123,40 +164,7 @@ if has_method(obj, "save"):
 
 # Get an object's class name
 obj_name = name_of(my_object)
-
-# Format bytes readably
-formatted = HumanBytes.format(1024 * 1024)  # -> "1.0 MB"
 ```
-
-### `metaclass.py`
-
-Metaclass creation utilities and advanced type checking.
-
-#### Key Functions
-
-- **`name_type_class`**: Create type-checking metaclass
-- **`combinations_of_conditions`**: Generate combinations of conditions
-
-#### Key Classes
-
-- **`MakeMetaclass`**: Factory for creating custom metaclasses
-- **`MatcherBase`**: Base class for `combinations_of_conditions`
-- **`NonIterable`**: Metaclass for non-iterable types
-- **`TypeFactory`**: Factory for creating type-checking metaclasses
-
-**Usage Examples**:
-```python
-from gconanpy.meta.metaclass import MakeMetaclass
-
-# Create metaclass for objects with specific methods
-SupportsSave = MakeMetaclass.for_methods("save", include=True)
-
-# Create metaclass for specific types
-IsStringOrInt = MakeMetaclass.for_classes(is_all_of=(str, int),
-                                          name="StringOrInt")
-```
-
-## Use Case Examples
 
 ### Custom Metaclass Creation
 
@@ -178,29 +186,10 @@ def a_func(an_object: SupportsSerialize):
     ...
 ```
 
-### Exception Logic Patterns
-
-```python
-from gconanpy.meta import IgnoreExceptions, KeepTryingUntilNoErrors
-
-# Retry until success
-with KeepTryingUntilNoErrors(ConnectionError, TimeoutError) as next_try:
-    with next_try():  # First, try to get it from the first source
-        result = get_from_first_source()
-    with next_try():  # If the first source fails, then try the next
-        result = get_from_second_source()
-    with next_try():  # If both sources fail, then try a third
-        result = get_from_tertiary_source()
-
-# Ignore specific exceptions
-with IgnoreExceptions(AttributeError, KeyError):
-    value = obj.missing_attribute
-```
-
 ### Type Checking
 
 ```python
-from gconanpy.meta import Boolable, NonTxtCollection
+from gconanpy.meta.typeshed import Boolable, NonTxtCollection
 
 # Type hint indicates that conditions will be used as booleans
 def bools(*conditions: Boolable) -> list[str]:
@@ -218,6 +207,25 @@ def recursive_extract(nested_iterable: Iterable) -> list:
 
         else:  # If it's data (int, float, *or str*), then extract it
             data.append(item)
+```
+
+### Retry Until Success
+
+```python
+from gconanpy.meta import IgnoreExceptions, KeepTryingUntilNoErrors
+
+# Retry until success
+with KeepTryingUntilNoErrors(ConnectionError, TimeoutError) as next_try:
+    with next_try():  # First, try to get it from the first source
+        result = get_from_first_source()
+    with next_try():  # If the first source fails, then try the next
+        result = get_from_second_source()
+    with next_try():  # If both sources fail, then try a third
+        result = get_from_tertiary_source()
+
+# Ignore specific exceptions
+with IgnoreExceptions(AttributeError, KeyError):
+    value = obj.missing_attribute
 ```
 
 ### Comparison Utilities
@@ -246,24 +254,10 @@ def process_object(obj):
     return obj.serialize() if has_method(obj, "serialize") else str(obj)
 ```
 
-### Graceful Error Handling
-
-```python
-from gconanpy.meta import IgnoreExceptions, KeepTryingUntilNoErrors
-
-def robust_operation():
-    with KeepTryingUntilNoErrors(ConnectionError):
-        with IgnoreExceptions(AttributeError):
-            # Try to access optional attributes
-            result = obj.optional_method()
-            return result
-        return None
-```
-
 ### Inspecting Objects
 
 ```python
-from gconanpy.meta import name_of, names_of
+from gconanpy.meta import names_of
 
 def log_objects(*objects):
     names = names_of(objects)
@@ -271,30 +265,13 @@ def log_objects(*objects):
         print(f"Processing {name}: {obj}")
 ```
 
-## Error Handling
-
-The `meta` module provides sophisticated error handling:
-- Custom exception types for specific scenarios
-- Context managers for exception suppression
-- Retry mechanisms with configurable conditions
-- Type-safe operations with fallbacks
-
-## Best Practices
-
-- Use metaclasses sparingly and document their purpose clearly
-- Implement proper error handling with specific exception types
-- Use type checking for runtime safety
-- Consider performance implications of meta-programming
-- Follow Python's type hinting conventions
-- Use context managers for resource management 
-
 ## Meta
 
 ### About This Document
 
 - Created by @[GregConan](https://github.com/GregConan) on 2025-08-05
-- Updated by @[GregConan](https://github.com/GregConan) on 2025-11-03
-- Current as of `v0.22.0`
+- Updated by @[GregConan](https://github.com/GregConan) on 2026-04-17
+- Current as of `v0.32.1`
 
 ### License
 

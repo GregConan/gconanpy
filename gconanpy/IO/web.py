@@ -4,14 +4,16 @@
 Functions to import/export data from/to remote files/pages/APIs on the Web.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-13
-Updated: 2026-03-04
+Updated: 2026-04-23
 """
 # Import standard libraries
 from collections.abc import Mapping
-import requests
 from typing import Any, Self
 from urllib.parse import parse_qs, ParseResult, urlparse
 import urllib.request
+
+# Import third-party PyPI libraries
+import requests
 
 # Import local custom libraries
 try:

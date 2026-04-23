@@ -5,13 +5,15 @@ Classes to inspect/examine/unwrap complex/nested data structures.
 Extremely useful and convenient for debugging.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2026-03-05
+Updated: 2026-04-23
 """
 # Import standard libraries
 from collections.abc import Callable, Iterable, Mapping
-from more_itertools import all_equal
 from operator import getitem
 from typing import Any, cast, TypeVar
+
+# Import third-party PyPI libraries
+from more_itertools import all_equal
 
 # Import local custom libraries
 try:

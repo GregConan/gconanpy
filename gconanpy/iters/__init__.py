@@ -5,7 +5,7 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2026-04-14
+Updated: 2026-04-23
 """
 # Import standard libraries
 import abc
@@ -13,11 +13,13 @@ from collections.abc import Callable, Collection, Generator, \
     Hashable, Iterable, Iterator, Mapping, Sequence
 import functools
 import itertools
-from more_itertools import all_equal
 import random
 import string
 import sys
 from typing import Any, cast, Literal, overload, ParamSpec, Self, TypeVar
+
+# Import third-party PyPI libraries
+from more_itertools import all_equal
 
 # Import local custom libraries
 try:

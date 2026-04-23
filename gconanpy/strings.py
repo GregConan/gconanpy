@@ -4,12 +4,13 @@
 FancyString class wraps builtin str class to add extra string functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2026-04-08
+Updated: 2026-04-21
 """
 # Import standard libraries
 # from collections import UserString  # TODO?
 from collections.abc import Callable, Collection, Iterable, Mapping
 import datetime as dt
+from functools import partial
 from numbers import Number
 import os
 import re
@@ -38,6 +39,22 @@ _P = ParamSpec("_P")
 StrCase = Literal["camel", "capitalize", "kebab", "lower", "macro",
                   "pascal", "snake", "title", "train", "upper"]
 
+# Map text case name to functions that, run in order, convert a snake_case
+# string to that case
+SNAKE_TO_CASE: dict[StrCase, Iterable[Callable[[str], str]]] = {
+    "camel": (partial[str](inflection.camelize,
+                           uppercase_first_letter=False), ),
+    "capitalize": (str.capitalize, ),
+    "kebab": (inflection.dasherize, ),
+    "lower": (str.lower, ),
+    "macro": (str.upper, ),
+    "pascal": (inflection.camelize, ),
+    "snake": (),
+    "title": (str.title, ),
+    "train": (inflection.dasherize, str.upper),
+    "upper": (str.upper, )
+}
+
 
 class DelimitedCase:
     """ A specific string/text case delimited by a specific character. 
@@ -45,13 +62,13 @@ class DelimitedCase:
     Represents the following text cases used frequently in code:
     `kebab-case`, `MACRO_CASE`, `snake_case`, and `TRAIN-CASE`. """
     sep: str
-    is_case: Callable[[str], bool]  # TODO Handle entire case check here?
-    to_case: Callable[[str], str]  # TODO Handle entire case conversion here?
+    is_correct_caps: Callable[[str], bool]  # TODO Do entire case check here?
+    fix_caps: Callable[[str], str]  # TODO Do entire case conversion here?
 
     def __init__(self, sep: str, upper: bool) -> None:
         self.sep = sep
-        self.is_case, self.to_case = (str.isupper, str.upper) if upper \
-            else (str.islower, str.lower)
+        self.is_correct_caps, self.fix_caps = (str.isupper, str.upper) \
+            if upper else (str.islower, str.lower)
 
 
 # String/text cases for code, each delimited by a specific character:
@@ -65,6 +82,13 @@ DELIM_CASES: dict[StrCase, DelimitedCase] = {
 class FancyString(str, metaclass=MethodWrappingMeta):
     # The metaclass wraps every str method that returns str so it returns
     # a FancyString instance instead.
+
+    def pascalize(self) -> Self:
+        return type(self)(inflection.camelize(self, True))
+
+    def camelize(self) -> Self:
+        return type(self)(inflection.camelize(self, False))
+
 
     def __add__(self, value: str | None) -> Self:
         """ Append `value` to the end of `self`. Implements `self + value`.
@@ -464,47 +488,10 @@ class FancyString(str, metaclass=MethodWrappingMeta):
             (`str_case`), otherwise False
         """
         try:  # Default methods to check if self is lower, UPPER, or Title case
-            return {"lower": self.islower, "title": self.istitle,
-                    "upper": self.isupper}[str_case]()
-        except KeyError:
-            # Handle only remaining default text case: capitalized
-            first_char = self[0]
-            if str_case == "capitalize":
-                return first_char.isupper() and self[1:].islower()
-
-            else:  # Handle code cases: camel, kebab, macro, pascal, & snake
-
-                # Code cases must start with a letter and have no whitespace
-                if first_char.isdigit() or re.match(r"\s", self):
-                    return False
-
-                try:  # Verify camelCase and PascalCase by checking the first
-                    #   letter's case and that all chars are alphanumeric
-                    return {"camel": first_char.islower,
-                            "pascal": first_char.isupper}[str_case]() \
-                        and self.isalnum()
-                except KeyError:
-                    pass
-
-                # Only snake_case & MACRO_CASE should have underscores
-                if str_case not in {"macro", "snake"} and "_" in self:
-                    return False
-
-                # Only kebab-case & TRAIN-CASE should have dashes
-                if str_case not in {"kebab", "train"} and "-" in self:
-                    return False
-
-                # Verify lowercase (if kebab or snake) else uppercase
-                this_case = DELIM_CASES[str_case]
-                if not this_case.is_case(self):
-                    return False
-
-                # Verify that every word only contains letters and numbers
-                for word in self.split(this_case.sep):
-                    if not word.isalnum():
-                        return False
-
-                return True
+            return getattr(self, f"is{str_case}")()
+            # return {"lower": self.islower, "title": self.istitle, "upper": self.isupper}[str_case]()
+        except AttributeError:  # KeyError:
+            return self == self.to_case(str_case)
 
     def is_enclosed_by(self, affix: str | None) -> bool:
         """ 
@@ -690,36 +677,12 @@ class FancyString(str, metaclass=MethodWrappingMeta):
         """
         convert_case = getattr(self, str_case, None)
         if convert_case is not None:
-            result = convert_case()
-
-        # Code cases: camelCase, kebab-case, MACRO_CASE, PascalCase, snake_case
+            return convert_case()
         else:
-            # Code cases must start with a letter
-            result = self
-            while result and not result[0].isalpha():
-                result = result[1:]
-
-            # Split words apart to recombine them later, removing all
-            # non-alphanumeric characters from the string
-            words = re.split(r"\W+", result)
-
-            # Get the new word separator char, if any (underscore or dash)
-            this_case = DELIM_CASES.get(str_case, None)
-
-            if this_case:  # then case is kebab, macro, snake, or train
-                result = this_case.sep.join(words)  # Concatenate all words
-                result = this_case.to_case(result)  # Convert to lower or upper
-
-            else:  # If there's no new separator, then it's either PascalCase
-                #    or camelCase, so first capitalize all words
-                words = [word.capitalize() for word in words]
-
-                if str_case == "camel":  # then lowercase the first character
-                    words[0] = words[0].lower()
-
-                result = "".join(words)  # Concatenate all words
-
-        return type(self)(result)  # Return as a FancyString
+            result = inflection.underscore(self)
+            for convert in SNAKE_TO_CASE[str_case]:
+                result = convert(result)
+            return type(self)(result)
 
     def truncate(self, max_len: int | None = None, suffix: str = "..."
                  ) -> Self:
