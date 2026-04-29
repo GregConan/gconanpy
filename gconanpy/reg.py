@@ -4,10 +4,10 @@
 Classes that parse strings and text data, especially using Regex.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-24
-Updated: 2026-04-07
+Updated: 2026-04-23
 """
 # Import standard libraries
-from collections.abc import Container, Generator
+from collections.abc import Container, Generator, Iterator
 import re
 from typing import Any
 
@@ -54,6 +54,15 @@ class Abbreviator:
 class Abbreviations(Abbreviator):
     def __init__(self, **shortenings: str) -> None:
         self.shortenings = shortenings
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.shortenings
+
+    def __len__(self) -> int:
+        return len(self.shortenings)
+    
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.shortenings)
 
     def abbreviate(self, name: str, max_len: int) -> str:
         return super().abbreviate(name, max_len, **self.shortenings)

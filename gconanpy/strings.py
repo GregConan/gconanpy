@@ -4,7 +4,7 @@
 FancyString class wraps builtin str class to add extra string functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2026-04-21
+Updated: 2026-04-26
 """
 # Import standard libraries
 # from collections import UserString  # TODO?
@@ -56,39 +56,9 @@ SNAKE_TO_CASE: dict[StrCase, Iterable[Callable[[str], str]]] = {
 }
 
 
-class DelimitedCase:
-    """ A specific string/text case delimited by a specific character. 
-
-    Represents the following text cases used frequently in code:
-    `kebab-case`, `MACRO_CASE`, `snake_case`, and `TRAIN-CASE`. """
-    sep: str
-    is_correct_caps: Callable[[str], bool]  # TODO Do entire case check here?
-    fix_caps: Callable[[str], str]  # TODO Do entire case conversion here?
-
-    def __init__(self, sep: str, upper: bool) -> None:
-        self.sep = sep
-        self.is_correct_caps, self.fix_caps = (str.isupper, str.upper) \
-            if upper else (str.islower, str.lower)
-
-
-# String/text cases for code, each delimited by a specific character:
-# kebab (lowercase dash-delimited), macro (uppercase underscore-delimited),
-# snake (lowercase underscore-delimited), & train (uppercase dash-delimited)
-DELIM_CASES: dict[StrCase, DelimitedCase] = {
-    "kebab": DelimitedCase("-", False), "macro": DelimitedCase("_", True),
-    "snake": DelimitedCase("_", False), "train": DelimitedCase("-", True)}
-
-
 class FancyString(str, metaclass=MethodWrappingMeta):
     # The metaclass wraps every str method that returns str so it returns
     # a FancyString instance instead.
-
-    def pascalize(self) -> Self:
-        return type(self)(inflection.camelize(self, True))
-
-    def camelize(self) -> Self:
-        return type(self)(inflection.camelize(self, False))
-
 
     def __add__(self, value: str | None) -> Self:
         """ Append `value` to the end of `self`. Implements `self + value`.

@@ -5,7 +5,7 @@ Useful/convenient lower-level utility functions and classes primarily to \
     access and manipulate Iterables, especially nested Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2026-04-23
+Updated: 2026-04-24
 """
 # Import standard libraries
 import abc
@@ -73,12 +73,12 @@ def are_all_equal(comparables: Iterable, eq_meth: str | None = None,
         return True
 
 
-def combine_lists(lists: Iterable[list]) -> list:
+def combine_lists(lists: Iterable[list[_T]]) -> list[_T]:
     """
     :param lists: Iterable[list], lists to combine
     :return: list combining all of the `lists` into one
     """
-    return list(itertools.chain.from_iterable(lists))
+    return list[_T](itertools.chain.from_iterable(lists))
 
 
 def copy_range(a_range: range) -> range:
@@ -229,6 +229,16 @@ def powers_of_ten(orders_of_magnitude: int = 4) -> list[int]:
         then `orders_of_magnitude`.
     """
     return [10 ** i for i in range(orders_of_magnitude + 1)]
+
+
+def seq_endswith(seq: _Seq, suffix: _Seq) -> bool:
+    """ Check if prefix is the beginning of seq.
+
+    :param seq: Sequence, _description_
+    :param suffix: Sequence, _description_
+    :return: bool, True if seq ends with the specified suffix, else False.
+    """
+    return len(seq) >= len(suffix) and seq[len(suffix):] == suffix
 
 
 def seq_startswith(seq: _Seq, prefix: _Seq) -> bool:
