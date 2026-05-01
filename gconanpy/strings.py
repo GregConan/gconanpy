@@ -4,7 +4,7 @@
 FancyString class wraps builtin str class to add extra string functionality.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-05-04
-Updated: 2026-04-26
+Updated: 2026-05-01
 """
 # Import standard libraries
 # from collections import UserString  # TODO?
@@ -39,6 +39,11 @@ _P = ParamSpec("_P")
 StrCase = Literal["camel", "capitalize", "kebab", "lower", "macro",
                   "pascal", "snake", "title", "train", "upper"]
 
+# Define coding cases that cannot contain spaces:
+# camelCase, kebab-case, MACRO_CASE, PascalCase, snake_case, TRAIN-CASE
+CODE_CASES: set[StrCase] = {
+    "camel", "kebab", "macro", "pascal", "snake", "train"}
+
 # Map text case name to functions that, run in order, convert a snake_case
 # string to that case
 SNAKE_TO_CASE: dict[StrCase, Iterable[Callable[[str], str]]] = {
@@ -62,8 +67,8 @@ class FancyString(str, metaclass=MethodWrappingMeta):
 
     def __add__(self, value: str | None) -> Self:
         """ Append `value` to the end of `self`. Implements `self + value`.
-            Defined explicitly so that `FancyString() + str() -> FancyString`
-            instead of returning a `str` object.
+        Defined explicitly so that `FancyString() + str() -> FancyString()` \
+        instead of returning a `str` object.
 
         :param value: str | None
         :return: FancyString, `self` with `value` appended after it;
@@ -73,7 +78,7 @@ class FancyString(str, metaclass=MethodWrappingMeta):
 
     def __sub__(self, value: str | None) -> Self:
         """ Remove `value` from the end of `self`. Implements `self - value`.
-            Defined as a shorter but still intuitive alias for `removesuffix`.
+        Defined as a shorter but still intuitive alias for `removesuffix`.
 
         :param value: str | None
         :return: FancyString, `self` without `value` at the end; if `self`
@@ -106,13 +111,13 @@ class FancyString(str, metaclass=MethodWrappingMeta):
         :param dir_path: str, valid path to directory containing the file
         :param file_name: str, name of the file excluding path and extension
         :param file_ext: str, the file's extension; defaults to empty string
-        :param put_dt_after: str | None; include this to automatically generate
-                            the current date and time in ISO format and insert
-                            it into the filename after the specified delimiter.
-                            Exclude this to exclude date/time from path.
-        :param max_len: int, maximum filename byte length. Truncate the name if
-                        the filename length exceeds this value. None means 255.
-        :return: str, the new full file path
+        :param put_dt_after: str | None; include this to automatically \
+            generate the current date and time in ISO format and insert it \
+            into the filename after the specified delimiter. Exclude this to \
+            exclude date/time from returned file path.
+        :param max_len: int, maximum filename byte length. Truncate the name \
+            if the filename length exceeds this value. `None` means 255.
+        :return: Self, the new full file path
         """
         # Ensure that file extension starts with a period
         file_ext = cls(file_ext).that_starts_with(".")
@@ -147,7 +152,7 @@ class FancyString(str, metaclass=MethodWrappingMeta):
         """ Coerce the elements of `iterable` together into a string.
 
         :param iterable: Iterable to coercively convert into a string.
-        :param format: Mapping[str, Any], `fromIterable` parameters; include
+        :param format: Mapping[str, Any], `fromIterable` parameters; include \
             these to format the elements while joining them.
         :return: Self, `iterable` converted into a `FancyString`.
         """
@@ -245,9 +250,9 @@ class FancyString(str, metaclass=MethodWrappingMeta):
         """ Convert a `BeautifulSoup` object (from `bs4`) to a `FancyString`.
 
         :param soup: bs4.element.PageElement, or None to get an empty string.
-        :param tag: Literal["all", "first", "last"], which HTML document tag
-            to represent as a string: "first" means only the opening tag,
-            "last" means only the closing tag, and "all" means both plus
+        :param tag: Literal["all", "first", "last"], which HTML document tag \
+            to represent as a string: "first" means only the opening tag, \
+            "last" means only the closing tag, and "all" means both plus \
             everything in between them.
         :return: FancyString representing the `BeautifulSoup` object.
         """
@@ -645,14 +650,22 @@ class FancyString(str, metaclass=MethodWrappingMeta):
             'macro', 'pascal', 'snake', 'title', 'train', 'upper']
         :return: Self, this string converted to the specified case (`str_case`)
         """
+        # If a pre-defined case converter method exists already, then use it
         convert_case = getattr(self, str_case, None)
         if convert_case is not None:
             return convert_case()
-        else:
-            result = inflection.underscore(self)
-            for convert in SNAKE_TO_CASE[str_case]:
-                result = convert(result)
-            return type(self)(result)
+        
+        # Otherwise, start by converting to snake_case as baseline
+        result = inflection.underscore(self)
+
+        # Remove whitespaces to make something into a valid code case
+        if str_case in CODE_CASES:
+            result = "_".join(result.split())
+
+        # Convert from snake_case to a specific case
+        for convert in SNAKE_TO_CASE[str_case]:
+            result = convert(result)
+        return type(self)(result)
 
     def truncate(self, max_len: int | None = None, suffix: str = "..."
                  ) -> Self:

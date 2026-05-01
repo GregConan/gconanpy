@@ -2,10 +2,10 @@
 
 """
 Useful/convenient lower-level utility functions and classes primarily to \
-    access and manipulate Iterables, especially nested Iterables.
+    access, create, and manipulate Iterables.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-07-28
-Updated: 2026-04-24
+Updated: 2026-05-01
 """
 # Import standard libraries
 import abc
@@ -33,11 +33,13 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
 
 # TypeVars to define type hints for...
 _H = TypeVar("_H", bound=Hashable)      # ...uniqs_in & Combinations.of_uniques
+_KT = TypeVar("_KT", bound=Hashable)    # ...Randoms.randict
 _Map = TypeVar("_Map", bound=Mapping)   # ...Combinations.of_map
 _P = ParamSpec("_P")                    # ...exhaust_wrapper
 _Seq = TypeVar("_Seq", bound=Sequence)  # ...seq_*
-_T = TypeVar("_T")    # ...*duplicate*, subseq_*, & Combinations.randsublist
+_T = TypeVar("_T")    # ...*duplicate*, subseq_*, Combinations.*, Randoms.*
 _U = TypeVar("_U", bound=Updatable)     # ...merge & update_return
+_VT = TypeVar("_VT")                    # ...Randoms.randict
 RANDATUM = TypeVar("RANDATUM", bool, bytes, float, int, None, str
                    )  # ...Randoms.randata & Randoms.randatum
 
@@ -90,8 +92,7 @@ def copy_range(a_range: range) -> range:
 
 
 def deduplicate_keep_order(parts: Sequence[_T]) -> list[_T]:
-    """
-    Remove duplicate `parts` without changing the order of `parts`.
+    """ Remove duplicate `parts` without changing the order of `parts`.
 
     :param parts: Sequence[_T] to remove duplicate elements from
     :return: list[_T], `parts` without duplicate elements
@@ -168,7 +169,7 @@ def filter_sequence_generator(ix: int) -> Callable[
     a generator function to only yield the specified index of the Sequence \
     yielded by that generator function.
 
-    E.g. `filter_generator(0)(dict.items)` replicates `dict.keys` iteration \
+    For example, `filter_generator(0)(dict.items)` replicates `dict.__iter__`,\
     and `filter_generator(1)(dict.items)` replicates `dict.values` iteration.
 
     :param ix: int, index of an input generator's yielded Sequence for the \
@@ -209,6 +210,16 @@ def invert_range(a_range: range) -> range:
     return range(a_range.stop - a_range.step,
                  a_range.start - a_range.step, -a_range.step)
 
+
+def transpose(data: Sequence[Sequence[_T]]) -> list[list[_T]]:
+    """ Transpose a rectangular nested sequence, changing rows into columns \
+    and vice versa. Taken from https://stackoverflow.com/a/6473724
+
+    :param data: Sequence[Sequence[_T]], sequence of sequences to transpose
+    :return list[list[_T]], transposed sequence of sequences
+    """
+    return list[list[_T]](map(list, zip(*data)))
+    
 
 def merge(updatables: Iterable[_U]) -> _U:
     """ Merge dicts, sets, or things of any type with an `update` method.
@@ -290,24 +301,24 @@ def subseq_indices(subseq: Sequence[_T], a_seq: Sequence[_T]
             yield (start_ix, end_ix - 1)
 
 
-def startswith(an_obj: Any, prefix: Any,  # TODO Move to duck.py ?
+def startswith(obj: Any, prefix: Any,  # TODO Move to duck.py ?
                stringify: Callable[[Any], str] = str) -> bool:
-    """ Check if the beginning of an_obj is prefix.
-        Type-agnostic extension of str.startswith and bytes.startswith.
+    """ Check if `prefix` is the beginning of `obj`.
+    Type-agnostic extension of `str.startswith` and `bytes.startswith`.
 
-    :param an_obj: Any, _description_
-    :param prefix: Any, _description_
+    :param obj: Any, object to check if it starts with `prefix`
+    :param prefix: Any, to check if `obj` starts with
     :param stringify: Callable[[Any], str], function to convert any objecct \
         into a string for sequence comparison; defaults to `str`
-    :return: bool, True if an_obj starts with the specified prefix, else False
+    :return: bool, True if `obj` starts with the specified `prefix`, else False
     """
     try:
         try:
-            return an_obj.startswith(prefix)
-        except AttributeError:  # then an_obj isn't a str, bytes or BytesArray
-            return seq_startswith(an_obj, prefix)
+            return cast(str | bytes | bytearray, obj).startswith(prefix)
+        except AttributeError:  # then an_obj isn't a str, bytes or bytearray
+            return seq_startswith(obj, prefix)
     except TypeError:  # then an_obj isn't a Sequence or prefix isn't
-        return seq_startswith(stringify(an_obj), stringify(prefix))
+        return seq_startswith(stringify(obj), stringify(prefix))
 
 
 # TODO Rename to deduplicate_sort?
@@ -341,10 +352,6 @@ class Randoms:
     """ Various methods using the `random` library to randomly select or \
         generate values. Useful for generating arbitrary test data. """
 
-    # Type hint class variables
-    _KT = TypeVar("_KT", bound=Hashable)  # for randict method
-    _VT = TypeVar("_VT")  # for randict method
-
     # Default parameter value class variables
     BIGINT = sys.maxunicode  # Default arbitrary huge integer
     CHARS = tuple(string.printable)  # String characters to randomly pick
@@ -376,7 +383,7 @@ class Randoms:
         """ Taken from https://stackoverflow.com/a/6824868 
 
         Accepts and ignores positional input parameters for more convenient \
-        use by `Randoms.randatum`.
+        use by `Randoms.randatum`, which is also why it is a `classmethod`.
 
         :return: bool, a 50% random chance of either True or False.
         """
@@ -385,7 +392,7 @@ class Randoms:
     @classmethod
     def randata(cls, min_val: int = MIN, max_val: int = 10 * MAX,
                 min_n: int = MIN, max_n: int = MAX,
-                dtypes: type[RANDATUM] | Sequence[type[RANDATUM] | None]
+                dtypes: type[RANDATUM] | Sequence[type[RANDATUM] | None] | None
                 = RANDTYPES, weights: Sequence[float] | bool | None = True
                 ) -> Generator[RANDATUM, None, None]:
         """ Generate a random number of random values of random types.
@@ -489,7 +496,8 @@ class Randoms:
         :return: dict[_KT, _VT], dict with random size and contents.
         """
         n = random.randint(min_n, max_n)
-        keys = cls.randtuple(n, keys, key_types, min_key, max_key, False)
+        keys = cls.randtuple(
+            n, keys, key_types, min_key, max_key, replace=False)
         values = cls.randtuple(
             n, values, value_types, min_val, max_val, replace)
         return {k: v for k, v in zip(keys, values)}
@@ -498,6 +506,13 @@ class Randoms:
     def randints(cls, min_n: int = MIN, max_n: int = MAX,
                  min_int: int = -BIGINT, max_int: int = BIGINT
                  ) -> Generator[int, None, None]:
+        """
+        :param min_n: int, lowest number of ints to yield; defaults to 1
+        :param max_n: int, greatest number of ints to yield; defaults to 100
+        :param min_int: int, lowest int to yield; defaults to `-sys.maxsize`
+        :param max_int: int, greatest int to yield, defaults to `sys.maxsize`
+        :yield: Generator[int, None, None], a random number of random integers
+        """
         for _ in cls.randcount(min_n, max_n):
             yield random.randint(min_int, max_int)
 
@@ -506,29 +521,70 @@ class Randoms:
                     min_len: int = MIN, max_len: int = MAX,
                     min_int: int = -BIGINT, max_int: int = BIGINT
                     ) -> list[set[int]]:
-        return [set(cls.randints(min_len, max_len, min_int, max_int))
+        """ A random number of sets, each with a random number of random ints.
+         
+        :param min_n: int, lowest numbmer of `set[int]`s to return; \
+            defaults to 2
+        :param max_n: int, highest number of `set[int]`s to return; \
+            defaults to 100
+        :param min_len: int, number of `int`s in the smallest possible \
+            returned `set[int]`; defaults to 1
+        :param max_len: int, number of `int`s in the largest possible \
+            returned `set[int]`; defaults to 100
+        :param min_int: int, lowest possible `int` in any of the returned \
+            `set[int]`s; defaults to `-sys.maxsize`
+        :param max_int: int, highest possible `int` in any of the returned \
+            `set[int]`s; defaults to `sys.maxsize`
+        :return: list[set[int]], a random number of random `set`s, each \
+            containing a random number of random `int`s.
+        """
+        return [set[int](cls.randints(min_len, max_len, min_int, max_int))
                 for _ in cls.randcount(min_n, max_n)]
 
     @staticmethod
     def randcount(min_len: int = MIN, max_len: int = MAX) -> range:
+        """ `range` with a random number of steps between the min and max.
+
+        :param min_len: int, minimum number of steps, defaults to 1
+        :param max_len: int, maximum number of steps, defaults to 100
+        :return: range, counting up from 0 to a number between `min_len` and \
+            `max_len` steps
+        """
         return range(random.randint(min_len, max_len))
 
     @classmethod
     def randrange(cls, start: int | tuple[int, int] = 0,
                   stop: int | tuple[int, int] = (1, BIGINT),
                   step: int | tuple[int, int] = 1) -> range:
+        """ `range` with randomized start, stop, and step values.
+         
+        :param start: int | tuple[int, int], the number to start counting \
+            from or a tuple of the lowest and highest number to randomly \
+            select a starting point from; defaults to 0.
+        :param stop: int | tuple[int, int], the number to stop counting at or \
+            the lowest and highest number to randomly select a stopping point \
+            from; defaults to `(1, sys.maxsize)`
+        :param step: int | tuple[int, int], the increment/step to count by or \
+            the lowest and highest number to randomly select as the \
+            increment/step to count by; defaults to 1
+        :return: range, starting at `start` (or at a randomly selected number \
+            in that range) and keeps yielding numbers by adding `step` (or a \
+            randomly selected number in that range) on each iteration until \
+            it reaches or passes `stop` (or a randomly selected number in \
+            that range)
+        """
         return range(cls._int_or_randint(start),
                      cls._int_or_randint(stop),
                      cls._int_or_randint(step))
 
-    @classmethod
-    def randtuple(cls, n: int, values: Sequence[_VT] | None = None,
+    @classmethod  # TODO Fix that if value_types=None, returns mix of types
+    def randtuple(cls, n: int, values: Sequence[_T] | None = None,
                   value_types: _TYPES = RANDTYPES,
                   min_val: int = MIN, max_val: int = MAX * 10,
                   replace: bool = True) -> tuple:
         """
         :param n: int, number of items in the tuple to return.
-        :param values: Sequence[_VT] | None, items to randomly select from; \
+        :param values: Sequence[_T] | None, items to randomly select from; \
             if none are provided, randomly generate items 
         :param value_types: type | Sequence[type | None], type of items to \
             randomly generate if no `values` are provided; defaults to \
@@ -547,20 +603,19 @@ class Randoms:
             select = random.choices if replace else random.sample
             ret = select(values, k=n)
         else:
-            kwargs = dict[str, Any](
-                min_val=min_val, max_val=max_val, min_n=n, max_n=n)
-            if value_types:
-                kwargs["dtypes"] = value_types
-            ret = cls.randata(**kwargs)
+            ret = cls.randata(min_val=min_val, max_val=max_val, min_n=n,
+                              max_n=n, dtypes=value_types)
         return tuple(ret)
 
     @classmethod
-    def randtuples(cls, values: Sequence[_VT] | None = None, min_n: int = MIN,
+    def randtuples(cls, values: Sequence[_T] | None = None,
+                   value_types: _TYPES = RANDTYPES, min_n: int = MIN,
                    max_n: int = MAX, min_len: int = MIN, max_len: int = MAX,
                    same_len: bool = False, unique: bool = False,
-                   replace: bool = True) -> list[tuple[_VT, ...]]:
+                   replace: bool = True, homogeneous_types: bool = False
+                   ) -> list[tuple[_T, ...]]:
         """
-        :param values: Sequence[_VT] | None, items to randomly select and \
+        :param values: Sequence[_T] | None, items to randomly select and \
             place into the returned tuples, or None to include random values \
             of random basic data types \
             `(bool, bytes, float, int, None, str)`; defaults to None
@@ -577,8 +632,9 @@ class Randoms:
             (allowing duplicates); or False to select WITHOUT replacement (so
             all values are unique); defaults to True. If `replace=False`, then
             `max_len` must be less than or equal to the length of `values`.
-        :return: list[tuple[_VT, ...]], list of randomly generated tuples
+        :return: list[tuple[_T, ...]], list of randomly generated tuples
         """
+        value_types = tuplify(value_types)
         tuples = []  # to return
 
         # Make them all the same length if specified
@@ -589,11 +645,14 @@ class Randoms:
             if tup_len is None:
                 tup_len = random.randint(min_len, max_len)
 
+            # Make each tuple have only one type if specified
+            dtypes = random.choice(value_types
+                                   ) if homogeneous_types else value_types
+
             # Make them unique if specified
-            # TODO: Combine unique and replace into one input parameter
-            a_tup = cls.randtuple(tup_len, values, replace=replace)
+            a_tup = cls.randtuple(tup_len, values, dtypes, replace=replace)
             while unique and (a_tup in tuples):
-                a_tup = cls.randtuple(tup_len, values, replace=replace)
+                a_tup = cls.randtuple(tup_len, values, dtypes, replace=replace)
 
             tuples.append(a_tup)
         return tuples
@@ -614,7 +673,7 @@ class Randoms:
 
     @staticmethod
     def randsublist(seq: Sequence[_T], min_len: int = 0,
-                    max_len: int = MAX) -> list[_T]:
+                    max_len: int = MAX, replace: bool = True) -> list[_T]:
         """
         :param seq: Sequence[_T], possible values to randomly select from
         :param min_len: int, length of the shortest possible list to return; \
@@ -623,8 +682,9 @@ class Randoms:
             defaults to 100
         :return: list[_T], a random number of randomly selected items in `seq`
         """
-        return random.choices(seq, k=random.randint(
-            min_len, min(max_len, len(seq))))
+        select: Callable[..., list[_T]] = \
+            random.choices if replace else random.sample
+        return select(seq, k=random.randint(min_len, min(max_len, len(seq))))
 
 
 class ColumnNamer:
@@ -653,11 +713,20 @@ class ColumnNamer:
         return self
 
     def __next__(self) -> str:
+        """ :return: str, the next letter combination """
         ret = self.num2name(self.ix)
         self.ix += 1
         return ret
 
     def _col_num_base_10(self, col_num: int, remainder: int) -> int:
+        """ Method to apply to every index to convert it into a letter by \
+            converting base-10 into the base of the number of letters.
+
+        :param col_num: int, the column number/index and numerical quotient.
+        :param remainder: int, the numerical remainder after running `divmod` \
+            to divide indices into base-[letter count].
+        :return: int, the dividend in base-[letter count].
+        """
         return col_num * self.base + remainder + self.offset
 
     def num2name(self, col_num: int) -> str:
@@ -680,6 +749,9 @@ class ColumnNamer:
             self.letters.index, col_name), 0)
 
     def reset(self) -> Self:
+        """ 
+        :return: Self, a fresh copy of this `ColumnNamer` starting from zero.
+        """
         return type(self)(self.letters, self.offset)
 
 
@@ -701,7 +773,7 @@ class SimpleShredder(Traversible):
         :return: set of the particular Hashable non-Container data in an_obj
         """
         try:  # If it's a string/bytes, then it's not shreddable, so save it
-            self.parts.add(an_obj.strip())
+            self.parts.add(cast(str | bytes | bytearray, an_obj).strip())
         except self.SHRED_ERRORS:
 
             try:  # If it's a non-str Iterable, then shred it
@@ -741,6 +813,7 @@ class SimpleShredder(Traversible):
 
 
 class Combinations:
+    """ Class with methods to generate combinations of `Collection`s. """
 
     @classmethod
     def excluding(cls, objects: Collection[_T], exclude: Iterable[_T]
@@ -753,9 +826,9 @@ class Combinations:
         :yield: Generator[tuple[_T, ...], None, None], all combinations of \
             `objects` excluding the values in `exclude`.
         """
-        excluset = set(exclude)
+        excluset = set[_T](exclude)
         for combo in cls.of_objects(objects):
-            if set(combo).isdisjoint(excluset):
+            if set[_T](combo).isdisjoint(excluset):
                 yield combo
 
     @staticmethod
@@ -766,7 +839,7 @@ class Combinations:
             combinations of `n` boolean values.
         """
         for conds in itertools.product((True, False), repeat=n):
-            yield tuple(conds)
+            yield tuple[bool, ...](conds)
 
     @classmethod
     def of_map(cls, a_map: _Map) -> Generator[_Map, None, None]:
@@ -808,7 +881,7 @@ class Combinations:
             max_n = len(objects)
         for n in range(min_n, max_n + 1):
             for combo in itertools.product(objects, repeat=n):
-                if len(set(combo)) == len(combo):
+                if len(set[_H](combo)) == len(combo):
                     yield combo
 
 
@@ -816,16 +889,21 @@ class IterableMap[KT: Hashable | None, VT: Any](abc.ABC):
     """ Base class for a custom object to emulate `Mapping` iter methods. """
 
     def __iter__(self) -> Generator[KT, None, None]:
+        """ 
+        :yield: Generator[KT, None, None], the keys in this `Mapping`.
+        """
         for k, _ in self.items():
             yield k
 
     @abc.abstractmethod
     def items(self) -> Generator[tuple[KT, VT], None, None]: ...
 
-    def keys(self) -> Generator[KT, None, None]:
-        yield from self
+    keys = __iter__
 
     def values(self) -> Generator[VT, None, None]:
+        """ 
+        :yield: Generator[VT, None, None], the values in this `Mapping`.
+        """
         for _, v in self.items():
             yield v
 
@@ -907,4 +985,4 @@ class MapWalker[KT: Hashable, VT: Any](Traversible, IterableMap[KT, VT]):
             the key-value pairings in this Mapping and all of the nested \
             Mapping values, iterating recursively.
         """
-        yield from self._walk(None, self.root)
+        yield from self._walk(None, self.root, only_yield_maps)

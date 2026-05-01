@@ -2,23 +2,23 @@
 MutableMapping classes resembling dicts that store items as attributes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-11-21
-Updated: 2026-04-17
+Updated: 2026-05-01
 """
 # Import standard libraries
 from collections.abc import \
-    Callable, Collection, Container, Mapping, MutableMapping, Iterator
+    Callable, Container, Mapping, MutableMapping, Iterator
 # from numbers import Number
-from typing import Any, cast, get_args, Literal, overload, Self, TypeVar
+from typing import Any, get_args, Literal, overload, Self, TypeVar
 
 # Import local custom libraries
 try:
-    from gconanpy import collection
+    from gconanpy import polymorphic
     from gconanpy.mapping.bases import ComparableMathMap, ExcluderMap, \
         LazyMap, MathMap, PromptMap, PROTECTEDS, SortMap
     from gconanpy.meta import error_changer
     from gconanpy.meta.typeshed import SupportsRichComparison
 except (ImportError, ModuleNotFoundError):
-    from .. import collection
+    from .. import polymorphic
     from .bases import ComparableMathMap, ExcluderMap, \
         LazyMap, MathMap, PromptMap, PROTECTEDS, SortMap
     from ..meta import error_changer
@@ -37,20 +37,19 @@ _EXCL_METH = Literal[  # gconanpy.mapping.bases.ExcluderMap method names
 _LAZY_METH = Literal[  # gconanpy.mapping.bases.LazyMap method names
     "lazyget", "lazysetdefault"]
 _MATH_METH = Literal[  # gconanpy.mapping.bases.MathMap method names
-    "__abs__", "__add__", "__div__", "__floordiv__", "__lshift__", "__mod__",
-    "__mul__", "__neg__", "__pos__", "__pow__", "__rshift__", "__sub__",
-    "__truediv__", "_math_meth_1_arg", "_math_meth_2_args", "avg"]
-_METHOD = Literal[  # collections.abc.MutableMapping method names
+    "__abs__", "__add__", "__div__", "__floordiv__", "__ge__", "__gt__",
+    "__le__", "__lshift__", "__lt__",  "__mod__", "__mul__", "__neg__",
+    "__pos__", "__pow__", "__rshift__", "__sub__", "__truediv__",
+    "_math_meth_1_arg", "_math_meth_2_args", "avg"]
+_METHOD = Literal[  # collections.abc.MutableMapping & AttrMap method names
     "__class_getitem__", "__contains__", "__delattr__", "__delitem__",
-    "__dir__", "__eq__", "__format__", "__ge__", "__getattr__",
-    "__getattribute__", "__getitem__", "__getstate__", "__gt__",
-    "__init__", "__init_subclass__", "__ior__", "__iter__", "__le__",
-    "__len__", "__lt__", "__ne__", "__new__", "__or__", "__reduce__",
-    "__reduce_ex__", "__repr__", "__reversed__", "__ror__",
-    "__setattr__", "__setitem__", "__setstate__", "__sizeof__",
-    "__str__", "__subclasshook__", "__weakref__", "asdict",
-    "clear", "copy", "fromkeys", "get", "items", "keys", "pop", "popitem",
-    "setdefault", "update", "values"]
+    "__dir__", "__eq__", "__format__", "__getattr__", "__getattribute__",
+    "__getitem__", "__getstate__", "__init__", "__init_subclass__", "__ior__",
+    "__iter__", "__len__", "__ne__", "__new__", "__or__", "__reduce__",
+    "__reduce_ex__", "__repr__", "__reversed__", "__ror__", "__setattr__",
+    "__setitem__", "__setstate__", "__sizeof__", "__str__", "__subclasshook__",
+    "__weakref__", "asdict", "clear", "copy", "fromkeys", "get", "items",
+    "keys", "pop", "popitem", "setdefault", "update", "values"]
 _MISC_ATTR = Literal["__annotations__", "__base__", "__basicsize__",
                      "__hash__", "__weakref__"]  # "__class__", "__orig_class__"
 _PROMPT_METH = Literal[  # gconanpy.mapping.bases.PromptMap method names
@@ -99,7 +98,7 @@ class AttrMap[T](MutableMapping[str, T]):
         if name in getattr(self, PROTECTEDS, ()):
             raise AttributeError(ERR_MSG.format("delete", name))
         super().__delattr__(name)
-        collection.discard(self.names, name)
+        polymorphic.discard(self.names, name)
         # self.names.discard(name)
 
     @overload
@@ -135,7 +134,7 @@ class AttrMap[T](MutableMapping[str, T]):
     def __or__(self, other: Self) -> Self:
         new_map = type(self)()
         # for k in self.names | other.names:
-        for k in collection.union(self.names, other.names):
+        for k in polymorphic.union(self.names, other.names):
             try:
                 setattr(new_map, k,  getattr(other, k))
             except AttributeError:
@@ -151,7 +150,7 @@ class AttrMap[T](MutableMapping[str, T]):
                 raise AttributeError(ERR_MSG.format(
                     "set", f"{name} to {value}"))
         else:
-            collection.append(self.names, name)
+            polymorphic.append(self.names, name)
             # self.names.add(name)
         super().__setattr__(name, value)
 

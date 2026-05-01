@@ -4,7 +4,7 @@
 Test functionality of the functions and classes defined in gconanpy/access/*.py
 Greg Conan: gregmconan@gmail.com
 Created: 2025-09-11
-Updated: 2026-02-09
+Updated: 2026-05-01
 """
 # Import standard libraries
 from collections import defaultdict
@@ -170,11 +170,14 @@ allattrs={allattrs}
 
 
 class TestAttributesFunctions(Tester):
+    """ Test `gconanpy/access/attributes.py` functions, especially lazy \
+        getter/setter methods """
     _LazyMeth = Callable[[Any, str, Callable], Any]
     NO_EXPECTED = object()
     TRIVIALS = {False: always_false, True: always_true, None: always_none}
 
     class HasFoo:
+        """ Dummy class to access attribute of for testing """
         foo: Any
 
     def check_lazy(self, an_obj: Any, name: str, lazy_meths:
@@ -201,6 +204,7 @@ class TestAttributesFunctions(Tester):
 
 
 class TestAttrsOf(Tester):
+    """ Test `AttrsOf` class in `gconanpy/access/attributes.py` """
     EXAMPLE_TYPES: tuple[type, ...] = (
         list, dict, int, float, str, tuple, bytes)
 
@@ -226,6 +230,7 @@ class TestAttrsOf(Tester):
 
 
 class TestCorers(Tester):
+    """ Test `Corer` class in `gconanpy/access/nested.py` """
     TEST_CLASSES: tuple[type[Corer], ...] = (Corer, )
 
     def core_tests(self, to_core: Any, expected_result: Any,
@@ -289,6 +294,7 @@ class TestCorers(Tester):
 
 
 class TestDifferenceBetween(Tester):
+    """ Test `DifferenceBetween` class in `gconanpy/access/nested.py` """
     def check_diff(self, a_diff: DifferenceBetween, what_differs: str,
                    *expected_diffs: Any):
         self.check_result(a_diff.difference, what_differs)
@@ -339,7 +345,7 @@ class TestDifferenceBetween(Tester):
 
 
 class TestIterFind(Tester):
-
+    """ Test `gconanpy/access/find.py` functions and classes """
     def test_iterfind(self):
         self.add_basics()
         for eachnum in self.alist:
@@ -356,6 +362,7 @@ class TestIterFind(Tester):
 
 
 class TestModifind(Tester):
+    """ Test `modifind` function in `gconanpy/access/find.py` """
     DATE_FORMATS: tuple[str, ...] = (
         "%B %d, %Y", "%b %d", "%b %d, %Y", "%B %d")
     DATE_PREFIX = "Date is "
@@ -390,6 +397,7 @@ class TestModifind(Tester):
 
 
 class TestReadyChecker(Tester):
+    """ Test `ReadyChecker` class in `gconanpy/access/find.py` """
     REMOVABLES = (", Extra.", "Extra", "A.B.C", "ABC", "The")
 
     def test_ready_checker(self):
@@ -405,6 +413,8 @@ class TestReadyChecker(Tester):
 
 
 class TestShredders(Tester):
+    """ Test `Shredder` classes in `gconanpy/access/nested.py` and \
+        `SimpleShredder` class in `gconanpy/iters/__init__.py` """
     TEST_CLASSES: tuple[type[SimpleShredder], ...] = (
         Corer, Shredder, SimpleShredder)
 
@@ -425,6 +435,7 @@ class TestShredders(Tester):
 
 
 class TestSpliterator(Tester):
+    """ Test `Spliterator` class in `gconanpy/access/find.py` """
     def test_spliterate_1(self):
         spliterator = Spliterator(max_len=20)
         self.check_result(spliterator.spliterate(["Hello", "World"])[0],
@@ -437,6 +448,7 @@ class TestSpliterator(Tester):
 
 
 class TestXray(Tester):
+    """ Test `Xray` class in `gconanpy/access/nested.py` """
     def test_repr_recursion_err(self):
         class Dummy:
             def __init__(self, txt: str, start: int, end: int):

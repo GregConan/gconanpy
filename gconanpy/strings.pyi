@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 """
-This file forces static type checkers to acknowledge that `FancyString` methods
-never return `str` and only return `FancyString`, even inherited `str` methods.
+This file makes static type checkers acknowledge that `FancyString` methods,
+even inherited `str` methods, never return `str` and only return `FancyString`.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-11-19
-Updated: 2026-04-08
+Updated: 2026-05-01
 """
 # Import standard libraries
 from builtins import _FormatMapMapping, _TranslateTable
@@ -26,6 +26,14 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
 # Different kinds of text cases
 StrCase = Literal["camel", "capitalize", "kebab", "lower", "macro",
                   "pascal", "snake", "title", "upper"]
+
+# Define coding cases that cannot contain spaces:
+# camelCase, kebab-case, MACRO_CASE, PascalCase, snake_case, TRAIN-CASE
+CODE_CASES: set[StrCase]
+
+# Map text case name to functions that, run in order, convert a snake_case
+# string to that case
+SNAKE_TO_CASE: dict[StrCase, Iterable[Callable[[str], str]]]
 
 
 class FancyString(str, metaclass=MethodWrappingMeta):

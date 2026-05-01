@@ -4,7 +4,7 @@
 
 Unified polymorphic interface for `Collection` accessor and mutator functions. The intended use case is for functions/methods that do not need to know what type of `Collection` they are accessing/modifying, only that they are accessing/modifying *a* `Collection`.
 
-The `collection` module provides polymorphic operations on `Collection` objects (especially `list`, `set`, and `dict`) using `functools.singledispatch` to automatically select the appropriate method based on the `Collection` type. It also includes the `DuckCollection` class, named after duck typing, for object-oriented polymorphic collection manipulation by wrapping any `Collection`.
+The `polymorphic` module provides polymorphic operations on `Collection` objects (especially `list`, `set`, and `dict`) using `functools.singledispatch` to automatically select the appropriate method based on the `Collection` type. It also includes the `DuckCollection` class, named after duck typing, for object-oriented polymorphic collection manipulation by wrapping any `Collection`.
 
 ## Dependencies
 
@@ -45,7 +45,7 @@ Following the Pythonic principle of "duck typing," `DuckCollection` is inspired 
 ### Type-Agnostic Collection Operations
 
 ```python
-from gconanpy.collection import add, combine, difference, intersection
+from gconanpy.polymorphic import add, combine, difference, intersection
 
 # Add elements to different collection types
 my_list = [1, 2, 3]
@@ -63,7 +63,7 @@ combined = combine(my_set, {4, 5})  # -> {1, 2, 3, 4, 5}
 Adding the same item to different types of `Collections`: 
 
 ```python
-from gconanpy.collection.classes import DuckCollection
+from gconanpy.polymorphic.classes import DuckCollection
 
 # Work with various Collection types
 nums_list = DuckCollection([1, 2, 3])
@@ -89,7 +89,7 @@ from collections.abc import Collection
 from typing import TypeVar
 
 # Import custom libraries
-from gconanpy.collection.classes import DuckCollection
+from gconanpy.polymorphic.classes import DuckCollection
 
 C = TypeVar("C", bound=Collection)  # Return the same type of Collection
 def add_msg_to(objects: C) -> C:

@@ -4,10 +4,10 @@
 Custom Mapping base classes inherited by classes in dicts.py and attrmap.py
 Greg Conan: gregmconan@gmail.com
 Created: 2026-02-23
-Updated: 2026-04-14
+Updated: 2026-05-01
 """
 # Import standard libraries
-from collections.abc import Callable, Container, Generator, Hashable, \
+from collections.abc import Callable, Container, Generator, \
     Iterable, Mapping, MutableMapping, Sequence
 import functools
 # from numbers import Number  # TODO
@@ -289,11 +289,14 @@ class MathMap(InitMutableMap):
         @functools.wraps(func, assigned=_ASSIGNED)
         def wrapper(self: Self, other: REALNUM | Mapping[Any, REALNUM]) -> Self:
             new_dict = {}
-            if isinstance(other, Mapping):
+            try:  # First, try assuming that it's a Mapping
+                other = cast(Mapping, other)
                 for k in self.keys() | other.keys():
                     new_dict[k] = func(self.get(k, default_self),
                                        other.get(k, default_other))
-            else:
+
+            except AttributeError:  # If it isn't a Mapping, assume it's a num
+                other = cast(REALNUM, other)
                 for k, v in self.items():
                     new_dict[k] = func(v, other)
 
@@ -353,11 +356,14 @@ class ComparableMathMap(InitMutableMap):
         @functools.wraps(func, assigned=_ASSIGNED)
         def wrapper(self: Self, other: REALNUM | Mapping[Any, REALNUM]
                     ) -> bool:
-            if isinstance(other, Mapping):
+            try:  # First, try assuming it's a Mapping
+                other = cast(Mapping, other)
                 for k in self.keys() | other.keys():
                     if not func(self[k], other[k]):
                         return False
-            else:
+
+            except AttributeError:  # If it isn't a Mapping, assume it's a num
+                other = cast(REALNUM, other)
                 for k, v in self.items():
                     if not func(v, other):
                         return False

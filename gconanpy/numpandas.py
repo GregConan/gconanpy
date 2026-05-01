@@ -4,12 +4,13 @@
 Utility functions and classes to manipulate data using numpy, scipy, & pandas.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-24
-Updated: 2026-03-05
+Updated: 2026-05-01
 """
 # Import standard libraries
 from collections.abc import Hashable, Iterable, Mapping
 # from operator import methodcaller
 from pprint import pprint
+import random
 import string
 from typing import Any, cast, Literal, TypeVar
 
@@ -19,11 +20,11 @@ import pandas as pd
 
 # Import local custom libraries
 try:
-    from gconanpy.iters import merge
+    from gconanpy.iters import merge, Randoms
     from gconanpy.meta import tuplify
     from gconanpy.strings import FancyString
 except (ImportError, ModuleNotFoundError):  # TODO DRY?
-    from .iters import merge
+    from .iters import merge, Randoms
     from .meta import tuplify
     from .strings import FancyString
 
@@ -80,6 +81,14 @@ def compare_word_frequencies(df: pd.DataFrame, words_col: str, group_by: str,
     return to_frequencies(counts, axis=0)
 
 
+def count_uniqs_in_cols(a_df: pd.DataFrame) -> dict[str, int]:
+    cols_uniqs = {colname: a_df[colname].value_counts().shape[0]
+                  for colname in a_df.columns}
+    # pprint_val_lens(cols_uniqs)
+    pprint(cols_uniqs)
+    return cols_uniqs
+
+
 def count_words_in(ser: pd.Series, strip_chars: str = IGNORABLES,
                    case: WORD_CASE = "lower") -> pd.Series:
     """ Count the number of occurrences of each unique word in a `pd.Series`.
@@ -103,14 +112,6 @@ def count_words_in(ser: pd.Series, strip_chars: str = IGNORABLES,
     return counts
 
 
-def count_uniqs_in_cols(a_df: pd.DataFrame) -> dict[str, int]:
-    cols_uniqs = {colname: a_df[colname].value_counts().shape[0]
-                  for colname in a_df.columns}
-    # pprint_val_lens(cols_uniqs)
-    pprint(cols_uniqs)
-    return cols_uniqs
-
-
 def nan_rows_in(a_df: pd.DataFrame) -> pd.DataFrame:
     """
     :param a_df: pd.DataFrame
@@ -124,6 +125,32 @@ def print_df_with_title(df: pd.DataFrame, title: str) -> None:
     df_str = FancyString(df)
     print(title.center(df_str.width))
     print(df_str)
+
+
+def randf(dtypes: Randoms._TYPES = Randoms.RANDTYPES,
+          min_cols: int = Randoms.MIN, max_cols: int = Randoms.MAX,
+          min_rows: int = Randoms.MIN, max_rows: int = Randoms.MAX
+          ) -> pd.DataFrame:
+    """
+    :param dtypes: type | Sequence[type | None] | None, the types of data in \
+        the columns of the returned DataFrame; defaults to \
+        (bool, bytes, float, int, None, str)
+    :param min_cols: int, lowest possible number of columns in the returned \
+        DataFrame; defaults to 1
+    :param max_cols: int, highest possible number of columns in the returned \
+        DataFrame; defaults to 100
+    :param min_rows: int, lowest possible number of rows in the returned \
+        DataFrame; defaults to 1
+    :param max_rows: int, highest possible number of rows in the returned \
+        DataFrame; defaults to 100
+    :return: pd.DataFrame where each column has random data of a given type
+    """
+    n_rows = random.randint(min_rows, max_rows)
+    dtypes = tuplify(dtypes)
+    return pd.DataFrame({
+        FancyString(Randoms.randstr()).to_case("snake"):
+        Randoms.randtuple(n=n_rows, value_types=random.choice(dtypes))
+        for _ in Randoms.randcount(min_cols, max_cols)})
 
 
 def search_sequence_numpy(arr: np.ndarray, subseq: np.ndarray) -> list[int]:
@@ -156,6 +183,20 @@ def search_sequence_numpy(arr: np.ndarray, subseq: np.ndarray) -> list[int]:
     else:
         start_indices = []  # No match found
     return start_indices
+
+
+def to_frequencies(df: pd.DataFrame, axis: AXIS = "index") -> pd.DataFrame:
+    """ Convert a counts table containing only integers into a frequency table 
+        containing each column's (or row's) frequencies per that column(/row).
+
+    :param df: pd.DataFrame containing only integers.
+    :param axis: Literal[0, 1, "columns", "index", "rows"], which axis of `df`
+        to divide every column's (or row's) value by the sum of; defaults to
+        "index" to divide every column by its sum, specify `axis="columns"` or
+        `axis=1` to instead divide every row by its sum.
+    :return: pd.DataFrame, each column's (or row's) frequency percentages.
+    """
+    return cast(pd.DataFrame, df.apply(avg_of, axis=axis))
 
 
 def transform_df(df: pd.DataFrame, new_index: str, new_cols: str,
@@ -228,20 +269,6 @@ class TransformDF:
         return {value: dict[Any, Any](self.df[self.df[self.new_ix] == value][[
             self.new_cols, self.new_vals]
         ].values)}  # pyright: ignore[reportAttributeAccessIssue]
-
-
-def to_frequencies(df: pd.DataFrame, axis: AXIS = "index") -> pd.DataFrame:
-    """ Convert a counts table containing only integers into a frequency table 
-        containing each column's (or row's) frequencies per that column(/row).
-
-    :param df: pd.DataFrame containing only integers.
-    :param axis: Literal[0, 1, "columns", "index", "rows"], which axis of `df`
-        to divide every column's (or row's) value by the sum of; defaults to
-        "index" to divide every column by its sum, specify `axis="columns"` or
-        `axis=1` to instead divide every row by its sum.
-    :return: pd.DataFrame, each column's (or row's) frequency percentages.
-    """
-    return cast(pd.DataFrame, df.apply(avg_of, axis=axis))
 
 
 def try_filter_df(df: pd.DataFrame, filters:

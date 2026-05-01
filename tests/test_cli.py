@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 """
+Test gconanpy/cli.py
 Greg Conan: gregmconan@gmail.com
 Created: 2026-04-08
-Updated: 2026-04-12
+Updated: 2026-05-01
 """
 # Import standard libraries
 from typing import Annotated, get_args, Literal
@@ -24,8 +25,8 @@ EMAIL_FILE = "sample-email-body-structure.html"
 
 
 class CLIArgs(pydantic.BaseModel):  # NOTE: Dummy/test class
-    """ Command-line input parameters saved into a custom dict class with extra
-        functionality. All input parameters' types are explicitly defined here
+    """ Command-line input parameters defined using a pydantic model.
+        All input parameters' types are explicitly defined here \
         for static type checking/highlighting/etc. """
     # Required Arg
     run_mode: Annotated[_RunMode, pydantic.Field(), Arg(
@@ -56,6 +57,7 @@ def get_cli_args(*args: str) -> CLIArgs:
 
 
 class TestArgumentParser(Tester):
+    """ Test `ArgumentParser` class in `gconanpy/cli.py` """
     def test_help(self) -> None:
         for choice in CHOICES:
             for help_flag in ("-h", "--help"):
