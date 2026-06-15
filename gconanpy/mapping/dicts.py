@@ -4,7 +4,7 @@
 Useful/convenient custom extensions of Python's dictionary class.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-01-23
-Updated: 2026-04-14
+Updated: 2026-05-04
 """
 # Import standard libraries
 from argparse import ArgumentParser
@@ -40,11 +40,11 @@ except (ImportError, ModuleNotFoundError):  # TODO DRY?
     from ..meta import name_of, Traversible
     from ..meta.typeshed import DATA_ERRORS, SupportsRichComparison
 
-# Type variables for .__init__(...) and .update(...) method input parameters
+# .__init__(...) and .update(...) method input parameters type variables
 MapParts = Iterable[tuple[Hashable, Any]]
 FromMap = TypeVar("FromMap", Mapping, MapParts, None)
 
-# Type variable for ExcluDict.get default parameter
+# ExcluDict.get & DotDict.lookup default option input parameters type variable
 _D = TypeVar("_D")
 
 # TODO: Use numbers.Number instead, after figuring out why that raises warnings
@@ -276,8 +276,8 @@ class MathDict[KT: Hashable, VT: REALNUM](
     """ `dict` that can perform math operations on its items. For example:
 
     ```
-    MathDict(a=4, b=3) + MathDict(a=2, b=1) = MathDict(a=6, b=4)
-    MathDict(a=4, b=3) - MathDict(a=2, b=0) = MathDict(a=2, b=3)
+    MathDict(a=4, b=3) + MathDict(a=2, b=3) = MathDict(a=6, b=6)
+    MathDict(a=4, b=3) - MathDict(a=2, b=3) = MathDict(a=2, b=0)
     MathDict(a=4, b=3) * MathDict(a=2, b=3) = MathDict(a=8, b=9)
     MathDict(a=4, b=3) / MathDict(a=2, b=3) = MathDict(a=2, b=1)
     ```
@@ -288,9 +288,9 @@ class MathDict[KT: Hashable, VT: REALNUM](
     - Bit shifting: left (`<<`) and right (`>>`)
     - Comparison: equal (`==`), greater or equal (`>=`), greater (`>`), less
         or equal (`<=`), less (`<`), and unequal (`!=`)
-    - Division precisely: floor (`//`), modulo (`%`)
+    - Division precisely: floor (`//`) and modulo (`%`)
     - Exponentiation: power (`**`)
-    - Sign: absolute value (`abs`), negative (`-`), positive (`+`)
+    - Sign: absolute value (`abs`), negative (`-`), and positive (`+`)
 
     Additional operations currently include: averaging (`avg`) 
 
@@ -356,8 +356,6 @@ class DotDict[KT: str, VT](Updationary[KT, VT], Traversible):
     `attrdict` from https://stackoverflow.com/a/45354473 and `dotdict` from \
     https://github.com/dmtlvn/dotdict/blob/main/dotdict/dotdict.py
     """
-    _D = TypeVar("_D")  # Default option input parameter type hint for lookup
-
     def __init__(self, from_map: FromMap = None, **kwargs: VT) -> None:
         """ 
         :param from_map: Mapping | Iterable[tuple[Hashable, Any]] | None, \

@@ -5,7 +5,7 @@ Classes that can filter objects to only get the elements (or attributes) \
     that match certain specified conditions.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-09-18
-Updated: 2026-03-02
+Updated: 2026-05-04
 """
 # Import standard libraries
 import abc
@@ -122,7 +122,6 @@ class Filter(BaseFilter):
 class MapSubset[KT, VT](BaseFilter):
     # Private class variables: own method parameters'/returns' type hints
     _M = TypeVar("_M", bound=Mapping)  # Type of Mapping to get subset(s) of
-    _T = TypeVar("_T", bound=Mapping)  # Type of Mapping to return
 
     _WHICH = Literal["keys", "values"]  # Names of MapSubset's attributes
     _FILTERDICT = dict[bool, tuple]  # Types of MapSubset attrs
@@ -168,7 +167,7 @@ class MapSubset[KT, VT](BaseFilter):
         return True
 
     @overload  # Mapping[KT, VT] #?
-    def of(self, from_map: Mapping, as_type: type[_T]) -> _T: ...
+    def of(self, from_map: Mapping, as_type: type[_M]) -> _M: ...
     @overload
     def of(self, from_map: _M) -> _M: ...
 

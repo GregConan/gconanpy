@@ -4,15 +4,14 @@
 Type annotations for custom Mapping base classes in bases.py
 Greg Conan: gregmconan@gmail.com
 Created: 2026-04-14
-Updated: 2026-04-14
+Updated: 2026-06-14
 """
 # Import standard libraries
-from collections.abc import Callable, Container, Generator, Hashable, \
+from collections.abc import Callable, Container, Generator, \
     Iterable, Mapping, MutableMapping, Sequence
-import functools
 # from numbers import Number
 import operator
-from typing import Any, cast, Literal, overload, Self, ParamSpec, TypeVar
+from typing import Literal, overload, Self, ParamSpec, TypeVar
 
 # Import local custom libraries
 try:
@@ -176,16 +175,8 @@ class LazyMap[KT, VT](ExcluderMap[KT, VT]):
 
 # TODO Why does `VT: numbers.Number` make MathMap[str, int] raise warnings?
 class MathMap[KT, VT: NUMBER](InitMutableMap[KT, VT]):
-    """ `dict` that can perform math operations on its items. For example:
-
-    ```
-    MathDict(a=4, b=3) + MathDict(a=2, b=1) = MathDict(a=6, b=4)
-    MathDict(a=4, b=3) - MathDict(a=2, b=0) = MathDict(a=2, b=3)
-    MathDict(a=4, b=3) * MathDict(a=2, b=3) = MathDict(a=8, b=9)
-    MathDict(a=4, b=3) / MathDict(a=2, b=3) = MathDict(a=2, b=1)
-    ```
-
-    Etc. All basic operations are supported:
+    """ Base class for `MutableMapping`s that can perform math operations on
+        their items. All basic operations are supported:
 
     - Basic arithmetic: add (`+`), divide (`/`), multiply (`*`), subtract (`-`)
     - Bit shifting: left (`<<`) and right (`>>`)
@@ -230,8 +221,6 @@ class MathMap[KT, VT: NUMBER](InitMutableMap[KT, VT]):
         :return: Self, a `MathDict` where every value is the average of
             this `MathDict` and all `others`.
         """
-        return functools.reduce(operator.add, (self, *others)
-                                ) / (len(others) + 1)
 
 
 class ComparableMathMap[KT, VT: REALNUM](Mapping[KT, VT]):

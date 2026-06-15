@@ -4,14 +4,14 @@
 Functions/classes to manipulate, define, and/or be manipulated by others.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-03-26
-Updated: 2026-03-02
+Updated: 2026-05-08
 """
 # Import standard libraries
 import abc
 import builtins
 from collections.abc import Callable, Collection, Hashable, Iterable, Iterator
 import functools
-from math import log10
+import math
 # import operator
 # from operator import attrgetter, methodcaller  # TODO?
 # import pdb
@@ -90,7 +90,8 @@ def count_digits_of(a_num: int | float):
     :return: int, the number of digits in a_num
     """
     absnum = abs(a_num)
-    return int(log10(absnum)) + 1 if a_num % 1 == 0 else len(str(absnum)) - 1
+    return int(math.log10(absnum)) + 1 if a_num % 1 == 0 \
+        else len(str(absnum)) - 1
 
 
 # TODO Move to a file called "wrap", "metafunc", or "wrapfunc"?
@@ -169,6 +170,28 @@ def hashable(obj):
         return False
 
 
+def isprime(n: int) -> bool:
+    """ Check if `n` is a prime number. Taken from `ProcessPoolExecutor` \
+    example shown in `concurrent.futures` documentation at \
+    https://docs.python.org/3/library/concurrent.futures.html
+     
+    :param n: int, to check whether it's a prime number
+    :return: bool, True if `n` is a prime number; else False
+    """
+    if n < 2:
+        return False
+    if n == 2:
+        return True
+    if n % 2 == 0:
+        return False
+    
+    sqrt_n = int(math.floor(math.sqrt(n)))
+    for i in range(3, sqrt_n + 1, 2):
+        if n % i == 0:
+            return False
+    return True
+
+
 def method(method_name: str) -> Callable:
     """ Wrapper to retrieve a specific callable object attribute.
     `method(method_name)(something, *args, **kwargs)` is the same as \
@@ -223,6 +246,18 @@ def names_of(objects: Collection, max_n: int | None = None,
     """
     return [get_name(x) for x in objects] if max_n is None else \
         [get_name(x) for i, x in enumerate(objects) if i < max_n]
+
+
+def to_digits(a_num: int) -> list[int]:
+    """  
+    :param a_num: int, a number to convert into a list of digits
+    :return: list[int], every digit in `a_num` in order
+    """
+    digits = []
+    while a_num > 0:
+        a_num, digit = divmod(a_num, 10)
+        digits.insert(0, digit)  # TODO OPTIMIZE?
+    return digits
 
 
 def tuplify(an_obj: Any, split_string: bool = False) -> tuple:
@@ -414,9 +449,10 @@ class DontSkip(SkipOrNot):
             `KeepSkippingExceptions` context manager whether the code block \
             completed successfully or raised an exception.
 
-        :param exc_type: type[BaseException] | None,_description_, defaults to None
-        :param exc_val: BaseException | None,_description_, defaults to None
-        :param _: Any,_description_, defaults to None
+        :param exc_type: type[BaseException] | None, _description_, \
+            defaults to None
+        :param exc_val: BaseException | None, _description_, defaults to None
+        :param _: Any, _description_, defaults to None
         :return: bool, _description_
         """
         if exc_val is None:

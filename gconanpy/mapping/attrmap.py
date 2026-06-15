@@ -2,7 +2,7 @@
 MutableMapping classes resembling dicts that store items as attributes.
 Greg Conan: gregmconan@gmail.com
 Created: 2025-11-21
-Updated: 2026-05-01
+Updated: 2026-05-04
 """
 # Import standard libraries
 from collections.abc import \
@@ -99,7 +99,6 @@ class AttrMap[T](MutableMapping[str, T]):
             raise AttributeError(ERR_MSG.format("delete", name))
         super().__delattr__(name)
         polymorphic.discard(self.names, name)
-        # self.names.discard(name)
 
     @overload
     def __getattribute__(self, name: _METHOD) -> Callable: ...
@@ -120,7 +119,7 @@ class AttrMap[T](MutableMapping[str, T]):
     @overload
     def __getattribute__(self, name: str) -> T: ...
 
-    def __getattribute__(self, name):
+    def __getattribute__(self, name: str):
         # Overloaded instead of __getattr__ because otherwise static type
         # checkers won't recognize value types when accessed with dot notation
         return super().__getattribute__(name)
@@ -133,7 +132,6 @@ class AttrMap[T](MutableMapping[str, T]):
 
     def __or__(self, other: Self) -> Self:
         new_map = type(self)()
-        # for k in self.names | other.names:
         for k in polymorphic.union(self.names, other.names):
             try:
                 setattr(new_map, k,  getattr(other, k))
@@ -151,7 +149,6 @@ class AttrMap[T](MutableMapping[str, T]):
                     "set", f"{name} to {value}"))
         else:
             polymorphic.append(self.names, name)
-            # self.names.add(name)
         super().__setattr__(name, value)
 
     # The (g/s)etitem and delitem methods are identical to their respective

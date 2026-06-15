@@ -4,7 +4,7 @@
 Custom Mapping base classes inherited by classes in dicts.py and attrmap.py
 Greg Conan: gregmconan@gmail.com
 Created: 2026-02-23
-Updated: 2026-05-01
+Updated: 2026-06-14
 """
 # Import standard libraries
 from collections.abc import Callable, Container, Generator, \
@@ -161,11 +161,11 @@ class ExcluderMap[KT, VT](MutableMapping[KT, VT]):
 
 
 class LazyMap[KT, VT](ExcluderMap[KT, VT]):
-    """ `MutableMapping` that can get/set items and ignore the default
-        parameter until/unless it is needed, ONLY evaluating it after failing
-        to get/set an existing key. Benefit: The `default=` code does not need
-        to be valid (yet) if `self` already has the key. Any function passed to
-        a "lazy" method only needs to work if a value is missing.
+    """ `MutableMapping` that can get/set items and ignore the default \
+    parameter until/unless it is needed, ONLY evaluating it after failing \
+    to get/set an existing key. Benefit: The `default=` code does not need \
+    to be valid (yet) if `self` already has the key. Any function passed to \
+    a "lazy" method only needs to work if a value is missing.
 
     Keeps core functionality of the Python `MutableMapping`.
     Extended `LazyButHonestDict` from https://stackoverflow.com/q/17532929 """
@@ -215,16 +215,8 @@ class LazyMap[KT, VT](ExcluderMap[KT, VT]):
 
 
 class MathMap(InitMutableMap):
-    """ `dict` that can perform math operations on its items. For example:
-
-    ```
-    MathDict(a=4, b=3) + MathDict(a=2, b=1) = MathDict(a=6, b=4)
-    MathDict(a=4, b=3) - MathDict(a=2, b=0) = MathDict(a=2, b=3)
-    MathDict(a=4, b=3) * MathDict(a=2, b=3) = MathDict(a=8, b=9)
-    MathDict(a=4, b=3) / MathDict(a=2, b=3) = MathDict(a=2, b=1)
-    ```
-
-    Etc. All basic operations are supported:
+    """ Base class for `MutableMapping`s that can perform math operations on
+        their items. All basic operations are supported:
 
     - Basic arithmetic: add (`+`), divide (`/`), multiply (`*`), subtract (`-`)
     - Bit shifting: left (`<<`) and right (`>>`)
@@ -248,14 +240,14 @@ class MathMap(InitMutableMap):
 
     @staticmethod
     def _math_meth_1_arg(func: Callable[[REALNUM], REALNUM]):
-        """ Given a basic math operation, return a `MathDict` dunder method
-            that does that operation on every value in this `MathDict`.
+        """ Given a basic math operation, return a `MathMap` dunder method
+            that does that operation on every value in this `MathMap`.
 
         :param func: Callable[[VT: Number], VT], a function that accepts
             one number, does a basic math operation on it, and returns
             another number (the result of that operation).
         :return: Callable[[Self], Self], a (dunder) method to run
-            `func` on for every value in this `MathDict`.
+            `func` on for every value in this `MathMap`.
         """
         @functools.wraps(func, assigned=_ASSIGNED)
         def wrapper(self: Self) -> Self:
@@ -273,8 +265,8 @@ class MathMap(InitMutableMap):
                           default_self: REALNUM = 0,
                           default_other: REALNUM = 0):
         # No return type hint because it'd include unparsable Self type
-        """ Given a basic math operation, return a `MathDict` dunder method
-            that does that operation on every value in this `MathDict`.
+        """ Given a basic math operation, return a `MathMap` dunder method
+            that does that operation on every value in this `MathMap`.
 
         :param func: Callable[[VT: Number, VT], VT], a function that accepts
             two numbers, does a basic math operation using them, and returns
@@ -284,7 +276,7 @@ class MathMap(InitMutableMap):
         :param default_other: VT, the second argument to run `func` with when
             the value is in `self` but missing from the other `Mapping`(s).
         :return: Callable[[Self, VT | Mapping[KT, VT]], Self], a (dunder) 
-            method to run `func` on for every value in this `MathDict`.
+            method to run `func` on for every value in this `MathMap`.
         """
         @functools.wraps(func, assigned=_ASSIGNED)
         def wrapper(self: Self, other: REALNUM | Mapping[Any, REALNUM]) -> Self:
@@ -323,13 +315,13 @@ class MathMap(InitMutableMap):
     __sub__ = _math_meth_2_args(operator.sub)
 
     def avg(self, *others: REALNUM | Mapping[Any, REALNUM]) -> Self:
-        """ Take the average of (every value in) this `MathDict` with 
-            other values and/or with (every value in) other `MathDict`s.
+        """ Take the average of (every value in) this `MathMap` with 
+            other values and/or with (every value in) other `MathMap`s.
 
         :param others: VT | Mapping[KT, VT], other values to average this 
-            `MathDict`'s values with.
-        :return: Self, a `MathDict` where every value is the average of
-            this `MathDict` and all `others`.
+            `MathMap`'s values with.
+        :return: Self, a `MathMap` where every value is the average of
+            this `MathMap` and all `others`.
         """
         return functools.reduce(operator.add, (self, *others)
                                 ) / (len(others) + 1)
@@ -340,8 +332,9 @@ class ComparableMathMap(InitMutableMap):
     @staticmethod
     def _compare_meth(func: Callable[[REALNUM, REALNUM], bool]):
         # No return type hint because it'd include unparsable Self type
-        """ Given a basic math operation, return a `MathDict` dunder method
-            that does that operation on every value in this `MathDict`.
+        """ Given a basic math operation, return a `ComparableMathMap` dunder
+            method that does that operation on every value in this
+            `ComparableMathMap`.
 
         :param func: Callable[[VT: Number, VT], VT], a function that accepts
             two numbers, does a basic math operation using them, and returns
@@ -351,7 +344,7 @@ class ComparableMathMap(InitMutableMap):
         :param default_other: VT, the second argument to run `func` with when
             the value is in `self` but missing from the other `Mapping`(s).
         :return: Callable[[Self, VT | Mapping[KT, VT]], Self], a (dunder) 
-            method to run `func` on for every value in this `MathDict`.
+            method to run `func` on for every value in this `ComparableMathMap`
         """
         @functools.wraps(func, assigned=_ASSIGNED)
         def wrapper(self: Self, other: REALNUM | Mapping[Any, REALNUM]
